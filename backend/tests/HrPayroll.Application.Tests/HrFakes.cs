@@ -1,0 +1,412 @@
+using Otantik.BuildingBlocks;
+using OtantikPos.Hr.Domain;
+using OtantikPos.Hr.Domain.Access;
+using OtantikPos.Hr.Domain.Attendance;
+using OtantikPos.Hr.Domain.Custody;
+using OtantikPos.Hr.Domain.Employees;
+using OtantikPos.Hr.Domain.Leaves;
+using OtantikPos.Hr.Domain.Performance;
+using OtantikPos.Hr.Domain.Payroll;
+using OtantikPos.Inventory.Application.Hr;
+using OtantikPos.Inventory.Domain.Waste;
+
+namespace OtantikPos.Application.Tests;
+
+// HR's records in memory, as the till's database keeps them.
+public sealed class HrStore
+{
+    public EmployeeStore Employees { get; } = new();
+    public DepartmentStore Departments { get; } = new();
+    public JobRoleStore Roles { get; } = new();
+    public DeviceStore Devices { get; } = new();
+    public PunchStore Punches { get; } = new();
+    public DayMarkStore Marks { get; } = new();
+    public PenaltyStore Penalties { get; } = new();
+    public HolidayStore Holidays { get; } = new();
+    public DeviceCommandStore Commands { get; } = new();
+    public DeviceUserStore DeviceUsers { get; } = new();
+    public DailyRecordStore Records { get; } = new();
+    public AdjustmentStore Adjustments { get; } = new();
+    public SlipStore Slips { get; } = new();
+    public AllocationStore Allocations { get; } = new();
+    public HrAdvanceStore HrAdvances { get; } = new();
+    public AssetCategoryStore AssetCategories { get; } = new();
+    public StaffHrAccessStore StaffHrAccess { get; } = new();
+    public LeaveTypeStore LeaveTypes { get; } = new();
+    public LeaveBalanceStore LeaveBalances { get; } = new();
+    public LeaveRequestStore LeaveRequests { get; } = new();
+    public KpiStore Kpis { get; } = new();
+    public EvaluationStore Evaluations { get; } = new();
+    public DisciplinaryStore Disciplinary { get; } = new();
+    public AssetItemStore Assets { get; } = new();
+    public AssetTransactionStore AssetVouchers { get; } = new();
+    public BreakageStore Breakage { get; } = new();
+    public PlainPinHasher Pins { get; } = new();
+    public AttendanceSettingsStore Settings { get; } = new();
+    public AttendanceNotifications Notifications { get; } = new();
+    public DeviceLink Link { get; } = new();
+}
+
+public abstract class ListStore<T> : IRepository<T> where T : AggregateRoot
+{
+    protected List<T> Items { get; } = [];
+
+    public IReadOnlyList<T> All => Items;
+
+    public Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.SingleOrDefault(i => i.Id == id));
+
+    public void Add(T aggregate) => Items.Add(aggregate);
+}
+
+public sealed class EmployeeStore : ListStore<Employee>, IEmployeeRepository, IEmployeeIdPhotoStore
+{
+    public Dictionary<Guid, byte[]> IdPhotos { get; } = new();
+
+    public void Put(Guid employeeId, byte[] content) => IdPhotos[employeeId] = content;
+
+    public Task RemoveAsync(Guid employeeId, CancellationToken cancellationToken = default)
+    {
+        IdPhotos.Remove(employeeId);
+        return Task.CompletedTask;
+    }
+
+    public Task<byte[]?> GetAsync(Guid employeeId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(IdPhotos.GetValueOrDefault(employeeId));
+
+    public Task<Employee?> GetByNationalIdAsync(string nationalId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.FirstOrDefault(e => e.NationalId == nationalId));
+
+    public Task<Employee?> GetByMobileNumberAsync(string mobileNumber, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.FirstOrDefault(e => e.MobileNumber == mobileNumber));
+
+    public Task<IReadOnlyList<Employee>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Employee>>(Items.OrderBy(e => e.Name).ToList());
+
+    public Task<Employee?> GetByDeviceUserIdAsync(string deviceUserId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(e => e.DeviceUserId == deviceUserId));
+
+    public Task<IReadOnlyList<Employee>> GetInDepartmentAsync(Guid departmentId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Employee>>(Items.Where(e => e.DepartmentId == departmentId).ToList());
+
+    public Task<IReadOnlyList<Employee>> GetWithRoleAsync(Guid jobRoleId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Employee>>(Items.Where(e => e.JobRoleId == jobRoleId).ToList());
+}
+
+public sealed class JobRoleStore : ListStore<JobRole>, IJobRoleRepository
+{
+    public Task<IReadOnlyList<JobRole>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<JobRole>>(Items.OrderBy(r => r.Name).ToList());
+
+    public Task<IReadOnlyList<JobRole>> GetInDepartmentAsync(Guid departmentId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<JobRole>>(Items.Where(r => r.DepartmentId == departmentId).ToList());
+
+    public void Remove(JobRole role) => Items.Remove(role);
+}
+
+// General there from the start, as the migration makes it.
+public sealed class DepartmentStore : ListStore<Department>, IDepartmentRepository
+{
+    public DepartmentStore() => Items.Add(new Department(Department.GeneralId, "General"));
+
+    public Task<IReadOnlyList<Department>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Department>>(Items.OrderBy(d => d.Name).ToList());
+
+    public void Remove(Department department) => Items.Remove(department);
+}
+
+public sealed class DeviceStore : ListStore<AttendanceDevice>, IAttendanceDeviceRepository
+{
+    public Task<AttendanceDevice?> GetBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(d => d.SerialNumber == serialNumber));
+
+    public Task<IReadOnlyList<AttendanceDevice>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AttendanceDevice>>(Items.ToList());
+}
+
+public sealed class PunchStore : ListStore<AttendanceLog>, IAttendanceLogRepository
+{
+    public Task<IReadOnlyList<AttendanceLog>> GetFromDeviceAsync(string serialNumber, DateTime from, DateTime to, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AttendanceLog>>(Items.Where(l => l.DeviceSerialNumber == serialNumber && l.PunchedAt >= from && l.PunchedAt <= to).ToList());
+
+    public Task<AttendanceLog?> GetLastReceivedFromDeviceAsync(string serialNumber, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.Where(l => l.DeviceSerialNumber == serialNumber && l.IgnoredAtUtc == null)
+            .OrderByDescending(l => l.ReceivedAtUtc).ThenByDescending(l => l.PunchedAt).FirstOrDefault());
+
+    public Task<IReadOnlyList<AttendanceLog>> GetBetweenAsync(DateTime from, DateTime to, Guid? employeeId = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AttendanceLog>>(Items
+            .Where(l => l.PunchedAt >= from && l.PunchedAt < to && (employeeId == null || l.EmployeeId == employeeId))
+            .OrderBy(l => l.PunchedAt).ToList());
+
+    public Task<IReadOnlyList<AttendanceLog>> GetUnassignedAsync(string deviceUserId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AttendanceLog>>(Items.Where(l => l.EmployeeId == null && l.DeviceUserId == deviceUserId).ToList());
+
+    public Task<IReadOnlyDictionary<string, int>> CountUnassignedAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<string, int>>(Items.Where(l => l.EmployeeId == null && l.DeviceUserId != null)
+            .GroupBy(l => l.DeviceUserId!).ToDictionary(g => g.Key, g => g.Count()));
+}
+
+public sealed class DeviceCommandStore : ListStore<DeviceCommand>, IDeviceCommandRepository
+{
+    public Task<DeviceCommand?> GetNextAsync(string serialNumber, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.Where(c => c.DeviceSerialNumber == serialNumber && c.SentAtUtc == null).OrderBy(c => c.Number).FirstOrDefault());
+
+    public Task<DeviceCommand?> GetByNumberAsync(string serialNumber, int number, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(c => c.DeviceSerialNumber == serialNumber && c.Number == number));
+
+    public Task<int> GetLastNumberAsync(string serialNumber, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.Where(c => c.DeviceSerialNumber == serialNumber).Select(c => c.Number).DefaultIfEmpty(0).Max());
+
+    public Task<IReadOnlyList<DeviceCommand>> GetRecentAsync(int perDevice, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DeviceCommand>>(Items.GroupBy(c => c.DeviceSerialNumber).SelectMany(g => g.OrderByDescending(c => c.Number).Take(perDevice)).ToList());
+}
+
+public sealed class DeviceUserStore : ListStore<DeviceUser>, IDeviceUserRepository
+{
+    public Task<IReadOnlyList<DeviceUser>> GetForDeviceAsync(string serialNumber, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DeviceUser>>(Items.Where(u => u.DeviceSerialNumber == serialNumber).ToList());
+
+    public Task<IReadOnlyList<DeviceUser>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DeviceUser>>(Items.ToList());
+}
+
+public sealed class DayMarkStore : ListStore<DayMark>, IDayMarkRepository
+{
+    public Task<DayMark?> GetAsync(Guid employeeId, DateOnly date, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(m => m.EmployeeId == employeeId && m.Date == date));
+
+    public Task<IReadOnlyList<DayMark>> GetBetweenAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DayMark>>(Items.Where(m => m.Date >= from && m.Date <= to).ToList());
+
+    public Task<IReadOnlyList<DayMark>> GetForLeaveRequestAsync(Guid leaveRequestId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DayMark>>(Items.Where(m => m.LeaveRequestId == leaveRequestId).OrderBy(m => m.Date).ToList());
+
+    public void Remove(DayMark mark) => Items.Remove(mark);
+}
+
+public sealed class PenaltyStore : ListStore<AdministrativePenalty>, IAdministrativePenaltyRepository
+{
+    public Task<AdministrativePenalty?> GetAsync(Guid employeeId, DateOnly date, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(p => p.EmployeeId == employeeId && p.Date == date && p.DisciplinaryActionId == null));
+
+    public Task<AdministrativePenalty?> GetForDisciplinaryActionAsync(Guid disciplinaryActionId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(p => p.DisciplinaryActionId == disciplinaryActionId));
+
+    public Task<IReadOnlyList<AdministrativePenalty>> GetBetweenAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AdministrativePenalty>>(Items.Where(p => p.Date >= from && p.Date <= to).ToList());
+
+    public void Remove(AdministrativePenalty penalty) => Items.Remove(penalty);
+}
+
+public sealed class HolidayStore : ListStore<PublicHoliday>, IPublicHolidayRepository
+{
+    public Task<IReadOnlyList<PublicHoliday>> GetBetweenAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<PublicHoliday>>(Items.Where(h => h.FirstDay <= to && h.LastDay >= from).OrderBy(h => h.FirstDay).ToList());
+
+    public void Remove(PublicHoliday holiday) => Items.Remove(holiday);
+}
+
+public sealed class DailyRecordStore : ListStore<DailyRecord>, IDailyRecordRepository
+{
+    public Task<IReadOnlyList<DailyRecord>> GetForEmployeeAsync(Guid employeeId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DailyRecord>>(Items.Where(r => r.EmployeeId == employeeId && r.Date >= from && r.Date <= to).ToList());
+}
+
+public sealed class AdjustmentStore : ListStore<PayrollAdjustment>, IPayrollAdjustmentRepository
+{
+    public Task<IReadOnlyList<PayrollAdjustment>> GetForMonthAsync(DateOnly month, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<PayrollAdjustment>>(Items.Where(a => a.Month == month).ToList());
+}
+
+public sealed class SlipStore : ListStore<PayrollSlip>, IPayrollSlipRepository
+{
+    public Task<PayrollSlip?> GetAsync(Guid employeeId, DateOnly month, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(s => s.EmployeeId == employeeId && s.Month == month));
+
+    public Task<IReadOnlyList<PayrollSlip>> GetForMonthAsync(DateOnly month, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<PayrollSlip>>(Items.Where(s => s.Month == month).ToList());
+}
+
+public sealed class AttendanceSettingsStore : IAttendanceSettings
+{
+    public AttendancePolicy Policy { get; set; } = AttendancePolicy.Default;
+
+    public Task<AttendancePolicy> GetAsync(CancellationToken cancellationToken) => Task.FromResult(Policy);
+
+    public Task SaveAsync(AttendancePolicy policy, CancellationToken cancellationToken)
+    {
+        Policy = policy;
+        return Task.CompletedTask;
+    }
+}
+
+// The screens told of punches: each employee's status sent, for a test to see.
+public sealed class AttendanceNotifications : IAttendanceNotifier
+{
+    public List<EmployeeStatusDto> Sent { get; } = [];
+
+    public Task StatusChangedAsync(IReadOnlyList<EmployeeStatusDto> statuses, CancellationToken cancellationToken)
+    {
+        Sent.AddRange(statuses);
+        return Task.CompletedTask;
+    }
+}
+
+// A device reached on its own port: whatever a test gives it to hold.
+public sealed class DeviceLink : IAttendanceDeviceLink
+{
+    public DeviceReading? Holds { get; set; }
+
+    public Task<DeviceProbe> ProbeAsync(string address, int port, int commKey, CancellationToken cancellationToken) =>
+        Task.FromResult(Holds is { } d
+            ? new DeviceProbe(true, $"Connected to {d.Model}", d.SerialNumber, d.Model, null, d.Users.Count, d.Punches.Count)
+            : new DeviceProbe(false, $"No answer from {address} on port {port}."));
+
+    public Task<DeviceReading> ReadAsync(string address, int port, int commKey, CancellationToken cancellationToken) =>
+        Holds is { } d ? Task.FromResult(d) : throw new Otantik.BuildingBlocks.DomainException($"No answer from {address} on port {port}.");
+}
+
+public sealed class AllocationStore : ListStore<AdvanceAllocation>, IAdvanceAllocationRepository
+{
+    public Task<IReadOnlyList<AdvanceAllocation>> GetForAdvancesAsync(IReadOnlyCollection<Guid> sourceTransactionIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AdvanceAllocation>>(Items.Where(a => sourceTransactionIds.Contains(a.SourceId)).ToList());
+
+    public Task<IReadOnlyList<AdvanceAllocation>> GetForPayrollMonthAsync(DateOnly month, Guid? employeeId = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AdvanceAllocation>>(Items.Where(a => a.PayrollMonth == month && (employeeId == null || a.EmployeeId == employeeId)).ToList());
+}
+
+public sealed class HrAdvanceStore : ListStore<HrAdvance>, IHrAdvanceRepository
+{
+    public Task<IReadOnlyList<HrAdvance>> GetForPayrollMonthAsync(DateOnly month, Guid? employeeId = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<HrAdvance>>(Items.Where(a => a.PayrollMonth == month && (employeeId == null || a.EmployeeId == employeeId)).ToList());
+
+    public Task<IReadOnlyList<HrAdvance>> GetPendingAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<HrAdvance>>(Items.Where(a => a.IsPending && !a.IsVoided).ToList());
+}
+
+public sealed class StaffHrAccessStore : ListStore<StaffHrAccess>, IStaffHrAccessRepository
+{
+    public Task<StaffHrAccess?> GetByStaffIdAsync(string staffId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(a => a.StaffId == staffId));
+
+    public Task<IReadOnlyList<StaffHrAccess>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<StaffHrAccess>>(Items.ToList());
+}
+
+public sealed class AssetCategoryStore : ListStore<AssetCategory>, IAssetCategoryRepository
+{
+    public Task<IReadOnlyList<AssetCategory>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AssetCategory>>(Items.OrderBy(c => c.Name).ToList());
+
+    public void Remove(AssetCategory category) => Items.Remove(category);
+}
+
+public sealed class AssetItemStore : ListStore<AssetItem>, IAssetItemRepository
+{
+    public Task<IReadOnlyList<AssetItem>> GetAllAsync(AssetOrigin? origin = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AssetItem>>(Items.Where(a => origin is null || a.Origin == origin).OrderBy(a => a.Name).ToList());
+
+    public Task<IReadOnlyList<AssetItem>> GetInCustodyOfAsync(Guid employeeId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AssetItem>>(Items.Where(a => a.EmployeeId == employeeId && a.Status == AssetStatus.InCustody).ToList());
+
+    public Task<bool> AnyInCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.Any(a => a.CategoryId == categoryId));
+
+    public Task<AssetItem?> GetBySourceLineAsync(Guid invoiceLineId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(a => a.SourceInvoiceLineId == invoiceLineId));
+
+    public Task<IReadOnlyList<AssetItem>> GetFromInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AssetItem>>(Items.Where(a => a.SourceInvoiceId == invoiceId).ToList());
+
+    public void Remove(AssetItem asset) => Items.Remove(asset);
+}
+
+public sealed class AssetTransactionStore : ListStore<AssetTransaction>, IAssetTransactionRepository
+{
+    public Task<IReadOnlyList<AssetTransaction>> GetForAssetAsync(Guid assetItemId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AssetTransaction>>(Items.Where(t => t.AssetItemId == assetItemId).OrderByDescending(t => t.Date).ThenByDescending(t => t.RecordedAtUtc).ToList());
+
+    public Task<IReadOnlyList<AssetTransaction>> GetBetweenAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AssetTransaction>>(Items.Where(t => t.Date >= from && t.Date <= to).OrderByDescending(t => t.Date).ThenByDescending(t => t.RecordedAtUtc).ToList());
+
+    public Task<bool> AnyForAssetAsync(Guid assetItemId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.Any(t => t.AssetItemId == assetItemId));
+}
+
+public sealed class BreakageStore : ListStore<BreakageEntry>, IBreakageEntryRepository
+{
+    public Task<IReadOnlyList<BreakageEntry>> GetBetweenAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<BreakageEntry>>(Items.Where(b => b.BusinessDate >= from && b.BusinessDate <= to).ToList());
+
+    public Task<BreakageEntry?> GetForTransactionAsync(Guid assetTransactionId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(b => b.AssetTransactionId == assetTransactionId));
+}
+
+// A PIN "hashed" as itself, reversed: enough for the use cases, never what the till keeps.
+public sealed class PlainPinHasher : IPinHasher
+{
+    public string NobodysHash => "nobody";
+
+    public string Hash(string pin) => new(pin.Reverse().ToArray());
+
+    public PinCheck Verify(string hash, string pin) => hash == Hash(pin) ? PinCheck.Right : PinCheck.Wrong;
+}
+
+public sealed class LeaveTypeStore : ListStore<LeaveType>, ILeaveTypeRepository
+{
+    public Task<IReadOnlyList<LeaveType>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LeaveType>>(Items.OrderBy(t => t.Name).ToList());
+
+    public void Remove(LeaveType type) => Items.Remove(type);
+}
+
+public sealed class LeaveBalanceStore : ListStore<EmployeeLeaveBalance>, IEmployeeLeaveBalanceRepository
+{
+    public Task<EmployeeLeaveBalance?> GetAsync(Guid employeeId, Guid leaveTypeId, int year, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(b => b.EmployeeId == employeeId && b.LeaveTypeId == leaveTypeId && b.Year == year));
+
+    public Task<IReadOnlyList<EmployeeLeaveBalance>> GetForYearAsync(int year, Guid? employeeId = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<EmployeeLeaveBalance>>(Items.Where(b => b.Year == year && (employeeId == null || b.EmployeeId == employeeId)).ToList());
+
+    public Task<bool> AnyForTypeAsync(Guid leaveTypeId, CancellationToken cancellationToken = default) => Task.FromResult(Items.Any(b => b.LeaveTypeId == leaveTypeId));
+}
+
+public sealed class LeaveRequestStore : ListStore<LeaveRequest>, ILeaveRequestRepository
+{
+    public Task<IReadOnlyList<LeaveRequest>> GetPendingAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LeaveRequest>>(Items.Where(r => r.IsPending).OrderBy(r => r.RequestedAtUtc).ToList());
+
+    public Task<IReadOnlyList<LeaveRequest>> GetForEmployeeAsync(Guid employeeId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LeaveRequest>>(Items.Where(r => r.EmployeeId == employeeId).OrderByDescending(r => r.StartDate).ToList());
+
+    public Task<IReadOnlyList<LeaveRequest>> GetForYearAsync(int year, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LeaveRequest>>(Items.Where(r => r.Year == year).OrderByDescending(r => r.StartDate).ToList());
+
+    public Task<IReadOnlyList<LeaveRequest>> GetOverlappingAsync(Guid employeeId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LeaveRequest>>(Items.Where(r => r.EmployeeId == employeeId
+            && r.Status is LeaveRequestStatus.Pending or LeaveRequestStatus.Approved
+            && r.StartDate <= endDate && (r.CancelledFrom?.AddDays(-1) ?? r.EndDate) >= startDate).ToList());
+
+    public Task<bool> AnyForTypeAsync(Guid leaveTypeId, CancellationToken cancellationToken = default) => Task.FromResult(Items.Any(r => r.LeaveTypeId == leaveTypeId));
+}
+
+public sealed class KpiStore : ListStore<PerformanceKpi>, IPerformanceKpiRepository
+{
+    public Task<IReadOnlyList<PerformanceKpi>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<PerformanceKpi>>(Items.OrderBy(k => k.Name).ToList());
+
+    public void Remove(PerformanceKpi kpi) => Items.Remove(kpi);
+}
+
+public sealed class EvaluationStore : ListStore<PerformanceEvaluation>, IPerformanceEvaluationRepository
+{
+    public Task<IReadOnlyList<PerformanceEvaluation>> GetForEmployeeAsync(Guid employeeId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<PerformanceEvaluation>>(Items.Where(e => e.EmployeeId == employeeId).OrderByDescending(e => e.Date).ToList());
+
+    public Task<bool> AnyForKpiAsync(Guid kpiId, CancellationToken cancellationToken = default) => Task.FromResult(Items.Any(e => e.Scores.Any(s => s.KpiId == kpiId)));
+}
+
+public sealed class DisciplinaryStore : ListStore<DisciplinaryAction>, IDisciplinaryActionRepository
+{
+    public Task<IReadOnlyList<DisciplinaryAction>> GetForEmployeeAsync(Guid employeeId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DisciplinaryAction>>(Items.Where(a => a.EmployeeId == employeeId).OrderByDescending(a => a.Date).ToList());
+}

@@ -1,0 +1,172 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 4px;
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+
+  --mat-button-text-label-text-color: var(--mat-sys-on-primary);
+}
+
+.brand {
+  font: var(--mat-sys-title-medium);
+}
+
+nav .active {
+  background: color-mix(in srgb, var(--mat-sys-on-primary) 16%, transparent);
+}
+
+// Out of room even so, the badges are cut off at their own edge, never drawn over the name.
+.links {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+// A badge that says all is well keeps its size. One that warns gives way when the bar is full, its
+// words cut short (its tooltip has them all) rather than run under the name beside it.
+.link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font: var(--mat-sys-label-large);
+  background: color-mix(in srgb, var(--mat-sys-on-primary) 14%, transparent);
+
+  mat-icon {
+    flex: none;
+  }
+
+  &.down {
+    flex: 0 1 auto;
+    min-width: 0;
+    background: var(--mat-sys-error);
+    color: var(--mat-sys-on-error);
+  }
+
+  &.unset {
+    background: color-mix(in srgb, var(--mat-sys-on-primary) 8%, transparent);
+    color: color-mix(in srgb, var(--mat-sys-on-primary) 70%, transparent);
+  }
+}
+
+.link-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex: none;
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font: var(--mat-sys-label-large);
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+}
+
+// A long name is cut short at 16 characters' width; the menu below it has it in full.
+.user {
+  flex: none;
+}
+
+.user-name {
+  display: inline-block;
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.who {
+  display: grid;
+
+  small {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font: var(--mat-sys-body-medium);
+
+  &.warn {
+    background: #fff4e5;
+    color: #663c00;
+  }
+
+  &.danger {
+    background: var(--mat-sys-error-container);
+    color: var(--mat-sys-on-error-container);
+  }
+}
+
+.content {
+  flex: 1;
+  padding: 16px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+// Below this, the connection badges that say all is well keep only their icons: their tooltips
+// and a hidden label still name them. A badge that warns (a printer holding tickets, a lost
+// connection) keeps its words. The brand keeps its icon, still the way back to the open orders.
+@media (max-width: 1199.98px) {
+  .brand-text {
+    display: none;
+  }
+
+  .link:not(.down) .link-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+// A manager has four sections: below this their names would crowd the connection badges. Icons
+// only by now: without Material's 64px minimum a manager's buttons leave the badges room.
+@media (max-width: 999.98px) {
+  .nav-text {
+    display: none;
+  }
+
+  .toolbar .mat-mdc-button {
+    min-width: 0;
+    padding: 0 10px;
+  }
+}
+
+// A phone keeps only the badges that warn: the banner below says when a connection is lost.
+@media (max-width: 720px) {
+  .link:not(.down),
+  .link-text,
+  .user-name,
+  .badge {
+    display: none;
+  }
+
+  .content {
+    padding: 8px;
+  }
+}
