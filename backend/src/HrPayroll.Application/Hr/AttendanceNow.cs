@@ -1,12 +1,13 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Inventory.Application.Approvals;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
-// Who is in the restaurant now (حالة الموظفين الآن), from the punches as they come in: each
+// Who is at work now (حالة الموظفين الآن), from the punches as they come in: each
 // employee's day is the one their own window puts now in, so a shift past midnight is still on
 // and an early one has begun. Their scans are paired as the timesheet pairs them: an odd number
 // is in, an even one out, as staff forget the device's In and Out keys.
@@ -81,7 +82,7 @@ internal sealed class AttendanceBroadcast(Presence presence, IAttendanceNotifier
 }
 
 // Who is in now: everyone employed on their own day, or only some of them.
-internal sealed class Presence(IEmployeeRepository employees, Timesheets timesheets, IAttendanceSettings settings, IRecordDescriptions clock)
+internal sealed class Presence(IEmployeeRepository employees, Timesheets timesheets, IAttendanceSettings settings, IWorkClock clock)
 {
     public async Task<PresenceReport> ReadAsync(IReadOnlySet<Guid>? only, CancellationToken cancellationToken)
     {

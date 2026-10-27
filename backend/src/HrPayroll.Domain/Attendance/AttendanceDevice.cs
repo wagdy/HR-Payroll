@@ -1,19 +1,19 @@
 using System.Text.RegularExpressions;
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Attendance;
+namespace HrPayroll.Domain.Attendance;
 
-// An attendance device (جهاز البصمة), a ZKTeco K40 Pro, pushing its punches over the restaurant's
+// An attendance device (جهاز البصمة), a ZKTeco K40 Pro, pushing its punches over the business's
 // network (ZKTeco's ADMS push protocol). It names itself only by its serial number, over plain
 // HTTP, so one is heard from but refused until a manager approves it: a device first seen is kept
-// as waiting, to be recognised in the list and approved, and nothing it sends is taken till then.
+// as waiting, to be recognised in the list and approved, and nothing it sends is taken until then.
 public sealed partial class AttendanceDevice : AggregateRoot
 {
     public const int MaxSerialNumberLength = 64;
     public const int MaxNameLength = 100;
 
-    // Calling the till over ADMS, it asks for commands every few seconds: quiet longer than this,
-    // it is not reaching the till, and its punches come only when the till reads it (port 4370).
+    // Calling the system over ADMS, it asks for commands every few seconds: quiet longer than this,
+    // it is not reaching the system, and its punches come only when the system reads it (port 4370).
     public static readonly TimeSpan QuietAfter = TimeSpan.FromMinutes(3);
 
     private AttendanceDevice() { }
@@ -28,7 +28,7 @@ public sealed partial class AttendanceDevice : AggregateRoot
 
     public string SerialNumber { get; private set; } = string.Empty;
 
-    // What the manager calls it: "Kitchen door".
+    // What the manager calls it: "Main entrance".
     public string? Name { get; private set; }
 
     public DateTime FirstSeenAtUtc { get; private set; }
@@ -37,7 +37,7 @@ public sealed partial class AttendanceDevice : AggregateRoot
     // The network address it last called from, to tell two devices apart in the list.
     public string? LastAddress { get; private set; }
 
-    // When it last called the till over ADMS; never, for one only read over port 4370. Last seen
+    // When it last called the system over ADMS; never, for one only read over port 4370. Last seen
     // is either.
     public DateTime? LastCalledInAtUtc { get; private set; }
 
@@ -64,7 +64,7 @@ public sealed partial class AttendanceDevice : AggregateRoot
         LastAddress = Address(address) ?? LastAddress;
     }
 
-    // It called the till over ADMS.
+    // It called the system over ADMS.
     public void CalledIn(DateTime atUtc, string? address)
     {
         Seen(atUtc, address);
@@ -78,7 +78,7 @@ public sealed partial class AttendanceDevice : AggregateRoot
     {
         var trimmed = name?.Trim() ?? string.Empty;
         if (trimmed.Length == 0)
-            throw new DomainException("Name the device, so it is known in the list: \"Kitchen door\".");
+            throw new DomainException("Name the device, so it is known in the list: \"Main entrance\".");
         if (trimmed.Length > MaxNameLength)
             throw new DomainException($"Keep the device's name under {MaxNameLength} characters.");
         Name = trimmed;

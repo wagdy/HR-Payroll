@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Integration tests: a real PostgreSQL (OTANTIKPOS_TEST_DB, skipped when unset), a fake
-       delivery system served in-process (HTTP + SignalR), and TCP listeners for the printers. -->
-
+  <!-- The database (a real PostgreSQL: HRPAYROLL_TEST_DB, skipped when unset), the clock and the attendance devices' protocol against a fake device. Runs on Microsoft.Testing.Platform (the repository's global.json opts dotnet
+       test in); the project is an executable too, so `dotnet run` runs the tests. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -12,7 +11,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- For the fake delivery system: Kestrel, minimal APIs and a SignalR hub. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
@@ -21,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\otantik-pos\backend\src\OtantikPos.Node.Infrastructure\OtantikPos.Node.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\HrPayroll.Infrastructure\HrPayroll.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

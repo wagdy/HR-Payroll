@@ -1,9 +1,9 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Leaves;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Leaves;
 
-namespace Otantik.Domain.Tests;
+namespace HrPayroll.Domain.Tests;
 
 // Leaves (الإجازات): their types, each employee's balance of them a year, and the requests a
 // manager approves or rejects, counted in the working days they take.

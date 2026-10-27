@@ -1,7 +1,7 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Performance;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Performance;
 
-namespace Otantik.Domain.Tests;
+namespace HrPayroll.Domain.Tests;
 
 // Performance & Disciplinary (تقييم الأداء والإنذارات): evaluations scored on a manager's KPIs,
 // and disciplinary actions, a penalty deduction among them reaching the payslip through

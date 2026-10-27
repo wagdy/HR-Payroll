@@ -1,4 +1,4 @@
-namespace Otantik.BuildingBlocks;
+namespace HrPayroll.Domain.Common;
 
 // Deliberately not MediatR's INotification. Infrastructure wraps each event when it
 // publishes, so the dispatcher can be swapped without touching an entity.

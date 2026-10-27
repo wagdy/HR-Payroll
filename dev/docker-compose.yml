@@ -1,0 +1,25 @@
+# The development database: PostgreSQL on localhost:5435, its data in a named volume.
+#   docker compose -f dev/docker-compose.yml up -d
+# Never `down -v`: -v deletes the volume, and the data with it.
+name: hr-payroll-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: hr-payroll-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hr
+      POSTGRES_PASSWORD: hr-dev
+      POSTGRES_DB: hr_payroll
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - hr-payroll-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hr -d hr_payroll"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  hr-payroll-dev-data:

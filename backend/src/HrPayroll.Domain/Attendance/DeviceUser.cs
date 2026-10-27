@@ -1,8 +1,8 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Attendance;
+namespace HrPayroll.Domain.Attendance;
 
-// Someone enrolled on an attendance device, as it told the till when asked (USERINFO): their user
+// Someone enrolled on an attendance device, as it told the system when asked (USERINFO): their user
 // number there and the name typed on it, for a manager to make an employee of or link to one.
 // Only these: never their device password, card number, or fingerprint and face templates.
 public sealed class DeviceUser : AggregateRoot

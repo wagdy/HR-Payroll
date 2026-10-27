@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Custody;
+namespace HrPayroll.Domain.Custody;
 
 public enum AssetTransactionType
 {
@@ -20,7 +20,7 @@ public enum AssetMovementReason
     // Out for repair (صيانة), all of it.
     Maintenance = 2,
 
-    // Broken (كسر): a consumable's breakage is a cost of the day, in Costing → Waste.
+    // Broken (كسر): what broke is gone; with none left, the asset is Broken.
     Breakage = 3,
 
     // Lost (فقد).
@@ -31,7 +31,7 @@ public enum AssetMovementReason
 }
 
 // A custody voucher (إذن): an asset into an employee's custody, or out of it and why, on a
-// business day; made by AssetItem's CheckIn and CheckOut. EmployeeId: who took it in, or who held
+// day; made by AssetItem's CheckIn and CheckOut. EmployeeId: who took it in, or who held
 // it when it went out (none for one going out of the store). The piece's cost as it was then, so
 // a voucher's cost does not change with the asset's.
 public sealed class AssetTransaction : AggregateRoot
@@ -80,19 +80,5 @@ public sealed class AssetTransaction : AggregateRoot
     public string RecordedBy { get; private set; } = string.Empty;
     public DateTime RecordedAtUtc { get; private set; }
 
-    // The breakage entry in Costing → Waste it made, a consumable's breakage.
-    public Guid? WasteEntryId { get; private set; }
-
     public decimal? Cost => UnitCost is { } cost ? cost * Quantity : null;
-
-    public bool RoutedToWaste => WasteEntryId is not null;
-
-    public void RouteToWaste(Guid wasteEntryId)
-    {
-        if (Reason != AssetMovementReason.Breakage)
-            throw new DomainException("Only a breakage goes to Waste.");
-        if (WasteEntryId is not null)
-            throw new DomainException("This breakage is in Waste already.");
-        WasteEntryId = wasteEntryId;
-    }
 }

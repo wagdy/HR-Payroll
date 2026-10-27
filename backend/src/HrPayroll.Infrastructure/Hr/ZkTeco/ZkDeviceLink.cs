@@ -1,9 +1,9 @@
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
-using Otantik.BuildingBlocks;
-using OtantikPos.Inventory.Application.Hr;
+using HrPayroll.Domain.Common;
+using HrPayroll.Application.Hr;
 
-namespace OtantikPos.Node.Infrastructure.Hr.ZkTeco;
+namespace HrPayroll.Infrastructure.Hr.ZkTeco;
 
 // HR's IAttendanceDeviceLink over ZKTeco's own protocol: a test is a connection and what the
 // device says it is; a read is its user table and its attendance log. Each its own connection,
@@ -70,7 +70,7 @@ internal sealed class ZkDeviceLink(ILogger<ZkDeviceLink> logger) : IAttendanceDe
         SocketException { SocketErrorCode: SocketError.ConnectionRefused } =>
             $"{address} answered, but nothing listens on port {port}. Its own port may be closed while it uses ADMS (Cloud Server): its punches still come that way.",
         SocketException or OperationCanceledException or TimeoutException =>
-            $"No answer from {address} on port {port}. Is the device on, and is this machine on the restaurant's network?",
+            $"No answer from {address} on port {port}. Is the device on, and is this machine on the same network?",
         ZkException zk => zk.Message,
         IOException => $"{address} closed the connection on port {port}: is that the device's port?",
         _ => $"The device at {address} could not be read: {ex.Message}",

@@ -4,7 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace OtantikPos.Node.Api.Tests;
+namespace HrPayroll.Api.Tests;
 
 // Performance & Disciplinary through the API: the KPIs, evaluations scored on them, disciplinary
 // actions escalating, a penalty deduction on Corrections and off the pay, withdrawn by a manager

@@ -1,4 +1,4 @@
-namespace Otantik.BuildingBlocks;
+namespace HrPayroll.Domain.Common;
 
 // The unit that is loaded, changed and saved as a whole. Only aggregate roots get a
 // repository, and only they raise domain events.

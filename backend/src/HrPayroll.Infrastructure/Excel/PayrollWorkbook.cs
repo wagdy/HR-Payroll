@@ -1,10 +1,10 @@
 using System.Globalization;
 using ClosedXML.Excel;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Payroll;
-using OtantikPos.Inventory.Application.Hr;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Payroll;
+using HrPayroll.Application.Hr;
 
-namespace OtantikPos.Node.Infrastructure.Excel;
+namespace HrPayroll.Infrastructure.Excel;
 
 // A month's payroll (مسير الرواتب) for the accounts: each slip as the Payroll tab shows it, column
 // by column from the base salary to the net payable, its status and what is paid of it, with the

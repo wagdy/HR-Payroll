@@ -1,15 +1,14 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Otantik.SharedKernel.Authorization;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Custody;
-using OtantikPos.Inventory.Application.Approvals;
-using OtantikPos.Inventory.Application.Custody;
-using OtantikPos.Node.Api.Auth;
-using OtantikPos.Ordering.Application.Ports;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Custody;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Custody;
+using HrPayroll.Api.Auth;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Node.Api.Controllers;
+namespace HrPayroll.Api.Controllers;
 
 // Custody & Assets (عهدة وأصول): the categories, the assets and whose custody each is in, and the
 // custody vouchers. Its own tab (HrTabs.Custody): a manager's, an accountant's unless a manager
@@ -17,14 +16,13 @@ namespace OtantikPos.Node.Api.Controllers;
 // manager's, or such an employee's (Decide). Assets and vouchers: a manager's at once (200),
 // anyone else's asked of a manager (202) and made only when approved. An employee never gets what
 // an asset cost (HrPrivacyFilter), and so never changes it: an asset they save keeps its cost.
-// A consumable checked out as broken is a breakage entry in Costing → Waste, said on its voucher.
 //
-// RequestId and a voucher's TransactionId are the till's: a retry finds what was asked or made.
+// RequestId and a voucher's TransactionId are made by the app: a retry finds what was asked or made.
 [ApiController]
 [Route("api/custody")]
 [HrTab(HrTabs.Custody)]
 [TypeFilter(typeof(HrPrivacyFilter))]
-public sealed class CustodyController(ISender sender, IBusinessCalendar calendar, HrCaller caller) : ControllerBase
+public sealed class CustodyController(ISender sender, IWorkClock calendar, HrCaller caller) : ControllerBase
 {
     // ---- Categories ----
 
@@ -48,12 +46,10 @@ public sealed class CustodyController(ISender sender, IBusinessCalendar calendar
 
     // ---- Assets ----
 
-    // ?withFinancial=true (Link with Financials) adds those bought on purchase invoices to the
-    // ones entered in HR.
     [HttpGet("assets")]
     [HrTab(HrTabs.Custody)]
-    public Task<IReadOnlyList<AssetItemDto>> GetAssets([FromQuery] bool withFinancial, CancellationToken cancellationToken) =>
-        sender.Send(new GetAssetsQuery(withFinancial), cancellationToken);
+    public Task<IReadOnlyList<AssetItemDto>> GetAssets(CancellationToken cancellationToken) =>
+        sender.Send(new GetAssetsQuery(), cancellationToken);
 
     // An asset with its vouchers, the latest first.
     [HttpGet("assets/{assetId:guid}")]
@@ -61,7 +57,7 @@ public sealed class CustodyController(ISender sender, IBusinessCalendar calendar
     public async Task<ActionResult<AssetDetailDto>> GetAsset(Guid assetId, CancellationToken cancellationToken) =>
         await sender.Send(new GetAssetQuery(assetId), cancellationToken) is { } asset ? asset : NotFound();
 
-    // Added under the id the till made (entered in HR), or changed. How many there are is set
+    // Added under the id the app made, or changed. How many there are is set
     // when it is added; vouchers change it after.
     [HttpPut("assets/{assetId:guid}")]
     [HrTab(HrTabs.Custody, Manage = true)]
@@ -92,7 +88,7 @@ public sealed class CustodyController(ISender sender, IBusinessCalendar calendar
 
     // ---- Vouchers ----
 
-    // The vouchers of the business days ?from= to ?to=, the latest first; the last 30 days unless said.
+    // The vouchers of the days ?from= to ?to=, the latest first; the last 30 days unless said.
     [HttpGet("vouchers")]
     [HrTab(HrTabs.Custody)]
     public Task<IReadOnlyList<AssetTransactionDto>> GetVouchers([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken cancellationToken)
@@ -101,18 +97,18 @@ public sealed class CustodyController(ISender sender, IBusinessCalendar calendar
         return sender.Send(new GetAssetTransactionsQuery(from ?? last.AddDays(-29), last), cancellationToken);
     }
 
-    private DateOnly Today => calendar.BusinessDateOf(DateTime.UtcNow);
+    private DateOnly Today => calendar.WorkdayOf(DateTime.UtcNow);
 
     private async Task<IActionResult> ChangeAsync(Guid assetId, Guid requestId, CustodyRequest change, string? reason, CancellationToken cancellationToken)
     {
         var result = await sender.Send(
-            new ChangeCustodyCommand(assetId, requestId, change, reason, StaffClaims.IdOf(User) ?? string.Empty, StaffName, CanApprove), cancellationToken);
+            new ChangeCustodyCommand(assetId, requestId, change, reason, UserClaims.IdOf(User) ?? string.Empty, StaffName, CanApprove), cancellationToken);
         return result.Outcome == ApprovalOutcome.Requested ? Accepted(new ApprovalResultDto(result.Outcome, result.Request!)) : Ok(result);
     }
 
-    private string StaffName => User.FindFirst(StaffClaims.Name)?.Value ?? string.Empty;
+    private string StaffName => User.FindFirst(UserClaims.Name)?.Value ?? string.Empty;
 
-    private bool CanApprove => StaffClaims.RoleOf(User) is { } role && RolePermissions.Has(role, Permissions.ApprovalDecide);
+    private bool CanApprove => UserClaims.RoleOf(User) is { } role && RolePermissions.Has(role, Permissions.ApprovalDecide);
 }
 
 public sealed record AssetCategoryRequest(string Name, bool IsConsumable);

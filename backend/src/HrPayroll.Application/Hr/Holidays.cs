@@ -1,11 +1,11 @@
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Payroll;
-using OtantikPos.Inventory.Application.Common;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Payroll;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // Public holidays (العطلات الرسمية): entered by a manager each year, as the government sets them.
 // Each is everyone's paid day off, and a holiday allowance for whoever works it. A month whose pay
@@ -30,7 +30,7 @@ internal sealed class GetPublicHolidaysHandler(IPublicHolidayRepository holidays
     }
 }
 
-// A holiday added under this id, or changed. HolidayId is made by the till.
+// A holiday added under this id, or changed. HolidayId is made by the app.
 public sealed record SavePublicHolidayCommand(Guid HolidayId, string Name, DateOnly FirstDay, DateOnly LastDay, string StaffName)
     : IRequest<PublicHolidayDto>, IRetryOnConflict;
 

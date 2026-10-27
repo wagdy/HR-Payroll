@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Leaves;
+namespace HrPayroll.Domain.Leaves;
 
 public enum LeaveRequestStatus
 {
@@ -15,7 +15,7 @@ public enum LeaveRequestStatus
 // A leave asked for (طلب إجازة): its dates, within one year, and the working days they hold
 // (TotalDaysRequested: neither a weekly day off of theirs nor a public holiday, LeaveDays). It
 // waits for a manager, who approves it, its days then taken from the balance and marked leave on
-// the timesheet, or rejects it, with their notes. DecidedById is the manager's till account,
+// the timesheet, or rejects it, with their notes. DecidedById is the manager's user account,
 // whichever they decided. An approved one can be cancelled by a manager from a day on (the
 // employee recalled, the trip off): its days from then are given back and no longer leave, those
 // before stay taken; cancelled from its first day or before, none of it stands (Cancelled).

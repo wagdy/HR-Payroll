@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Performance;
+namespace HrPayroll.Domain.Performance;
 
 // One KPI's score in an evaluation, 1 to 5, with the KPI's name as it was then.
 public sealed class KpiScore
@@ -67,7 +67,7 @@ public sealed class PerformanceEvaluation : AggregateRoot
     // A percent, to one decimal place.
     public decimal TotalScore { get; private set; }
     public string? Notes { get; private set; }
-    // The manager's till account, and their name.
+    // The manager's user account, and their name.
     public string ReviewerId { get; private set; } = string.Empty;
     public string ReviewerName { get; private set; } = string.Empty;
     public DateTime RecordedAtUtc { get; private set; }

@@ -1,6 +1,6 @@
-using OtantikPos.Node.Infrastructure.Hr.ZkTeco;
+using HrPayroll.Infrastructure.Hr.ZkTeco;
 
-namespace OtantikPos.Node.Infrastructure.Tests;
+namespace HrPayroll.Infrastructure.Tests;
 
 // ZKTeco's own protocol, against a fake device: the frames as the open-source client (pyzk) makes
 // them, a comm key, and the user table and attendance log in both record sizes, through the

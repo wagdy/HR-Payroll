@@ -1,10 +1,10 @@
 using System.Globalization;
 using ClosedXML.Excel;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Inventory.Application.Hr;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Application.Hr;
 
-namespace OtantikPos.Node.Infrastructure.Excel;
+namespace HrPayroll.Infrastructure.Excel;
 
 // The employees spreadsheet: the template to fill in, reading one back for the import
 // (ImportEmployeesCommand, which decides what each row becomes), and the employees as they are,
@@ -25,7 +25,7 @@ public static class EmployeeWorkbook
     public const string PayHeader = "Base Salary · الراتب الأساسي";
     public const string DepartmentHeader = "Department · القسم";
     public const string RoleHeader = "Job Role · الوظيفة";
-    public const string ShiftHeader = "Shift Start · بداية الوردية";
+    public const string ShiftHeader = "Work Schedule Start · بداية الدوام";
     public const string DaysOffHeader = "Days Off · أيام الراحة";
     public const string HiredOnHeader = "Hired On · تاريخ التعيين";
     public const string DeviceHeader = "Device No. · رقم البصمة";
@@ -42,7 +42,7 @@ public static class EmployeeWorkbook
     private static readonly string[] PayNames = ["base salary", "salary", "pay", "wage", "monthly salary", "daily wage", "الراتب الأساسي", "الراتب", "الأجر", "الاجر", "اليومية"];
     private static readonly string[] DepartmentNames = ["department", "dept", "القسم", "الإدارة", "الادارة"];
     private static readonly string[] RoleNames = ["job role", "role", "job title", "job", "title", "position", "الوظيفة", "المسمى الوظيفي"];
-    private static readonly string[] ShiftNames = ["shift start", "shift", "starts at", "start time", "بداية الوردية", "الوردية", "موعد الحضور"];
+    private static readonly string[] ShiftNames = ["work schedule start", "work schedule", "shift start", "shift", "starts at", "start time", "بداية الدوام", "الدوام", "بداية الوردية", "الوردية", "موعد الحضور"];
     private static readonly string[] DaysOffNames = ["days off", "day off", "weekly off", "rest days", "أيام الراحة", "ايام الراحة", "يوم الراحة", "الراحة", "الإجازة الأسبوعية"];
     private static readonly string[] HiredOnNames = ["hired on", "hire date", "start date", "date hired", "joined", "تاريخ التعيين", "تاريخ الالتحاق", "بداية العمل"];
     private static readonly string[] DeviceNames = ["device no.", "device no", "device number", "device", "attendance number", "fingerprint", "رقم البصمة", "البصمة", "رقم الجهاز"];
@@ -54,7 +54,7 @@ public static class EmployeeWorkbook
     private const int MaxRows = 5000;
 
     // The template: the columns, with dropdowns for monthly or daily pay, the department and the
-    // role (the restaurant's own, a new name allowed), a sheet of how to fill it with examples,
+    // role (the business's own, a new name allowed), a sheet of how to fill it with examples,
     // and a hidden sheet of the lists. No example rows on the sheet itself: left in, they would be
     // imported.
     public static Stream Template(IReadOnlyList<DepartmentDto> departments)
@@ -89,7 +89,7 @@ public static class EmployeeWorkbook
         type.IgnoreBlanks = true;
         type.ErrorStyle = XLErrorStyle.Warning;
         type.ErrorTitle = "Monthly or Daily";
-        type.ErrorMessage = "The till takes Monthly or Daily (شهري أو يومي). Blank: Monthly.";
+        type.ErrorMessage = "The system takes Monthly or Daily (شهري أو يومي). Blank: Monthly.";
 
         var pay = sheet.Range(2, 3, FormattedRows + 1, 3).CreateDataValidation();
         pay.Decimal.EqualOrGreaterThan(0);
@@ -104,7 +104,7 @@ public static class EmployeeWorkbook
         department.IgnoreBlanks = true;
         department.ErrorStyle = XLErrorStyle.Information;
         department.ErrorTitle = "A new department";
-        department.ErrorMessage = "Not on the till yet: a manager's import adds it. Leave it blank for General.";
+        department.ErrorMessage = "Not in the system yet: a manager's import adds it. Leave it blank for General.";
 
         var role = sheet.Range(2, 5, FormattedRows + 1, 5).CreateDataValidation();
         role.List($"'{ListsSheetName}'!$C$2:$C${Math.Max(roles.Count, 1) + 1}", true);
@@ -240,12 +240,12 @@ public static class EmployeeWorkbook
             "Fill in one employee a row on the Employees sheet, under the headings.",
             "املأ موظفاً في كل صف في ورقة Employees تحت العناوين.",
             "",
-            "Name: required. A name already on the till is skipped, never added twice.",
+            "Name: required. A name already in the system is skipped, never added twice.",
             "Employment Type: Monthly or Daily (شهري أو يومي). Blank: Monthly.",
             "Base Salary: required. A month's salary, or a day's wage for daily pay.",
             "Department: one on the list, or a new one, which a manager's import adds. Blank: General.",
             "Job Role: required. One of the department's roles, or a new one, which is made.",
-            "Shift Start: required. When their nine hours begin, 10:00 or 16:30; Flexible (مرن) for flexible hours.",
+            "Work Schedule Start: required. When their nine hours begin, 10:00 or 16:30; Flexible (مرن) for flexible hours.",
             "Days Off: their weekly days off, Friday, Saturday or الجمعة، السبت. Blank for none.",
             "Hired On: required. The day they started: their first month's pay counts from it.",
             "Device No.: optional. Their user number on the attendance device; a number already given is skipped.",
@@ -260,9 +260,9 @@ public static class EmployeeWorkbook
         object[][] examples =
         [
             [.. Headers],
-            ["Hassan Ali", "Monthly", 5400, "Kitchen", "Chef", "10:00", "Friday", "2026-09-01", "7"],
-            ["منى سعيد", "Monthly", 4000, "Service", "Waiter", "16:00", "Friday, Saturday", "2026-10-01", "12"],
-            ["Karim Adel", "Daily", 250, "Kitchen", "Helper", "Flexible", "", "2026-10-15", ""],
+            ["Hassan Ali", "Monthly", 5400, "Operations", "Technician", "09:00", "Friday", "2026-09-01", "7"],
+            ["منى سعيد", "Monthly", 4000, "Sales", "Sales Representative", "10:00", "Friday, Saturday", "2026-10-01", "12"],
+            ["Karim Adel", "Daily", 250, "Operations", "Helper", "Flexible", "", "2026-10-15", ""],
         ];
         for (var r = 0; r < examples.Length; r++)
             for (var c = 0; c < examples[r].Length; c++)

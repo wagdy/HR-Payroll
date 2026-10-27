@@ -1,10 +1,8 @@
-namespace Otantik.BuildingBlocks;
+namespace HrPayroll.Domain.Common;
 
 public interface IUnitOfWork
 {
-    // Saves every change made in the current use case in one transaction, together with the
-    // domain events raised by the aggregates involved. That pairing is the contract the
-    // outbox relies on: an order can never be saved as completed without its stock deduction
-    // also being saved for delivery.
+    // Saves every change made in the current use case in one transaction: an approval and what
+    // it applies, an advance and its shares, are saved together or not at all.
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

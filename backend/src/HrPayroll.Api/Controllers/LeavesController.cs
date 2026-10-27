@@ -1,13 +1,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Otantik.SharedKernel.Authorization;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Leaves;
-using OtantikPos.Inventory.Application.Hr;
-using OtantikPos.Node.Api.Auth;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Leaves;
+using HrPayroll.Application.Hr;
+using HrPayroll.Api.Auth;
 
-namespace OtantikPos.Node.Api.Controllers;
+namespace HrPayroll.Api.Controllers;
 
 // Leaves (الإجازات), on HR's Leaves & Holidays tab: the types, everyone's balances a year, and the
 // requests. Seen by whoever holds the tab, who may ask for leave for someone too. Approving,
@@ -91,16 +90,16 @@ public sealed class LeavesController(ISender sender) : ControllerBase
     public Task<LeaveRequestDto> Reject(Guid requestId, LeaveDecisionRequest? request, CancellationToken cancellationToken) =>
         sender.Send(new RejectLeaveRequestCommand(requestId, request?.Notes, StaffId, StaffName), cancellationToken);
 
-    // An approved one, from ?from= (the business day unless said): those days on given back.
+    // An approved one, from ?from= (the workday unless said): those days on given back.
     [HttpPost("{requestId:guid}/cancel")]
     [HrTab(HrTabs.Holidays)]
     [Authorize(Policy = Permissions.ApprovalDecide)]
     public Task<LeaveRequestDto> Cancel(Guid requestId, CancelLeaveRequest? request, CancellationToken cancellationToken) =>
         sender.Send(new CancelLeaveRequestCommand(requestId, request?.From, request?.Notes, StaffId, StaffName), cancellationToken);
 
-    private string StaffId => StaffClaims.IdOf(User) ?? string.Empty;
+    private string StaffId => UserClaims.IdOf(User) ?? string.Empty;
 
-    private string StaffName => User.FindFirst(StaffClaims.Name)?.Value ?? string.Empty;
+    private string StaffName => User.FindFirst(UserClaims.Name)?.Value ?? string.Empty;
 }
 
 public sealed record LeaveTypeRequest(string Name, bool IsPaid, int DefaultDaysPerYear, bool ProratedForNewHires = false);

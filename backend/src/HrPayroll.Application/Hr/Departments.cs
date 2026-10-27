@@ -1,12 +1,12 @@
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Inventory.Application.Common;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
-// HR's departments (الأقسام): the kitchen, service, management, each employee in one, holding one of
+// HR's departments (الأقسام): operations, sales, management, each employee in one, holding one of
 // its job roles. A manager's to add, rename and delete, and their roles too. General is always
 // there; another is deleted once its employees, those who left too, are moved to one that stays,
 // its roles going with them. A role is renamed for everyone holding it, and deleted once they hold

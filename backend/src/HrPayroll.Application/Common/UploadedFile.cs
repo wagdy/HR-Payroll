@@ -1,4 +1,4 @@
-namespace OtantikPos.Inventory.Application.Common;
+namespace HrPayroll.Application.Common;
 
 // A photo or PDF someone uploaded, shown in the browser later.
 internal static class UploadedFile

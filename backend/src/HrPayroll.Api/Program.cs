@@ -3,30 +3,23 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
-using OtantikPos.Inventory.Application;
-using OtantikPos.Node.Api.Auth;
-using OtantikPos.Node.Api.Controllers;
-using OtantikPos.Node.Api.ErrorHandling;
-using OtantikPos.Node.Api.Hosting;
-using OtantikPos.Node.Api.Hubs;
-using OtantikPos.Node.Infrastructure;
-using OtantikPos.Node.Infrastructure.Persistence;
-using OtantikPos.Ordering.Application;
-using OtantikPos.Ordering.Application.Ports;
+using HrPayroll.Application;
+using HrPayroll.Api.Auth;
+using HrPayroll.Api.Controllers;
+using HrPayroll.Api.ErrorHandling;
+using HrPayroll.Api.Hosting;
+using HrPayroll.Api.Hubs;
+using HrPayroll.Infrastructure;
+using HrPayroll.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOrderingApplication();
-builder.Services.AddInventoryApplication();
-builder.Services.AddNodeInfrastructure(builder.Configuration);
-builder.Services.AddTillAuthentication(builder.Configuration);
-builder.Services.AddSingleton<ITillNotifier, TillNotifier>();
-builder.Services.AddSingleton<OtantikPos.Inventory.Application.Hr.IAttendanceNotifier, AttendanceNotifier>();
-builder.Services.AddHostedService<DeliverySystemLinkBroadcaster>();
-builder.Services.AddHostedService<PrinterStatusBroadcaster>();
+builder.Services.AddHrApplication();
+builder.Services.AddHrInfrastructure(builder.Configuration);
+builder.Services.AddHrAuthentication(builder.Configuration);
+builder.Services.AddSingleton<HrPayroll.Application.Hr.IAttendanceNotifier, AttendanceNotifier>();
 
-// Enums travel as names ("DineIn", "Cash", "AfterPayment"), as the delivery system's API sends
-// them, over REST and the hub alike.
+// Enums travel as names ("Monthly", "Pending"), over REST and the hub alike.
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddSignalR()
@@ -36,15 +29,11 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = ApplicationExceptionHandler.Customize);
 builder.Services.AddExceptionHandler<ApplicationExceptionHandler>();
 
-// As in the delivery system: /health says the process is up, /health/ready that it can reach
-// its database too.
-builder.Services.AddHealthChecks().AddDbContextCheck<NodeDbContext>(name: "database", tags: ["ready"]);
+// /health says the process is up, /health/ready that it can reach its database too.
+builder.Services.AddHealthChecks().AddDbContextCheck<HrDbContext>(name: "database", tags: ["ready"]);
 
-// Per device, on top of StaffDirectory's per-account lockout: one tablet cannot cycle through
-// PINs across every account on the sign-in screen. Behind Docker Desktop (a Windows or Mac till
-// machine) every device reaches the till from the same address, so it is then one limit for the
-// whole restaurant; Docker on Linux keeps them apart. 20, not 10, so a few mistyped PINs at shift
-// change do not make every tablet wait; the per-account lockout is what stops PIN guessing.
+// Per address, on top of each account's own lockout: one browser cannot cycle through passwords
+// across every account, nor a phone through PINs across every employee.
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -58,8 +47,6 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy(AuthController.SignInRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
-    // The portal's, from phones on the restaurant's Wi-Fi: ten a minute from one, on top of each
-    // employee's own lockout.
     o.AddPolicy(AuthController.EmployeeSignInRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -100,8 +87,8 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 
-// A till's connection closes when its token expires, so a push never outlives the sign-in.
-app.MapHub<TillHub>(TillHub.Path, o => o.CloseOnAuthenticationExpiration = true);
+// A connection closes when its token expires, so a push never outlives the sign-in.
+app.MapHub<HrHub>(HrHub.Path, o => o.CloseOnAuthenticationExpiration = true);
 
 app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") }).AllowAnonymous();
@@ -109,3 +96,6 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check 
 app.MapFallback(SpaHosting.ServeIndexAsync).AllowAnonymous();
 
 app.Run();
+
+// For the API tests' WebApplicationFactory.
+public partial class Program;

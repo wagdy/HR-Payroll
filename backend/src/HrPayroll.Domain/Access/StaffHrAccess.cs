@@ -1,11 +1,9 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Access;
+namespace HrPayroll.Domain.Access;
 
-// The HR & Payroll tabs a till account that is not a manager's sees: an accountant's. Their
-// account is the delivery system's, copied down to the till, so what HR gives them is kept apart
-// here, by the account's id. None of these for an account: every tab, as an accountant has always
-// had; once a manager ticks theirs, only those.
+// The HR & Payroll tabs a system user who is not a manager sees: an accountant's, by their user
+// id. None of these for a user: every tab; once a manager ticks theirs, only those.
 public sealed class StaffHrAccess : AggregateRoot
 {
     public const int MaxStaffIdLength = 450;

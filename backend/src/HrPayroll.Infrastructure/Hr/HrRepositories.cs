@@ -1,18 +1,18 @@
 using Microsoft.EntityFrameworkCore;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Custody;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Leaves;
-using OtantikPos.Hr.Domain.Performance;
-using OtantikPos.Hr.Domain.Payroll;
-using OtantikPos.Inventory.Application.Hr;
-using OtantikPos.Node.Infrastructure.Persistence;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Custody;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Leaves;
+using HrPayroll.Domain.Performance;
+using HrPayroll.Domain.Payroll;
+using HrPayroll.Application.Hr;
+using HrPayroll.Infrastructure.Persistence;
 
-namespace OtantikPos.Node.Infrastructure.Hr;
+namespace HrPayroll.Infrastructure.Hr;
 
-internal sealed class EmployeeRepository(NodeDbContext db) : IEmployeeRepository
+internal sealed class EmployeeRepository(HrDbContext db) : IEmployeeRepository
 {
     public Task<Employee?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.Employees.SingleOrDefaultAsync(e => e.Id == id, cancellationToken);
@@ -38,7 +38,7 @@ internal sealed class EmployeeRepository(NodeDbContext db) : IEmployeeRepository
         await db.Employees.Where(e => e.JobRoleId == jobRoleId).ToListAsync(cancellationToken);
 }
 
-internal sealed class StaffHrAccessRepository(NodeDbContext db) : IStaffHrAccessRepository
+internal sealed class StaffHrAccessRepository(HrDbContext db) : IStaffHrAccessRepository
 {
     public Task<StaffHrAccess?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.StaffHrAccess.SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
@@ -52,7 +52,7 @@ internal sealed class StaffHrAccessRepository(NodeDbContext db) : IStaffHrAccess
         await db.StaffHrAccess.AsNoTracking().ToListAsync(cancellationToken);
 }
 
-internal sealed class AssetCategoryRepository(NodeDbContext db) : IAssetCategoryRepository
+internal sealed class AssetCategoryRepository(HrDbContext db) : IAssetCategoryRepository
 {
     public Task<AssetCategory?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.AssetCategories.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
@@ -65,15 +65,15 @@ internal sealed class AssetCategoryRepository(NodeDbContext db) : IAssetCategory
         await db.AssetCategories.AsNoTracking().OrderBy(c => c.Name).ToListAsync(cancellationToken);
 }
 
-internal sealed class AssetItemRepository(NodeDbContext db) : IAssetItemRepository
+internal sealed class AssetItemRepository(HrDbContext db) : IAssetItemRepository
 {
     public Task<AssetItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.AssetItems.SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
 
     public void Add(AssetItem aggregate) => db.AssetItems.Add(aggregate);
 
-    public async Task<IReadOnlyList<AssetItem>> GetAllAsync(AssetOrigin? origin = null, CancellationToken cancellationToken = default) =>
-        await db.AssetItems.AsNoTracking().Where(a => origin == null || a.Origin == origin).OrderBy(a => a.Name).ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<AssetItem>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        await db.AssetItems.AsNoTracking().OrderBy(a => a.Name).ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<AssetItem>> GetInCustodyOfAsync(Guid employeeId, CancellationToken cancellationToken = default) =>
         await db.AssetItems.AsNoTracking()
@@ -83,17 +83,9 @@ internal sealed class AssetItemRepository(NodeDbContext db) : IAssetItemReposito
 
     public Task<bool> AnyInCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default) =>
         db.AssetItems.AnyAsync(a => a.CategoryId == categoryId, cancellationToken);
-
-    public Task<AssetItem?> GetBySourceLineAsync(Guid invoiceLineId, CancellationToken cancellationToken = default) =>
-        db.AssetItems.SingleOrDefaultAsync(a => a.SourceInvoiceLineId == invoiceLineId, cancellationToken);
-
-    public async Task<IReadOnlyList<AssetItem>> GetFromInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default) =>
-        await db.AssetItems.Where(a => a.SourceInvoiceId == invoiceId).ToListAsync(cancellationToken);
-
-    public void Remove(AssetItem asset) => db.AssetItems.Remove(asset);
 }
 
-internal sealed class AssetTransactionRepository(NodeDbContext db) : IAssetTransactionRepository
+internal sealed class AssetTransactionRepository(HrDbContext db) : IAssetTransactionRepository
 {
     public Task<AssetTransaction?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.AssetTransactions.SingleOrDefaultAsync(t => t.Id == id, cancellationToken);
@@ -123,7 +115,7 @@ public sealed class EmployeeIdPhoto
     public byte[] Content { get; set; } = [];
 }
 
-internal sealed class EmployeeIdPhotoStore(NodeDbContext db) : IEmployeeIdPhotoStore
+internal sealed class EmployeeIdPhotoStore(HrDbContext db) : IEmployeeIdPhotoStore
 {
     // Replaces the one there was.
     public void Put(Guid employeeId, byte[] content)
@@ -149,7 +141,7 @@ internal sealed class EmployeeIdPhotoStore(NodeDbContext db) : IEmployeeIdPhotoS
             .SingleOrDefaultAsync(cancellationToken);
 }
 
-internal sealed class JobRoleRepository(NodeDbContext db) : IJobRoleRepository
+internal sealed class JobRoleRepository(HrDbContext db) : IJobRoleRepository
 {
     public Task<JobRole?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.JobRoles.SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
@@ -165,7 +157,7 @@ internal sealed class JobRoleRepository(NodeDbContext db) : IJobRoleRepository
         await db.JobRoles.Where(r => r.DepartmentId == departmentId).ToListAsync(cancellationToken);
 }
 
-internal sealed class DepartmentRepository(NodeDbContext db) : IDepartmentRepository
+internal sealed class DepartmentRepository(HrDbContext db) : IDepartmentRepository
 {
     public Task<Department?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.Departments.SingleOrDefaultAsync(d => d.Id == id, cancellationToken);
@@ -178,7 +170,7 @@ internal sealed class DepartmentRepository(NodeDbContext db) : IDepartmentReposi
         await db.Departments.AsNoTracking().OrderBy(d => d.Name).ToListAsync(cancellationToken);
 }
 
-internal sealed class AttendanceDeviceRepository(NodeDbContext db) : IAttendanceDeviceRepository
+internal sealed class AttendanceDeviceRepository(HrDbContext db) : IAttendanceDeviceRepository
 {
     public Task<AttendanceDevice?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.AttendanceDevices.SingleOrDefaultAsync(d => d.Id == id, cancellationToken);
@@ -192,7 +184,7 @@ internal sealed class AttendanceDeviceRepository(NodeDbContext db) : IAttendance
         await db.AttendanceDevices.AsNoTracking().OrderBy(d => d.FirstSeenAtUtc).ToListAsync(cancellationToken);
 }
 
-internal sealed class AttendanceLogRepository(NodeDbContext db) : IAttendanceLogRepository
+internal sealed class AttendanceLogRepository(HrDbContext db) : IAttendanceLogRepository
 {
     public Task<AttendanceLog?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.AttendanceLogs.SingleOrDefaultAsync(l => l.Id == id, cancellationToken);
@@ -228,7 +220,7 @@ internal sealed class AttendanceLogRepository(NodeDbContext db) : IAttendanceLog
             .ToDictionaryAsync(g => g.Key, g => g.Count, cancellationToken);
 }
 
-internal sealed class DeviceCommandRepository(NodeDbContext db) : IDeviceCommandRepository
+internal sealed class DeviceCommandRepository(HrDbContext db) : IDeviceCommandRepository
 {
     public Task<DeviceCommand?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.DeviceCommands.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
@@ -251,7 +243,7 @@ internal sealed class DeviceCommandRepository(NodeDbContext db) : IDeviceCommand
             .ToList();
 }
 
-internal sealed class DeviceUserRepository(NodeDbContext db) : IDeviceUserRepository
+internal sealed class DeviceUserRepository(HrDbContext db) : IDeviceUserRepository
 {
     public Task<DeviceUser?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.DeviceUsers.SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
@@ -265,7 +257,7 @@ internal sealed class DeviceUserRepository(NodeDbContext db) : IDeviceUserReposi
         await db.DeviceUsers.AsNoTracking().ToListAsync(cancellationToken);
 }
 
-internal sealed class DayMarkRepository(NodeDbContext db) : IDayMarkRepository
+internal sealed class DayMarkRepository(HrDbContext db) : IDayMarkRepository
 {
     public async Task<IReadOnlyList<DayMark>> GetForLeaveRequestAsync(Guid leaveRequestId, CancellationToken cancellationToken = default) =>
         await db.DayMarks.Where(m => m.LeaveRequestId == leaveRequestId).OrderBy(m => m.Date).ToListAsync(cancellationToken);
@@ -284,7 +276,7 @@ internal sealed class DayMarkRepository(NodeDbContext db) : IDayMarkRepository
         await db.DayMarks.AsNoTracking().Where(m => m.Date >= from && m.Date <= to).ToListAsync(cancellationToken);
 }
 
-internal sealed class AdministrativePenaltyRepository(NodeDbContext db) : IAdministrativePenaltyRepository
+internal sealed class AdministrativePenaltyRepository(HrDbContext db) : IAdministrativePenaltyRepository
 {
     public Task<AdministrativePenalty?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.AdministrativePenalties.SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
@@ -303,7 +295,7 @@ internal sealed class AdministrativePenaltyRepository(NodeDbContext db) : IAdmin
         await db.AdministrativePenalties.AsNoTracking().Where(p => p.Date >= from && p.Date <= to).ToListAsync(cancellationToken);
 }
 
-internal sealed class PublicHolidayRepository(NodeDbContext db) : IPublicHolidayRepository
+internal sealed class PublicHolidayRepository(HrDbContext db) : IPublicHolidayRepository
 {
     public Task<PublicHoliday?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.PublicHolidays.SingleOrDefaultAsync(h => h.Id == id, cancellationToken);
@@ -319,7 +311,7 @@ internal sealed class PublicHolidayRepository(NodeDbContext db) : IPublicHoliday
             .ToListAsync(cancellationToken);
 }
 
-internal sealed class DailyRecordRepository(NodeDbContext db) : IDailyRecordRepository
+internal sealed class DailyRecordRepository(HrDbContext db) : IDailyRecordRepository
 {
     public Task<DailyRecord?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.DailyRecords.SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
@@ -331,7 +323,7 @@ internal sealed class DailyRecordRepository(NodeDbContext db) : IDailyRecordRepo
         await db.DailyRecords.Where(r => r.EmployeeId == employeeId && r.Date >= from && r.Date <= to).ToListAsync(cancellationToken);
 }
 
-internal sealed class PayrollAdjustmentRepository(NodeDbContext db) : IPayrollAdjustmentRepository
+internal sealed class PayrollAdjustmentRepository(HrDbContext db) : IPayrollAdjustmentRepository
 {
     public Task<PayrollAdjustment?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.PayrollAdjustments.SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
@@ -343,7 +335,7 @@ internal sealed class PayrollAdjustmentRepository(NodeDbContext db) : IPayrollAd
 }
 
 // Tracked: a share is taken back in place.
-internal sealed class AdvanceAllocationRepository(NodeDbContext db) : IAdvanceAllocationRepository
+internal sealed class AdvanceAllocationRepository(HrDbContext db) : IAdvanceAllocationRepository
 {
     public Task<AdvanceAllocation?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.AdvanceAllocations.SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
@@ -351,10 +343,9 @@ internal sealed class AdvanceAllocationRepository(NodeDbContext db) : IAdvanceAl
     public void Add(AdvanceAllocation aggregate) => db.AdvanceAllocations.Add(aggregate);
 
     public async Task<IReadOnlyList<AdvanceAllocation>> GetForAdvancesAsync(
-        IReadOnlyCollection<Guid> sourceIds, CancellationToken cancellationToken = default) =>
+        IReadOnlyCollection<Guid> advanceIds, CancellationToken cancellationToken = default) =>
         await db.AdvanceAllocations
-            .Where(a => (a.SourceTransactionId != null && sourceIds.Contains(a.SourceTransactionId.Value))
-                || (a.SourceAdvanceId != null && sourceIds.Contains(a.SourceAdvanceId.Value)))
+            .Where(a => advanceIds.Contains(a.AdvanceId))
             .OrderBy(a => a.AllocatedAtUtc).ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<AdvanceAllocation>> GetForPayrollMonthAsync(
@@ -364,7 +355,7 @@ internal sealed class AdvanceAllocationRepository(NodeDbContext db) : IAdvanceAl
 }
 
 // Tracked: one is voided in place.
-internal sealed class HrAdvanceRepository(NodeDbContext db) : IHrAdvanceRepository
+internal sealed class HrAdvanceRepository(HrDbContext db) : IHrAdvanceRepository
 {
     public Task<HrAdvance?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.HrAdvances.SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
@@ -381,8 +372,22 @@ internal sealed class HrAdvanceRepository(NodeDbContext db) : IHrAdvanceReposito
             .OrderByDescending(a => a.Date).ThenByDescending(a => a.RecordedAtUtc).ToListAsync(cancellationToken);
 }
 
+// Tracked: one is voided in place.
+internal sealed class SalaryPaymentRepository(HrDbContext db) : ISalaryPaymentRepository
+{
+    public Task<SalaryPayment?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.SalaryPayments.SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+    public void Add(SalaryPayment aggregate) => db.SalaryPayments.Add(aggregate);
+
+    public async Task<IReadOnlyList<SalaryPayment>> GetForPayrollMonthAsync(
+        DateOnly month, Guid? employeeId = null, CancellationToken cancellationToken = default) =>
+        await db.SalaryPayments.AsNoTracking().Where(p => p.PayrollMonth == month && (employeeId == null || p.EmployeeId == employeeId))
+            .OrderBy(p => p.Date).ThenBy(p => p.RecordedAtUtc).ToListAsync(cancellationToken);
+}
+
 // Tracked: a draft is worked out again in place.
-internal sealed class PayrollSlipRepository(NodeDbContext db) : IPayrollSlipRepository
+internal sealed class PayrollSlipRepository(HrDbContext db) : IPayrollSlipRepository
 {
     public Task<PayrollSlip?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.PayrollSlips.SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
@@ -397,7 +402,7 @@ internal sealed class PayrollSlipRepository(NodeDbContext db) : IPayrollSlipRepo
         await db.PayrollSlips.Where(s => s.Month == month).ToListAsync(cancellationToken);
 }
 
-internal sealed class AttendanceSettingsStore(NodeDbContext db) : IAttendanceSettings
+internal sealed class AttendanceSettingsStore(HrDbContext db) : IAttendanceSettings
 {
     public async Task<AttendancePolicy> GetAsync(CancellationToken cancellationToken) =>
         (await db.HrSettings.AsNoTracking().SingleOrDefaultAsync(cancellationToken))?.ToPolicy() ?? AttendancePolicy.Default;
@@ -417,7 +422,7 @@ internal sealed class AttendanceSettingsStore(NodeDbContext db) : IAttendanceSet
     }
 }
 
-internal sealed class LeaveTypeRepository(NodeDbContext db) : ILeaveTypeRepository
+internal sealed class LeaveTypeRepository(HrDbContext db) : ILeaveTypeRepository
 {
     public Task<LeaveType?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.LeaveTypes.SingleOrDefaultAsync(l => l.Id == id, cancellationToken);
@@ -430,7 +435,7 @@ internal sealed class LeaveTypeRepository(NodeDbContext db) : ILeaveTypeReposito
         await db.LeaveTypes.AsNoTracking().OrderBy(l => l.Name).ToListAsync(cancellationToken);
 }
 
-internal sealed class EmployeeLeaveBalanceRepository(NodeDbContext db) : IEmployeeLeaveBalanceRepository
+internal sealed class EmployeeLeaveBalanceRepository(HrDbContext db) : IEmployeeLeaveBalanceRepository
 {
     public Task<EmployeeLeaveBalance?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.EmployeeLeaveBalances.SingleOrDefaultAsync(b => b.Id == id, cancellationToken);
@@ -449,7 +454,7 @@ internal sealed class EmployeeLeaveBalanceRepository(NodeDbContext db) : IEmploy
         db.EmployeeLeaveBalances.AnyAsync(b => b.LeaveTypeId == leaveTypeId, cancellationToken);
 }
 
-internal sealed class LeaveRequestRepository(NodeDbContext db) : ILeaveRequestRepository
+internal sealed class LeaveRequestRepository(HrDbContext db) : ILeaveRequestRepository
 {
     public Task<LeaveRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.LeaveRequests.SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
@@ -487,7 +492,7 @@ internal sealed class LeaveRequestRepository(NodeDbContext db) : ILeaveRequestRe
         db.LeaveRequests.AnyAsync(r => r.LeaveTypeId == leaveTypeId, cancellationToken);
 }
 
-internal sealed class PerformanceKpiRepository(NodeDbContext db) : IPerformanceKpiRepository
+internal sealed class PerformanceKpiRepository(HrDbContext db) : IPerformanceKpiRepository
 {
     public Task<PerformanceKpi?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.PerformanceKpis.SingleOrDefaultAsync(k => k.Id == id, cancellationToken);
@@ -500,7 +505,7 @@ internal sealed class PerformanceKpiRepository(NodeDbContext db) : IPerformanceK
         await db.PerformanceKpis.AsNoTracking().OrderBy(k => k.Name).ToListAsync(cancellationToken);
 }
 
-internal sealed class PerformanceEvaluationRepository(NodeDbContext db) : IPerformanceEvaluationRepository
+internal sealed class PerformanceEvaluationRepository(HrDbContext db) : IPerformanceEvaluationRepository
 {
     public Task<PerformanceEvaluation?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.PerformanceEvaluations.SingleOrDefaultAsync(e => e.Id == id, cancellationToken);
@@ -517,7 +522,7 @@ internal sealed class PerformanceEvaluationRepository(NodeDbContext db) : IPerfo
         db.PerformanceEvaluations.AnyAsync(e => e.Scores.Any(s => s.KpiId == kpiId), cancellationToken);
 }
 
-internal sealed class DisciplinaryActionRepository(NodeDbContext db) : IDisciplinaryActionRepository
+internal sealed class DisciplinaryActionRepository(HrDbContext db) : IDisciplinaryActionRepository
 {
     public Task<DisciplinaryAction?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         db.DisciplinaryActions.SingleOrDefaultAsync(a => a.Id == id, cancellationToken);

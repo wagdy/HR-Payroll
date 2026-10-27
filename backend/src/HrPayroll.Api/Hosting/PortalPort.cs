@@ -1,9 +1,9 @@
-namespace OtantikPos.Node.Api.Hosting;
+namespace HrPayroll.Api.Hosting;
 
-// The employee portal's own port (Portal:Port), the one the restaurant's Wi-Fi reaches: phones
+// The employee portal's own port (Portal:Port), the one the office Wi-Fi reaches: phones
 // sign in there and read their own portal, and work the HR tabs a manager gave them (/hr and
 // /custody, /api/hr and /api/custody: only an employee's token holds a tab there, HrCaller).
-// Nothing else of the till
+// Nothing else of the system
 // answers. The rest of the API, the hub, the attendance device's paths and the health checks are
 // not found there; the app's files are, for the portal's screens, and any other screen of the app
 // opens the portal's sign-in instead.
@@ -27,7 +27,7 @@ internal static class PortalPort
         return HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method);
     }
 
-    // A screen of the app other than the portal's (its address alone, /costing/waste): not a file,
+    // A screen of the app other than the portal's (its address alone, /hr/payroll): not a file,
     // which has an extension, and not the API.
     public static bool IsOtherScreen(HttpRequest request)
     {
@@ -45,7 +45,7 @@ internal static class PortalPort
             return app;
         return app.Use(async (context, next) =>
         {
-            // Its address alone, or any screen of the till's, opens the portal's sign-in.
+            // Its address alone, or any other screen, opens the portal's sign-in.
             if (context.Connection.LocalPort == portalPort && IsOtherScreen(context.Request) && Allows(context.Request))
             {
                 context.Response.Redirect("/portal");

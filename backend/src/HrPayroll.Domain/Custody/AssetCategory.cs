@@ -1,10 +1,10 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Custody;
+namespace HrPayroll.Domain.Custody;
 
-// A kind of asset in someone's custody (فئة الأصول): tableware, kitchen tools, devices, uniforms.
-// Consumable (مستهلك) ones are the fragile and the worn: plates and glasses, whose breakage is a
-// cost of the day (routed to Costing → Waste); the rest are fixed assets, a laptop or a fryer.
+// A kind of asset in someone's custody (فئة الأصول): devices, tools, furniture, uniforms.
+// Consumable (مستهلك) ones are the fragile and the worn, used up over time; the rest are fixed
+// assets, a laptop or a vehicle.
 public sealed class AssetCategory : AggregateRoot
 {
     public const int MaxNameLength = 100;
@@ -33,6 +33,5 @@ public sealed class AssetCategory : AggregateRoot
         Name = trimmed;
     }
 
-    // From now on: breakage already recorded stays as it was.
     public void SetConsumable(bool isConsumable) => IsConsumable = isConsumable;
 }

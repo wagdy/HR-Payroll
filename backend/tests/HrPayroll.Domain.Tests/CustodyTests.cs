@@ -1,13 +1,11 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Custody;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Inventory.Domain.Expenses;
-using OtantikPos.Inventory.Domain.Waste;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Custody;
+using HrPayroll.Domain.Employees;
 
-namespace Otantik.Domain.Tests;
+namespace HrPayroll.Domain.Tests;
 
-// Custody & Assets (عهدة وأصول): what is in whose custody, the vouchers that move it, breakage as a
-// day's waste, and the employee portal's PIN.
+// Custody & Assets (عهدة وأصول): what is in whose custody, the vouchers that move it, what breaks or
+// is lost, and the employee portal's PIN.
 public class CustodyTests
 {
     private static readonly DateOnly Monday = new(2026, 10, 26);
@@ -15,7 +13,7 @@ public class CustodyTests
     private static readonly Guid Mona = Guid.NewGuid();
 
     private static AssetItem Plates(int quantity = 40, decimal? unitCost = 35) =>
-        new(Guid.NewGuid(), " Dinner plates ", Guid.NewGuid(), unitCost, quantity, AssetOrigin.HrManual, "Omar");
+        new(Guid.NewGuid(), " Dinner plates ", Guid.NewGuid(), unitCost, quantity, "Omar");
 
     [Fact]
     public void A_category_is_named_and_consumable_or_a_fixed_asset()
@@ -38,10 +36,6 @@ public class CustodyTests
 
         Assert.Throws<DomainException>(() => Plates(quantity: 0));
         Assert.Throws<DomainException>(() => Plates(unitCost: -1));
-        Assert.Throws<DomainException>(() => new AssetItem(Guid.NewGuid(), "Fryer", null, 9_000, 1, AssetOrigin.FinancialPurchase, "Omar"));
-        Assert.Throws<DomainException>(() => new AssetItem(Guid.NewGuid(), "Fryer", null, 9_000, 1, AssetOrigin.HrManual, "Omar", Guid.NewGuid(), Guid.NewGuid()));
-        var bought = new AssetItem(Guid.NewGuid(), "Fryer", null, 9_000, 1, AssetOrigin.FinancialPurchase, "Omar", Guid.NewGuid(), Guid.NewGuid());
-        Assert.Equal(AssetOrigin.FinancialPurchase, bought.Origin);
     }
 
     [Fact]
@@ -79,12 +73,12 @@ public class CustodyTests
         Assert.Throws<DomainException>(() => plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Lost, 0, Monday, null, "Omar"));
 
         plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Breakage, 37, Monday, null, "Omar");
-        Assert.Equal((0, AssetStatus.BrokenWaste, (Guid?)null, true), (plates.Quantity, plates.Status, plates.EmployeeId, plates.IsGone));
+        Assert.Equal((0, AssetStatus.Broken, (Guid?)null, true), (plates.Quantity, plates.Status, plates.EmployeeId, plates.IsGone));
         Assert.Contains("None of it is left", Assert.Throws<DomainException>(() => plates.CheckIn(Guid.NewGuid(), Hassan, Monday, null, "Omar")).Message);
         Assert.Throws<DomainException>(() => plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Lost, 1, Monday, null, "Omar"));
 
         // A knife lost from the store: no one held it.
-        var knife = new AssetItem(Guid.NewGuid(), "Chef's knife", null, 400, 1, AssetOrigin.HrManual, "Omar");
+        var knife = new AssetItem(Guid.NewGuid(), "Chef's knife", null, 400, 1, "Omar");
         var lost = knife.CheckOut(Guid.NewGuid(), AssetMovementReason.Lost, 1, Monday, null, "Omar");
         Assert.Equal((AssetStatus.Discarded, (Guid?)null), (knife.Status, lost.EmployeeId));
         Assert.Throws<DomainException>(() => Plates().CheckOut(Guid.NewGuid(), (AssetMovementReason)99, 1, Monday, null, "Omar"));
@@ -93,7 +87,7 @@ public class CustodyTests
     [Fact]
     public void Maintenance_takes_all_of_it_from_its_custodian_and_it_comes_back_by_a_check_in_or_to_the_store()
     {
-        var fryer = new AssetItem(Guid.NewGuid(), "Fryer", null, 9_000, 1, AssetOrigin.HrManual, "Omar");
+        var fryer = new AssetItem(Guid.NewGuid(), "Fryer", null, 9_000, 1, "Omar");
         fryer.CheckIn(Guid.NewGuid(), Hassan, Monday, null, "Omar");
         fryer.CheckOut(Guid.NewGuid(), AssetMovementReason.Maintenance, 1, Monday, "Thermostat", "Omar");
         Assert.Equal((AssetStatus.Maintenance, (Guid?)null), (fryer.Status, fryer.EmployeeId));
@@ -107,28 +101,15 @@ public class CustodyTests
     }
 
     [Fact]
-    public void A_breakage_goes_to_waste_once_and_its_entry_costs_what_broke()
+    public void What_breaks_is_gone_from_the_asset_and_its_voucher_costs_what_broke()
     {
         var plates = Plates();
-        var broken = plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Breakage, 3, Monday, null, "Omar");
-        var entry = new BreakageEntry(Guid.NewGuid(), Monday, plates.Id, broken.Id, plates.Name, broken.Quantity, broken.UnitCost, broken.EmployeeId, " Dropped ", "Omar");
-        Assert.Equal(("Dinner plates", 3, 105m, "Dropped"), (entry.Description, entry.Quantity, entry.Cost, entry.Notes));
-
-        broken.RouteToWaste(entry.Id);
-        Assert.Equal((true, (Guid?)entry.Id), (broken.RoutedToWaste, broken.WasteEntryId));
-        Assert.Throws<DomainException>(() => broken.RouteToWaste(Guid.NewGuid()));
-        var lost = plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Lost, 1, Monday, null, "Omar");
-        Assert.Throws<DomainException>(() => lost.RouteToWaste(Guid.NewGuid()));
-
-        // An asset with no cost known breaks at nothing.
-        var free = new BreakageEntry(Guid.NewGuid(), Monday, plates.Id, Guid.NewGuid(), "Glass", 2, null, null, null, "Omar");
-        Assert.Equal((0m, (decimal?)null), (free.Cost, free.UnitCost));
-        Assert.Throws<DomainException>(() => new BreakageEntry(Guid.NewGuid(), Monday, plates.Id, Guid.NewGuid(), " ", 1, 5, null, null, "Omar"));
-        Assert.Throws<DomainException>(() => new BreakageEntry(Guid.NewGuid(), Monday, plates.Id, Guid.NewGuid(), "Glass", 0, 5, null, null, "Omar"));
-
-        entry.Void("Omar");
-        Assert.True(entry.IsVoided);
-        Assert.Throws<DomainException>(() => entry.Void("Omar"));
+        var broken = plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Breakage, 3, Monday, " Dropped ", "Omar");
+        Assert.Equal((37, AssetStatus.InStore, 105m, "Dropped"), (plates.Quantity, plates.Status, broken.Cost, broken.Notes));
+        // The rest broken too: none left, and the asset says so.
+        plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Breakage, 37, Monday, null, "Omar");
+        Assert.Equal((0, AssetStatus.Broken, true), (plates.Quantity, plates.Status, plates.IsGone));
+        Assert.Throws<DomainException>(() => plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Breakage, 1, Monday, null, "Omar"));
     }
 
     [Fact]
@@ -166,18 +147,5 @@ public class CustodyTests
         Assert.Equal((0, "rehashed"), (chef.FailedPinAttempts, chef.PinHash));
         chef.ClearPin();
         Assert.Equal((false, (string?)null), (chef.HasPin, chef.PinHash));
-    }
-
-    [Fact]
-    public void An_expense_marked_an_asset_names_its_custody_category()
-    {
-        var plates = new ExpenseItem(Guid.NewGuid(), "Dinner plates", Guid.NewGuid());
-        Assert.False(plates.IsAsset);
-        var tableware = Guid.NewGuid();
-        plates.MarkAsAsset(tableware);
-        Assert.Equal((true, (Guid?)tableware), (plates.IsAsset, plates.AssetCategoryId));
-        Assert.Throws<DomainException>(() => plates.MarkAsAsset(Guid.Empty));
-        plates.MarkAsAsset(null);
-        Assert.False(plates.IsAsset);
     }
 }

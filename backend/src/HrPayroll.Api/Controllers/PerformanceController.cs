@@ -1,13 +1,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Otantik.SharedKernel.Authorization;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Performance;
-using OtantikPos.Inventory.Application.Hr;
-using OtantikPos.Node.Api.Auth;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Performance;
+using HrPayroll.Application.Hr;
+using HrPayroll.Api.Auth;
 
-namespace OtantikPos.Node.Api.Controllers;
+namespace HrPayroll.Api.Controllers;
 
 // Performance & Disciplinary (تقييم الأداء والإنذارات), on the employee's profile: the KPIs, and
 // each employee's evaluations and disciplinary actions with their record. Seen by whoever holds
@@ -86,14 +85,14 @@ public sealed class PerformanceController(ISender sender) : ControllerBase
     public Task<DisciplinaryActionDto> WithdrawAction(Guid actionId, WithdrawRequest request, CancellationToken cancellationToken) =>
         sender.Send(new WithdrawDisciplinaryActionCommand(actionId, request.Reason, StaffId, StaffName), cancellationToken);
 
-    private string StaffId => StaffClaims.IdOf(User) ?? string.Empty;
+    private string StaffId => UserClaims.IdOf(User) ?? string.Empty;
 
-    private string StaffName => User.FindFirst(StaffClaims.Name)?.Value ?? string.Empty;
+    private string StaffName => User.FindFirst(UserClaims.Name)?.Value ?? string.Empty;
 }
 
 public sealed record KpiRequest(string Name);
 
-// Id made by the till: a retry finds the one made.
+// Id made by the app: a retry finds the one made.
 public sealed record EvaluationRequest(Guid Id, DateOnly Date, IReadOnlyList<KpiScoreInput>? Scores, string? Notes = null);
 
 public sealed record DisciplinaryRequest(

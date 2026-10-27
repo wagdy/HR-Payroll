@@ -1,12 +1,12 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Payroll;
+namespace HrPayroll.Domain.Payroll;
 
-// An advance paid outside the till (from the owner's own pocket, say), recorded in HR only: no
-// cash leaves the safe or a day's takings, and Financials never sees it. Paid to an employee, it
-// is deducted from their pay of PayrollMonth: the month it was paid in, or the first after it
-// whose pay is not finalized for them. With no one named, it waits to be given out a share each
-// (AdvanceAllocation), as a lump sum from the till does.
+// An advance (سلفة), an HR record: money handed to an employee ahead of their pay, deducted from
+// their pay of PayrollMonth, the month it was paid in or the first after it whose pay is not
+// finalized for them. With no one named, it is a lump sum waiting to be given out, a share each
+// (AdvanceAllocation). Where the money came from is the business's own books; HR only says whose
+// pay it comes off.
 public sealed class HrAdvance : AggregateRoot
 {
     public const int MaxNotesLength = 300;

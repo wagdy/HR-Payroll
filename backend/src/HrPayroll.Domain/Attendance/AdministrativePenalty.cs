@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Attendance;
+namespace HrPayroll.Domain.Attendance;
 
 // A manager's administrative penalty on one employee's day (جزاء إداري), and why: a number of
 // hours, deducted from that month's pay at the employee's hourly rate, or an amount of money,
@@ -67,7 +67,7 @@ public sealed class AdministrativePenalty : AggregateRoot
         if (Hours != 0)
             throw new DomainException("This penalty is hours, not an amount of money.");
         if (amount <= 0 || amount > MaxAmount)
-            throw new DomainException($"A penalty's amount is more than nothing and at most L.E {MaxAmount:N0}.");
+            throw new DomainException($"A penalty's amount is more than nothing and at most {MaxAmount:N0}.");
         if (decimal.Round(amount, 2) != amount)
             throw new DomainException("Give the penalty's amount to the piastre at most: 150.50.");
         Amount = amount;

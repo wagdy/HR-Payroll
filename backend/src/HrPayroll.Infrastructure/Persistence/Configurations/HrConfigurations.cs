@@ -1,14 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Custody;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Leaves;
-using OtantikPos.Hr.Domain.Performance;
-using OtantikPos.Hr.Domain.Payroll;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Custody;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Leaves;
+using HrPayroll.Domain.Performance;
+using HrPayroll.Domain.Payroll;
 
-namespace OtantikPos.Node.Infrastructure.Persistence.Configurations;
+namespace HrPayroll.Infrastructure.Persistence.Configurations;
 
 // The hr schema: employees, their punches and days, and their monthly pay. Punch times are the
 // device's wall clock, so they are stored without a time zone.
@@ -17,7 +17,7 @@ internal sealed class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
 {
     public void Configure(EntityTypeBuilder<Employee> builder)
     {
-        builder.ToTable("Employees", NodeDbContext.HrSchema);
+        builder.ToTable("Employees", HrDbContext.HrSchema);
         builder.Property(e => e.Name).HasMaxLength(Employee.MaxNameLength);
         builder.Property(e => e.EmploymentType).IsEnumName();
         builder.Ignore(e => e.IsDaily);
@@ -27,7 +27,7 @@ internal sealed class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         // By name, "Friday, Saturday", as the other enums are stored.
         builder.Property(e => e.DaysOff).HasConversion<string>().HasMaxLength(100);
         builder.Property(e => e.DeviceUserId).HasMaxLength(Employee.MaxDeviceUserIdLength);
-        builder.Property(e => e.StaffMemberId).HasMaxLength(450);
+        builder.Property(e => e.UserAccountId).HasMaxLength(64);
         builder.Property(e => e.NationalId).HasMaxLength(Employee.MaxNationalIdLength);
         builder.Property(e => e.MobileNumber).HasMaxLength(Employee.MaxMobileNumberLength);
         builder.Property(e => e.IdPhotoFileName).HasMaxLength(Employee.MaxIdPhotoFileNameLength);
@@ -37,9 +37,9 @@ internal sealed class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         builder.Ignore(e => e.DailyRate);
         builder.Ignore(e => e.HourlyRate);
         builder.Ignore(e => e.MinuteRate);
-        // One employee to a user number on the device, and to a till account.
+        // One employee to a user number on the device, and to a user account.
         builder.HasIndex(e => e.DeviceUserId).IsUnique().HasFilter("\"DeviceUserId\" IS NOT NULL");
-        builder.HasIndex(e => e.StaffMemberId).IsUnique().HasFilter("\"StaffMemberId\" IS NOT NULL");
+        builder.HasIndex(e => e.UserAccountId).IsUnique().HasFilter("\"UserAccountId\" IS NOT NULL");
         // One employee to an ID card, and to a mobile number: the portal signs in by it.
         builder.HasIndex(e => e.NationalId).IsUnique().HasFilter("\"NationalId\" IS NOT NULL");
         builder.HasIndex(e => e.MobileNumber).IsUnique().HasFilter("\"MobileNumber\" IS NOT NULL");
@@ -54,7 +54,7 @@ internal sealed class StaffHrAccessConfiguration : IEntityTypeConfiguration<Staf
 {
     public void Configure(EntityTypeBuilder<StaffHrAccess> builder)
     {
-        builder.ToTable("StaffHrAccess", NodeDbContext.HrSchema);
+        builder.ToTable("StaffHrAccess", HrDbContext.HrSchema);
         builder.Property(a => a.StaffId).HasMaxLength(StaffHrAccess.MaxStaffIdLength);
         builder.HasIndex(a => a.StaffId).IsUnique();
         builder.Property(a => a.Tabs).HasConversion<string>().HasMaxLength(200);
@@ -66,7 +66,7 @@ internal sealed class AssetCategoryConfiguration : IEntityTypeConfiguration<Asse
 {
     public void Configure(EntityTypeBuilder<AssetCategory> builder)
     {
-        builder.ToTable("AssetCategories", NodeDbContext.HrSchema);
+        builder.ToTable("AssetCategories", HrDbContext.HrSchema);
         builder.Property(c => c.Name).HasMaxLength(AssetCategory.MaxNameLength);
         builder.HasIndex(c => c.Name).IsUnique();
     }
@@ -76,28 +76,17 @@ internal sealed class AssetItemConfiguration : IEntityTypeConfiguration<AssetIte
 {
     public void Configure(EntityTypeBuilder<AssetItem> builder)
     {
-        builder.ToTable("AssetItems", NodeDbContext.HrSchema, t =>
-        {
-            t.HasCheckConstraint("CK_AssetItems_Quantity", "\"Quantity\" >= 0");
-            // Bought on an invoice: its line said; entered in HR: none.
-            t.HasCheckConstraint(
-                "CK_AssetItems_Source",
-                "(\"Origin\" = 'FinancialPurchase') = (\"SourceInvoiceId\" IS NOT NULL AND \"SourceInvoiceLineId\" IS NOT NULL)");
-        });
+        builder.ToTable("AssetItems", HrDbContext.HrSchema, t => t.HasCheckConstraint("CK_AssetItems_Quantity", "\"Quantity\" >= 0"));
         builder.Property(a => a.Name).HasMaxLength(AssetItem.MaxNameLength);
         builder.Property(a => a.Notes).HasMaxLength(AssetItem.MaxNotesLength);
         builder.Property(a => a.CreatedBy).HasMaxLength(200);
         builder.Property(a => a.UnitCost).HasPrecision(18, 2);
-        builder.Property(a => a.Origin).IsEnumName();
         builder.Property(a => a.Status).IsEnumName();
         builder.Ignore(a => a.TotalCost);
         builder.Ignore(a => a.IsGone);
         builder.HasOne<AssetCategory>().WithMany().HasForeignKey(a => a.CategoryId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(a => a.EmployeeId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<OtantikPos.Inventory.Domain.Purchases.PurchaseInvoice>().WithMany().HasForeignKey(a => a.SourceInvoiceId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(a => a.EmployeeId);
-        // A posted line makes one asset, however often it is read.
-        builder.HasIndex(a => a.SourceInvoiceLineId).IsUnique().HasFilter("\"SourceInvoiceLineId\" IS NOT NULL");
     }
 }
 
@@ -105,7 +94,7 @@ internal sealed class AssetTransactionConfiguration : IEntityTypeConfiguration<A
 {
     public void Configure(EntityTypeBuilder<AssetTransaction> builder)
     {
-        builder.ToTable("AssetTransactions", NodeDbContext.HrSchema, t =>
+        builder.ToTable("AssetTransactions", HrDbContext.HrSchema, t =>
         {
             t.HasCheckConstraint("CK_AssetTransactions_Quantity", "\"Quantity\" > 0");
             // A check-out says why; a check-in, nothing.
@@ -117,13 +106,10 @@ internal sealed class AssetTransactionConfiguration : IEntityTypeConfiguration<A
         builder.Property(t => t.RecordedBy).HasMaxLength(200);
         builder.Property(t => t.UnitCost).HasPrecision(18, 2);
         builder.Ignore(t => t.Cost);
-        builder.Ignore(t => t.RoutedToWaste);
         builder.HasOne<AssetItem>().WithMany().HasForeignKey(t => t.AssetItemId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Employee>().WithMany().HasForeignKey(t => t.EmployeeId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(t => new { t.AssetItemId, t.Date });
         builder.HasIndex(t => t.Date);
-        // The breakage entry it made (inventory.BreakageEntries names it back, with a key).
-        builder.HasIndex(t => t.WasteEntryId).IsUnique().HasFilter("\"WasteEntryId\" IS NOT NULL");
     }
 }
 
@@ -131,7 +117,7 @@ internal sealed class EmployeeIdPhotoConfiguration : IEntityTypeConfiguration<Hr
 {
     public void Configure(EntityTypeBuilder<Hr.EmployeeIdPhoto> builder)
     {
-        builder.ToTable("EmployeeIdPhotos", NodeDbContext.HrSchema);
+        builder.ToTable("EmployeeIdPhotos", HrDbContext.HrSchema);
         builder.HasKey(p => p.EmployeeId);
         builder.HasOne<Employee>().WithOne().HasForeignKey<Hr.EmployeeIdPhoto>(p => p.EmployeeId).OnDelete(DeleteBehavior.Cascade);
     }
@@ -141,7 +127,7 @@ internal sealed class DepartmentConfiguration : IEntityTypeConfiguration<Departm
 {
     public void Configure(EntityTypeBuilder<Department> builder)
     {
-        builder.ToTable("Departments", NodeDbContext.HrSchema);
+        builder.ToTable("Departments", HrDbContext.HrSchema);
         builder.Property(d => d.Name).HasMaxLength(Department.MaxNameLength);
         builder.Ignore(d => d.IsGeneral);
         // There from the start, for the employees already entered.
@@ -153,7 +139,7 @@ internal sealed class JobRoleConfiguration : IEntityTypeConfiguration<JobRole>
 {
     public void Configure(EntityTypeBuilder<JobRole> builder)
     {
-        builder.ToTable("JobRoles", NodeDbContext.HrSchema);
+        builder.ToTable("JobRoles", HrDbContext.HrSchema);
         builder.Property(r => r.Name).HasMaxLength(JobRole.MaxNameLength);
         builder.HasOne<Department>().WithMany().HasForeignKey(r => r.DepartmentId).OnDelete(DeleteBehavior.Restrict);
         // One name to a department.
@@ -165,7 +151,7 @@ internal sealed class AttendanceDeviceConfiguration : IEntityTypeConfiguration<A
 {
     public void Configure(EntityTypeBuilder<AttendanceDevice> builder)
     {
-        builder.ToTable("AttendanceDevices", NodeDbContext.HrSchema);
+        builder.ToTable("AttendanceDevices", HrDbContext.HrSchema);
         builder.Property(d => d.SerialNumber).HasMaxLength(AttendanceDevice.MaxSerialNumberLength);
         builder.Property(d => d.Name).HasMaxLength(AttendanceDevice.MaxNameLength);
         builder.Property(d => d.LastAddress).HasMaxLength(64);
@@ -180,7 +166,7 @@ internal sealed class AttendanceLogConfiguration : IEntityTypeConfiguration<Atte
 {
     public void Configure(EntityTypeBuilder<AttendanceLog> builder)
     {
-        builder.ToTable("AttendanceLogs", NodeDbContext.HrSchema);
+        builder.ToTable("AttendanceLogs", HrDbContext.HrSchema);
         builder.Property(l => l.Source).IsEnumName();
         builder.Property(l => l.DeviceSerialNumber).HasMaxLength(AttendanceDevice.MaxSerialNumberLength);
         // As long as the device sends it: a number nobody has yet is kept as it came.
@@ -206,7 +192,7 @@ internal sealed class DayMarkConfiguration : IEntityTypeConfiguration<DayMark>
 {
     public void Configure(EntityTypeBuilder<DayMark> builder)
     {
-        builder.ToTable("DayMarks", NodeDbContext.HrSchema, t =>
+        builder.ToTable("DayMarks", HrDbContext.HrSchema, t =>
             // Unpaid leave is an approved leave request's.
             t.HasCheckConstraint("CK_DayMarks_UnpaidLeave", "\"Kind\" <> 'UnpaidLeave' OR \"LeaveRequestId\" IS NOT NULL"));
         builder.Property(m => m.Kind).IsEnumName();
@@ -223,7 +209,7 @@ internal sealed class AdministrativePenaltyConfiguration : IEntityTypeConfigurat
 {
     public void Configure(EntityTypeBuilder<AdministrativePenalty> builder)
     {
-        builder.ToTable("AdministrativePenalties", NodeDbContext.HrSchema, t =>
+        builder.ToTable("AdministrativePenalties", HrDbContext.HrSchema, t =>
         {
             // Hours, or an amount of money: one or the other.
             t.HasCheckConstraint("CK_AdministrativePenalties_HoursOrAmount",
@@ -236,7 +222,7 @@ internal sealed class AdministrativePenaltyConfiguration : IEntityTypeConfigurat
         builder.Property(p => p.Reason).HasMaxLength(AdministrativePenalty.MaxReasonLength);
         builder.Property(p => p.SetBy).HasMaxLength(200);
         builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.EmployeeId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<OtantikPos.Hr.Domain.Performance.DisciplinaryAction>().WithMany().HasForeignKey(p => p.DisciplinaryActionId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<HrPayroll.Domain.Performance.DisciplinaryAction>().WithMany().HasForeignKey(p => p.DisciplinaryActionId).OnDelete(DeleteBehavior.Restrict);
         // A manager's own, one a day: changed, not added to. A disciplinary action's beside it, one to an action.
         builder.HasIndex(p => new { p.EmployeeId, p.Date }).IsUnique().HasFilter("\"DisciplinaryActionId\" IS NULL");
         builder.HasIndex(p => p.DisciplinaryActionId).IsUnique().HasFilter("\"DisciplinaryActionId\" IS NOT NULL");
@@ -247,7 +233,7 @@ internal sealed class DeviceCommandConfiguration : IEntityTypeConfiguration<Devi
 {
     public void Configure(EntityTypeBuilder<DeviceCommand> builder)
     {
-        builder.ToTable("DeviceCommands", NodeDbContext.HrSchema);
+        builder.ToTable("DeviceCommands", HrDbContext.HrSchema);
         builder.Property(c => c.DeviceSerialNumber).HasMaxLength(AttendanceDevice.MaxSerialNumberLength);
         builder.Property(c => c.Kind).IsEnumName();
         builder.Property(c => c.Text).HasMaxLength(200);
@@ -262,7 +248,7 @@ internal sealed class DeviceUserConfiguration : IEntityTypeConfiguration<DeviceU
 {
     public void Configure(EntityTypeBuilder<DeviceUser> builder)
     {
-        builder.ToTable("DeviceUsers", NodeDbContext.HrSchema);
+        builder.ToTable("DeviceUsers", HrDbContext.HrSchema);
         builder.Property(u => u.DeviceSerialNumber).HasMaxLength(AttendanceDevice.MaxSerialNumberLength);
         builder.Property(u => u.DeviceUserId).HasMaxLength(DeviceUser.MaxDeviceUserIdLength);
         builder.Property(u => u.Name).HasMaxLength(DeviceUser.MaxNameLength);
@@ -274,7 +260,7 @@ internal sealed class PublicHolidayConfiguration : IEntityTypeConfiguration<Publ
 {
     public void Configure(EntityTypeBuilder<PublicHoliday> builder)
     {
-        builder.ToTable("PublicHolidays", NodeDbContext.HrSchema);
+        builder.ToTable("PublicHolidays", HrDbContext.HrSchema);
         builder.Property(h => h.Name).HasMaxLength(PublicHoliday.MaxNameLength);
         builder.Property(h => h.SetBy).HasMaxLength(200);
         builder.Ignore(h => h.Days);
@@ -287,7 +273,7 @@ internal sealed class DailyRecordConfiguration : IEntityTypeConfiguration<DailyR
 {
     public void Configure(EntityTypeBuilder<DailyRecord> builder)
     {
-        builder.ToTable("DailyRecords", NodeDbContext.HrSchema);
+        builder.ToTable("DailyRecords", HrDbContext.HrSchema);
         builder.Property(r => r.Status).IsEnumName();
         builder.Property(r => r.FirstIn).HasColumnType("timestamp without time zone");
         builder.Property(r => r.LastOut).HasColumnType("timestamp without time zone");
@@ -302,7 +288,7 @@ internal sealed class PayrollAdjustmentConfiguration : IEntityTypeConfiguration<
 {
     public void Configure(EntityTypeBuilder<PayrollAdjustment> builder)
     {
-        builder.ToTable("PayrollAdjustments", NodeDbContext.HrSchema);
+        builder.ToTable("PayrollAdjustments", HrDbContext.HrSchema);
         builder.Property(a => a.Kind).IsEnumName();
         builder.Property(a => a.Source).IsEnumName();
         builder.Property(a => a.Reason).HasMaxLength(PayrollAdjustment.MaxReasonLength);
@@ -319,22 +305,16 @@ internal sealed class AdvanceAllocationConfiguration : IEntityTypeConfiguration<
 {
     public void Configure(EntityTypeBuilder<AdvanceAllocation> builder)
     {
-        // A share of one or the other: a safe entry, or an HR advance paid outside the till.
-        builder.ToTable("AdvanceAllocations", NodeDbContext.HrSchema, t =>
-            t.HasCheckConstraint("CK_AdvanceAllocations_OneSource", "(\"SourceTransactionId\" IS NULL) <> (\"SourceAdvanceId\" IS NULL)"));
+        // A share of an advance handed out with no one named.
+        builder.ToTable("AdvanceAllocations", HrDbContext.HrSchema);
         builder.Property(a => a.Amount).HasPrecision(18, 2);
-        builder.Ignore(a => a.SourceId);
-        builder.Ignore(a => a.OutsideTill);
         builder.Property(a => a.Notes).HasMaxLength(AdvanceAllocation.MaxNotesLength);
         builder.Property(a => a.AllocatedBy).HasMaxLength(200);
         builder.Property(a => a.VoidedBy).HasMaxLength(200);
         builder.Ignore(a => a.IsVoided);
         builder.HasOne<Employee>().WithMany().HasForeignKey(a => a.EmployeeId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<OtantikPos.Inventory.Domain.Treasury.SafeTransaction>().WithMany().HasForeignKey(a => a.SourceTransactionId)
-            .OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<HrAdvance>().WithMany().HasForeignKey(a => a.SourceAdvanceId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(a => a.SourceTransactionId);
-        builder.HasIndex(a => a.SourceAdvanceId);
+        builder.HasOne<HrAdvance>().WithMany().HasForeignKey(a => a.AdvanceId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(a => a.AdvanceId);
         builder.HasIndex(a => new { a.EmployeeId, a.PayrollMonth });
     }
 }
@@ -343,7 +323,7 @@ internal sealed class HrAdvanceConfiguration : IEntityTypeConfiguration<HrAdvanc
 {
     public void Configure(EntityTypeBuilder<HrAdvance> builder)
     {
-        builder.ToTable("HrAdvances", NodeDbContext.HrSchema);
+        builder.ToTable("HrAdvances", HrDbContext.HrSchema);
         builder.Property(a => a.Amount).HasPrecision(18, 2);
         builder.Property(a => a.Notes).HasMaxLength(HrAdvance.MaxNotesLength);
         builder.Property(a => a.RecordedBy).HasMaxLength(200);
@@ -356,11 +336,27 @@ internal sealed class HrAdvanceConfiguration : IEntityTypeConfiguration<HrAdvanc
     }
 }
 
+internal sealed class SalaryPaymentConfiguration : IEntityTypeConfiguration<SalaryPayment>
+{
+    public void Configure(EntityTypeBuilder<SalaryPayment> builder)
+    {
+        builder.ToTable("SalaryPayments", HrDbContext.HrSchema, t => t.HasCheckConstraint("CK_SalaryPayments_Amount", "\"Amount\" > 0"));
+        builder.Property(p => p.Amount).HasPrecision(18, 2);
+        builder.Property(p => p.Notes).HasMaxLength(SalaryPayment.MaxNotesLength);
+        builder.Property(p => p.RecordedBy).HasMaxLength(200);
+        builder.Property(p => p.VoidedBy).HasMaxLength(200);
+        builder.Ignore(p => p.IsVoided);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(p => p.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(p => new { p.EmployeeId, p.PayrollMonth });
+        builder.HasIndex(p => p.PayrollMonth);
+    }
+}
+
 internal sealed class PayrollSlipConfiguration : IEntityTypeConfiguration<PayrollSlip>
 {
     public void Configure(EntityTypeBuilder<PayrollSlip> builder)
     {
-        builder.ToTable("PayrollSlips", NodeDbContext.HrSchema);
+        builder.ToTable("PayrollSlips", HrDbContext.HrSchema);
         builder.Property(s => s.Status).IsEnumName();
         builder.Property(s => s.FinalizedBy).HasMaxLength(200);
         builder.Ignore(s => s.IsFinalized);
@@ -376,7 +372,7 @@ internal sealed class LeaveTypeConfiguration : IEntityTypeConfiguration<LeaveTyp
 {
     public void Configure(EntityTypeBuilder<LeaveType> builder)
     {
-        builder.ToTable("LeaveTypes", NodeDbContext.HrSchema, t =>
+        builder.ToTable("LeaveTypes", HrDbContext.HrSchema, t =>
         {
             t.HasCheckConstraint("CK_LeaveTypes_Days", $"\"DefaultDaysPerYear\" BETWEEN 0 AND {LeaveType.MaxDaysPerYear}");
             // Unpaid leave has no days a year.
@@ -391,7 +387,7 @@ internal sealed class EmployeeLeaveBalanceConfiguration : IEntityTypeConfigurati
 {
     public void Configure(EntityTypeBuilder<EmployeeLeaveBalance> builder)
     {
-        builder.ToTable("EmployeeLeaveBalances", NodeDbContext.HrSchema, t =>
+        builder.ToTable("EmployeeLeaveBalances", HrDbContext.HrSchema, t =>
         {
             t.HasCheckConstraint("CK_EmployeeLeaveBalances_Days",
                 $"\"TotalAllocatedDays\" BETWEEN 0 AND {EmployeeLeaveBalance.MaxDays} AND \"UsedDays\" BETWEEN 0 AND \"TotalAllocatedDays\"");
@@ -414,7 +410,7 @@ internal sealed class LeaveRequestConfiguration : IEntityTypeConfiguration<Leave
 {
     public void Configure(EntityTypeBuilder<LeaveRequest> builder)
     {
-        builder.ToTable("LeaveRequests", NodeDbContext.HrSchema, t =>
+        builder.ToTable("LeaveRequests", HrDbContext.HrSchema, t =>
         {
             t.HasCheckConstraint("CK_LeaveRequests_Dates",
                 $"\"EndDate\" >= \"StartDate\" AND date_part('year', \"EndDate\") = date_part('year', \"StartDate\") AND \"EndDate\" - \"StartDate\" < {LeaveRequest.MaxDays}");
@@ -453,7 +449,7 @@ internal sealed class PerformanceKpiConfiguration : IEntityTypeConfiguration<Per
 {
     public void Configure(EntityTypeBuilder<PerformanceKpi> builder)
     {
-        builder.ToTable("PerformanceKpis", NodeDbContext.HrSchema);
+        builder.ToTable("PerformanceKpis", HrDbContext.HrSchema);
         builder.Property(k => k.Name).HasMaxLength(PerformanceKpi.MaxNameLength);
         builder.HasIndex(k => k.Name).IsUnique();
     }
@@ -463,7 +459,7 @@ internal sealed class PerformanceEvaluationConfiguration : IEntityTypeConfigurat
 {
     public void Configure(EntityTypeBuilder<PerformanceEvaluation> builder)
     {
-        builder.ToTable("PerformanceEvaluations", NodeDbContext.HrSchema, t =>
+        builder.ToTable("PerformanceEvaluations", HrDbContext.HrSchema, t =>
             t.HasCheckConstraint("CK_PerformanceEvaluations_Total", "\"TotalScore\" BETWEEN 20 AND 100"));
         builder.Property(e => e.TotalScore).HasPrecision(4, 1);
         builder.Property(e => e.Notes).HasMaxLength(PerformanceEvaluation.MaxNotesLength);
@@ -474,7 +470,7 @@ internal sealed class PerformanceEvaluationConfiguration : IEntityTypeConfigurat
         // The KPIs it scored (KpiDetails), a row each.
         builder.OwnsMany(e => e.Scores, score =>
         {
-            score.ToTable("EvaluationScores", NodeDbContext.HrSchema, t => t.HasCheckConstraint("CK_EvaluationScores_Score",
+            score.ToTable("EvaluationScores", HrDbContext.HrSchema, t => t.HasCheckConstraint("CK_EvaluationScores_Score",
                 $"\"Score\" BETWEEN {PerformanceEvaluation.MinScore} AND {PerformanceEvaluation.MaxScore}"));
             score.WithOwner().HasForeignKey("EvaluationId");
             score.Property<int>("Id");
@@ -491,7 +487,7 @@ internal sealed class DisciplinaryActionConfiguration : IEntityTypeConfiguration
 {
     public void Configure(EntityTypeBuilder<DisciplinaryAction> builder)
     {
-        builder.ToTable("DisciplinaryActions", NodeDbContext.HrSchema, t =>
+        builder.ToTable("DisciplinaryActions", HrDbContext.HrSchema, t =>
         {
             // A penalty deduction has its amount; nothing else has one.
             t.HasCheckConstraint("CK_DisciplinaryActions_Penalty",

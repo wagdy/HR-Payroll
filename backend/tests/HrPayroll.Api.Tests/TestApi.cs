@@ -11,120 +11,125 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Otantik.SharedKernel.Orders;
-using OtantikPos.Node.Api.Controllers;
-using OtantikPos.Node.Infrastructure.Common;
-using OtantikPos.Node.Infrastructure.DeliverySystem;
-using OtantikPos.Node.Infrastructure.Persistence;
-using OtantikPos.Node.Infrastructure.Tests;
+using HrPayroll.Api.Controllers;
+using HrPayroll.Application.Hr;
+using HrPayroll.Domain.Access;
+using HrPayroll.Infrastructure.Persistence;
 
-namespace OtantikPos.Node.Api.Tests;
+namespace HrPayroll.Api.Tests;
 
-// The restaurant machine's API exactly as Program.cs builds it, in process, on its own
-// database, connected to a fake delivery system and two fake printers. On start it has
-// migrated, created the bootstrap manager "Boss", and synced the menu and staff (Sara the
-// cashier, Omar the manager, Hany the captain; none with a PIN yet).
+// The API exactly as Program.cs builds it, in process, on its own database. On start it has
+// migrated and created the first manager, "Boss".
 public sealed class TestApi : IAsyncDisposable
 {
-    public const string BossPin = "9999";
-    public const string CashierId = "staff-cashier", CashierPin = "2468";
-    public const string AccountantId = "staff-accountant", AccountantPin = "1593";
+    public const string BossEmail = "boss@example.com", BossPassword = "boss-password";
+    public const string AccountantEmail = "mona@example.com", AccountantPassword = "mona-password";
 
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     private WebApplicationFactory<Program> _factory = null!;
     private string _connectionString = null!;
 
-    public FakeDeliverySystem Cloud { get; } = new();
-    public FakePrinter Kitchen { get; } = new();
-    public FakePrinter Receipts { get; } = new();
-
-    public static string? DatabaseServer => Environment.GetEnvironmentVariable("OTANTIKPOS_TEST_DB");
+    public static string? DatabaseServer => Environment.GetEnvironmentVariable("HRPAYROLL_TEST_DB");
 
     public IServiceProvider Services => _factory.Services;
 
-    // `settings`: more of the till's settings, for a test that needs one.
-    public static async Task<TestApi> StartAsync(IReadOnlyDictionary<string, string>? settings = null)
+    // The accountant's user id, once AccountantAsync has made them.
+    public string? AccountantId { get; private set; }
+
+    // `settings`: more of the API's settings, for a test that needs one.
+    public static Task<TestApi> StartAsync(IReadOnlyDictionary<string, string>? settings = null)
     {
         if (DatabaseServer is null)
-            Assert.Skip("Set OTANTIKPOS_TEST_DB to a PostgreSQL 15+ connection string (without Database=) to run the API tests.");
+            Assert.Skip("Set HRPAYROLL_TEST_DB to a PostgreSQL 15+ connection string (without Database=) to run the API tests.");
 
-        var api = new TestApi();
-        await api.Cloud.StartAsync();
-        api._connectionString = $"{DatabaseServer};Database=otantik_api_test_{Guid.NewGuid():N}";
+        var api = new TestApi { _connectionString = $"{DatabaseServer};Database=hr_api_test_{Guid.NewGuid():N}" };
 
         // UseSetting, not ConfigureAppConfiguration: Program reads the connection string and the
         // signing key while building, before anything added later would be seen. "Testing", so
-        // appsettings.Development.json and its real database stay out of it.
+        // appsettings.Development.json and its database stay out of it.
         api._factory = new WebApplicationFactory<Program>().WithWebHostBuilder(web =>
         {
             web.UseEnvironment("Testing");
-            web.UseSetting("ConnectionStrings:OtantikPos", api._connectionString);
+            web.UseSetting($"ConnectionStrings:{HrPayroll.Infrastructure.DependencyInjection.ConnectionStringName}", api._connectionString);
             web.UseSetting("Auth:SigningKey", "test-only-signing-key-0123456789-0123456789");
-            web.UseSetting("Auth:BootstrapManager:Name", "Boss");
-            web.UseSetting("Auth:BootstrapManager:Pin", BossPin);
-            web.UseSetting("DeliverySystem:BaseUrl", api.Cloud.BaseUrl);
-            web.UseSetting("DeliverySystem:NodeKey", FakeDeliverySystem.NodeKey);
-            web.UseSetting("Printing:Printers:Kitchen:Host", "127.0.0.1");
-            web.UseSetting("Printing:Printers:Kitchen:Port", api.Kitchen.Port.ToString());
-            web.UseSetting("Printing:Printers:Receipt:Host", "127.0.0.1");
-            web.UseSetting("Printing:Printers:Receipt:Port", api.Receipts.Port.ToString());
+            web.UseSetting("Auth:FirstManager:Email", BossEmail);
+            web.UseSetting("Auth:FirstManager:Name", "Boss");
+            web.UseSetting("Auth:FirstManager:Password", BossPassword);
             foreach (var (key, value) in settings ?? new Dictionary<string, string>())
                 web.UseSetting(key, value);
             web.ConfigureLogging(logging => logging.ClearProviders());
         });
 
-        // Starts the host: migration, the bootstrap manager, then every background worker.
+        // Starts the host: migration, then the first manager.
         _ = api._factory.Server;
-
-        Assert.True(await WaitFor(() => api.Db(db => db.Staff.AnyAsync(s => s.Id == CashierId))), "The menu and staff never arrived from the fake delivery system.");
-        return api;
+        return Task.FromResult(api);
     }
 
     public HttpClient Anonymous() => _factory.CreateClient();
 
-    public HttpClient Anonymous(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions options) => _factory.CreateClient(options);
+    public HttpClient Anonymous(WebApplicationFactoryClientOptions options) => _factory.CreateClient(options);
 
-    public async Task<HttpClient> SignInAsync(string staffId, string pin)
+    public async Task<HttpClient> SignInAsync(string email, string password)
     {
         var client = _factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/api/auth/sign-in", new SignInRequest(staffId, pin));
-        Assert.True(response.IsSuccessStatusCode, $"Sign-in as {staffId} failed: {(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}");
+        var response = await client.PostAsJsonAsync("/api/auth/sign-in", new SignInRequest(email, password));
+        Assert.True(response.IsSuccessStatusCode, $"Sign-in as {email} failed: {(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}");
         var signedIn = (await response.Content.ReadFromJsonAsync<SignInResponse>(Json))!;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", signedIn.Token);
         return client;
     }
 
-    public async Task<HttpClient> ManagerAsync()
-    {
-        var staff = await Anonymous().GetFromJsonAsync<List<SignInOption>>("/api/auth/staff", Json);
-        return await SignInAsync(staff!.Single(s => s.FullName == "Boss").Id, BossPin);
-    }
+    public Task<HttpClient> ManagerAsync() => SignInAsync(BossEmail, BossPassword);
 
-    // Sara, given a PIN by the manager the way a restaurant would.
-    public async Task<HttpClient> CashierAsync(HttpClient manager)
-    {
-        var response = await manager.PutAsJsonAsync($"/api/staff/{CashierId}/pin", new SetPinRequest(CashierPin));
-        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
-        return await SignInAsync(CashierId, CashierPin);
-    }
-
-    // Mona, the accountant, given a PIN by the manager.
+    // Mona, the accountant, added by the manager as a user.
     public async Task<HttpClient> AccountantAsync(HttpClient manager)
     {
-        var response = await manager.PutAsJsonAsync($"/api/staff/{AccountantId}/pin", new SetPinRequest(AccountantPin));
-        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
-        return await SignInAsync(AccountantId, AccountantPin);
+        if (AccountantId is null)
+        {
+            var response = await manager.PostAsJsonAsync("/api/users", new CreateUserRequest(AccountantEmail, "Mona", UserRole.Accountant, AccountantPassword), Json);
+            Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+            AccountantId = (await response.Content.ReadFromJsonAsync<UserDto>(Json))!.Id;
+        }
+
+        return await SignInAsync(AccountantEmail, AccountantPassword);
     }
 
-    // A till's live connection, as the Angular app opens it: a WebSocket with the token in the
-    // query string, since a browser cannot put it in a header there.
-    public async Task<HubConnection> ConnectTillAsync(HttpClient signedIn, ConcurrentQueue<Order> received, ConcurrentQueue<DeliverySystemLinkStatus>? links = null)
+    // The outsider's name, as the employee lists show them.
+    public const string OutsiderName = "Outsider";
+
+    // Someone signed in who holds no HR tab: an employee in the portal, given none. Their token is
+    // good, and refused (403) everywhere but their own portal.
+    public async Task<HttpClient> OutsiderAsync()
+    {
+        var mobile = "0109" + Random.Shared.Next(1_000_000, 9_999_999).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<HrDbContext>();
+            var outsider = new HrPayroll.Domain.Employees.Employee(
+                Guid.NewGuid(), OutsiderName, "Clerk", 3_000, new TimeOnly(9, 0), HrPayroll.Domain.Employees.WeekDays.Friday, new DateOnly(2026, 1, 1));
+            outsider.SetMobileNumber(mobile);
+            outsider.SetPinHash(scope.ServiceProvider.GetRequiredService<IPinHasher>().Hash("1357"));
+            db.Employees.Add(outsider);
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/employee-login", new EmployeeLoginRequest(mobile, "1357"));
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var signedIn = (await response.Content.ReadFromJsonAsync<EmployeeSignInResponse>(Json))!;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", signedIn.Token);
+        return client;
+    }
+
+    // The HR screens' live connection, as the Angular app opens it: a WebSocket with the token in
+    // the query string, since a browser cannot put it in a header there.
+    public async Task<HubConnection> ConnectHubAsync(HttpClient signedIn, ConcurrentQueue<IReadOnlyList<EmployeeStatusDto>> received)
     {
         var token = signedIn.DefaultRequestHeaders.Authorization!.Parameter;
         var server = _factory.Server;
         var connection = new HubConnectionBuilder()
-            .WithUrl(new Uri(server.BaseAddress, $"/hubs/till?access_token={token}"), o =>
+            .WithUrl(new Uri(server.BaseAddress, $"/hubs/hr?access_token={token}"), o =>
             {
                 o.Transports = HttpTransportType.WebSockets;
                 o.HttpMessageHandlerFactory = _ => server.CreateHandler();
@@ -132,27 +137,18 @@ public sealed class TestApi : IAsyncDisposable
             })
             .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()))
             .Build();
-        connection.On<Order>("OrderChanged", received.Enqueue);
-        if (links is not null)
-            connection.On<DeliverySystemLinkStatus>("DeliverySystemLinkChanged", links.Enqueue);
+        connection.On<IReadOnlyList<EmployeeStatusDto>>("EmployeeStatusChanged", received.Enqueue);
         await connection.StartAsync();
         return connection;
     }
 
-    // What the reference-data sync does when the delivery system's staff or menu change.
-    public async Task ApplyReferenceDataAsync(ReferenceData data)
+    public async Task<T> Db<T>(Func<HrDbContext, Task<T>> query)
     {
         await using var scope = Services.CreateAsyncScope();
-        await scope.ServiceProvider.GetRequiredService<ReferenceDataApplier>().ApplyAsync(data, DateTime.UtcNow, CancellationToken.None);
+        return await query(scope.ServiceProvider.GetRequiredService<HrDbContext>());
     }
 
-    public async Task<T> Db<T>(Func<NodeDbContext, Task<T>> query)
-    {
-        await using var scope = Services.CreateAsyncScope();
-        return await query(scope.ServiceProvider.GetRequiredService<NodeDbContext>());
-    }
-
-    // On the Stopwatch, which a laptop's sleep does not move; see the Infrastructure tests.
+    // On the Stopwatch, which a laptop's sleep does not move.
     public static async Task<bool> WaitFor(Func<Task<bool>> condition, int seconds = 15)
     {
         var waited = Stopwatch.StartNew();
@@ -168,27 +164,16 @@ public sealed class TestApi : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await _factory.DisposeAsync();
-        await Cloud.DisposeAsync();
-        Kitchen.Dispose();
-        Receipts.Dispose();
 
-        var options = new DbContextOptionsBuilder<NodeDbContext>().UseNpgsql(_connectionString).Options;
-        await using var db = new NodeDbContext(options, new OutboxSignal());
+        var options = new DbContextOptionsBuilder<HrDbContext>().UseNpgsql(_connectionString).Options;
+        await using var db = new HrDbContext(options);
         await db.Database.EnsureDeletedAsync();
     }
 }
 
 public static class HttpAssertions
 {
-    // The response as the shared Order, or a failure that shows what the API said instead.
-    public static async Task<Order> OrderFrom(Task<HttpResponseMessage> request)
-    {
-        var response = await request;
-        Assert.True(response.IsSuccessStatusCode, $"{(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
-        return (await response.Content.ReadFromJsonAsync<Order>(TestApi.Json))!;
-    }
-
-    // What the till would show: errors[0] of the ProblemDetails.
+    // What the app would show: errors[0] of the ProblemDetails.
     public static async Task<string?> ErrorOf(HttpResponseMessage response)
     {
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();

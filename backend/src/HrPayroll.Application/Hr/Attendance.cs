@@ -1,13 +1,13 @@
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Payroll;
-using OtantikPos.Inventory.Application.Approvals;
-using OtantikPos.Inventory.Application.Common;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Payroll;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // Attendance (الحضور والانصراف): the punches the devices send and managers enter, and each day as
 // the timesheet works it out from them. The days are worked out when they are read, from the
@@ -126,7 +126,7 @@ internal sealed class Timesheets(
     IAdministrativePenaltyRepository penalties,
     IPublicHolidayRepository holidays,
     IAttendanceSettings settings,
-    IRecordDescriptions clock)
+    IWorkClock clock)
 {
     public async Task<(AttendancePolicy Policy, IReadOnlyList<EmployeeSheet> Sheets)> ReadAsync(
         IReadOnlyList<Employee> people, DateOnly from, DateOnly to, CancellationToken cancellationToken)
@@ -236,7 +236,7 @@ internal static class FinalizedMonths
     }
 }
 
-// A punch the device missed, entered by a manager with the reason. PunchId is made by the till.
+// A punch the device missed, entered by a manager with the reason. PunchId is made by the app.
 public sealed record AddManualPunchCommand(Guid PunchId, Guid EmployeeId, DateTime PunchedAt, string Reason, string StaffName)
     : IRequest<PunchDto>, IRetryOnConflict;
 
@@ -381,7 +381,7 @@ internal sealed class SetAdministrativePenaltyHandler(
     }
 }
 
-// A device's punch that came after its month's pay was finalized (the till away while the device
+// A device's punch that came after its month's pay was finalized (the system away while the device
 // kept it): the slip stays as it was, and a manager sees to it in a later month's pay.
 public sealed record LatePunchDto(EmployeeDto Employee, DateOnly Day, DateOnly Month, DateTime FinalizedAtUtc, PunchDto Punch);
 
@@ -390,7 +390,7 @@ public sealed record LatePunchDto(EmployeeDto Employee, DateOnly Day, DateOnly M
 public sealed record GetLatePunchesQuery : IRequest<IReadOnlyList<LatePunchDto>>;
 
 internal sealed class GetLatePunchesHandler(
-    IEmployeeRepository employees, IPayrollSlipRepository slips, IAttendanceLogRepository logs, IRecordDescriptions clock)
+    IEmployeeRepository employees, IPayrollSlipRepository slips, IAttendanceLogRepository logs, IWorkClock clock)
     : IRequestHandler<GetLatePunchesQuery, IReadOnlyList<LatePunchDto>>
 {
     public const int MonthsBack = 12;
@@ -520,7 +520,7 @@ internal sealed class GetSuspendedDaysHandler(IEmployeeRepository employees, Tim
 }
 
 // A suspended day resolved: the manager's punch-out for the punch-in left without one, after it
-// and within the day, and the day worked out again from it. PunchId is made by the till.
+// and within the day, and the day worked out again from it. PunchId is made by the app.
 public sealed record ResolveSuspendedDayCommand(Guid PunchId, Guid EmployeeId, DateOnly Date, DateTime PunchedOutAt, string Reason, string StaffName)
     : IRequest<AttendanceDayDto>, IRetryOnConflict;
 
@@ -543,7 +543,7 @@ internal sealed class ResolveSuspendedDayHandler(
             if (request.PunchedOutAt <= punchedIn)
                 throw new DomainException($"The punch-out comes after the punch-in at {punchedIn:HH:mm}.");
             if (request.PunchedOutAt >= windowTo || request.PunchedOutAt - punchedIn > Timesheet.AbandonedAfter)
-                throw new DomainException($"The punch-out is within {Timesheet.AbandonedAfter.TotalHours:0} hours of the punch-in, on the same day's shift.");
+                throw new DomainException($"The punch-out is within {Timesheet.AbandonedAfter.TotalHours:0} hours of the punch-in, on the same day's work schedule.");
             logs.Add(AttendanceLog.Manual(request.PunchId, employee.Id, request.PunchedOutAt, request.Reason, request.StaffName));
             await unitOfWork.SaveChangesAsync(cancellationToken);
             await broadcast.ChangedAsync([employee.Id], cancellationToken);

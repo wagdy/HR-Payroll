@@ -1,15 +1,15 @@
 using System.Net;
 using System.Net.Sockets;
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Inventory.Application.Common;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
-// An attendance device reached by the till, over its own protocol (ZKTeco's, port 4370), beside
-// ADMS where the device calls the till: a manager tests that the till can reach it, and reads its
+// An attendance device reached by the system, over its own protocol (ZKTeco's, port 4370), beside
+// ADMS where the device calls the system: a manager tests that the system can reach it, and reads its
 // users and its attendance log at once. What is read is kept as ADMS keeps it: its punches once
 // each, its users by number and name for the Employees tab. A device read for the first time is
 // approved by that: a manager gave its address and asked.
@@ -33,8 +33,8 @@ public sealed record DeviceSyncResult(string SerialNumber, string DeviceName, bo
 
 internal static class DeviceAddresses
 {
-    // An address on the restaurant's own network, or this machine: an IPv4 address in the
-    // private ranges, link-local or loopback. The till does not reach out further than that.
+    // An address on the business's own network, or this machine: an IPv4 address in the
+    // private ranges, link-local or loopback. The system does not reach out further than that.
     public static IPAddress Check(string? address, int port)
     {
         if (port is < 1 or > 65535)

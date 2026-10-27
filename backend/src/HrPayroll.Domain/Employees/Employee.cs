@@ -1,8 +1,8 @@
 using System.Text.RegularExpressions;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Access;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Access;
 
-namespace OtantikPos.Hr.Domain.Employees;
+namespace HrPayroll.Domain.Employees;
 
 // The days of the week as flags: the days an employee is off every week. Fixed values, so a row
 // keeps its meaning whatever is added.
@@ -37,12 +37,12 @@ public static class WeekDaysExtensions
     public static WeekDays Of(DayOfWeek day) => (WeekDays)(1 << (int)day);
 }
 
-// Someone on the payroll (الموظفين): the kitchen, the floor, cleaning, the managers. Not a till
-// account: most never sign in to a till, and the ones who do are linked to theirs
-// (StaffMemberId). Punches from the attendance device find them by the user number they have on
+// Someone on the payroll (الموظفين): every department, the managers too. Not a system user:
+// most never sign in to the system (they have the self-service portal), and the ones who do are
+// linked to their user account (UserAccountId). Punches from the attendance device find them by the user number they have on
 // it (DeviceUserId).
 //
-// A shift is nine hours, from the time it starts (ShiftStartsAt). Someone on flexible hours has
+// A work schedule is nine hours, from the time it starts (ShiftStartsAt). Someone on flexible hours has
 // no start time: nothing is late for them, and their day is the hours they punch. They are paid
 // monthly or daily (EmploymentType): a monthly salary is thirty days' whatever the month's
 // length, a day costing it over 30; a daily wage is a day's. An hour is a day's over 9, which is
@@ -62,7 +62,7 @@ public sealed partial class Employee : AggregateRoot
     public const int MaxIdPhotoFileNameLength = 200;
 
     // The self-service portal's PIN: 4 to 6 digits. A PIN has few possibilities, so guessing has
-    // to be slow: five misses lock it for five minutes, as a till PIN does.
+    // to be slow: five misses lock it for five minutes.
     public const int MinPinLength = 4;
     public const int MaxPinLength = 6;
     public const int MaxFailedPinAttempts = 5;
@@ -87,7 +87,7 @@ public sealed partial class Employee : AggregateRoot
         WeekDays daysOff,
         DateOnly hiredOn,
         string? deviceUserId = null,
-        string? staffMemberId = null)
+        string? userAccountId = null)
     {
         Id = id;
         Rename(name);
@@ -96,7 +96,7 @@ public sealed partial class Employee : AggregateRoot
         SetShift(shiftStartsAt);
         SetDaysOff(daysOff);
         LinkDevice(deviceUserId);
-        LinkStaff(staffMemberId);
+        LinkUserAccount(userAccountId);
         HiredOn = hiredOn;
         IsActive = true;
         CreatedAtUtc = DateTime.UtcNow;
@@ -121,7 +121,7 @@ public sealed partial class Employee : AggregateRoot
     public string? IdPhotoUploadedBy { get; private set; }
     public bool HasIdPhoto => IdPhotoContentType is not null;
 
-    // What they do (الوظيفة): chef, waiter, cashier; their role's name once they hold one.
+    // What they do (الوظيفة): accountant, technician; their role's name once they hold one.
     public string JobTitle { get; private set; } = string.Empty;
 
     // Their role in their department; none only before roles were kept.
@@ -151,8 +151,8 @@ public sealed partial class Employee : AggregateRoot
     // Their user number on the attendance device (رقم البصمة). Null until they are enrolled.
     public string? DeviceUserId { get; private set; }
 
-    // Their till account, when they have one.
-    public string? StaffMemberId { get; private set; }
+    // Their system user account, when they have one.
+    public string? UserAccountId { get; private set; }
 
     // Employed from this day; to LeftOn, their last day, once they have left.
     public DateOnly HiredOn { get; private set; }
@@ -191,7 +191,7 @@ public sealed partial class Employee : AggregateRoot
     {
         var trimmed = jobTitle?.Trim() ?? string.Empty;
         if (trimmed.Length == 0)
-            throw new DomainException("Enter what the employee does: chef, waiter, cashier.");
+            throw new DomainException("Enter what the employee does: accountant, technician, sales representative.");
         if (trimmed.Length > MaxJobTitleLength)
             throw new DomainException($"Keep the job title under {MaxJobTitleLength} characters.");
         JobTitle = trimmed;
@@ -207,7 +207,7 @@ public sealed partial class Employee : AggregateRoot
         if (amount < 0)
             throw new DomainException(type == EmploymentType.Daily ? "A daily wage is zero or more." : "A salary is zero or more.");
         if (amount > (type == EmploymentType.Daily ? MaxDailyWage : MaxMonthlySalary))
-            throw new DomainException($"That {(type == EmploymentType.Daily ? "wage" : "salary")} is more than a till can pay; check the amount.");
+            throw new DomainException($"That {(type == EmploymentType.Daily ? "wage" : "salary")} is more than the system takes; check the amount.");
         var money = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
         EmploymentType = type;
         MonthlySalary = type == EmploymentType.Monthly ? money : 0;
@@ -374,8 +374,8 @@ public sealed partial class Employee : AggregateRoot
             PinHash = rehashed;
     }
 
-    public void LinkStaff(string? staffMemberId) =>
-        StaffMemberId = string.IsNullOrWhiteSpace(staffMemberId) ? null : staffMemberId.Trim();
+    public void LinkUserAccount(string? userAccountId) =>
+        UserAccountId = string.IsNullOrWhiteSpace(userAccountId) ? null : userAccountId.Trim();
 
     // The day they started, put right.
     public void ChangeStart(DateOnly hiredOn)

@@ -1,4 +1,4 @@
-namespace Otantik.BuildingBlocks;
+namespace HrPayroll.Domain.Common;
 
 // The exceptions use cases throw on purpose, one per status code the API answers with. Kept
 // apart from DomainException (a business rule refused the change), so the API can tell "no

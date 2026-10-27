@@ -1,11 +1,11 @@
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Inventory.Application.Approvals;
-using OtantikPos.Inventory.Application.Common;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // The attendance devices (أجهزة البصمة) and what they push (ZKTeco ADMS, the API's /iclock). A
 // device first heard from is kept as waiting, and refused, until a manager approves it by name:
@@ -22,9 +22,9 @@ public sealed record DeviceCommandDto(
 }
 
 // A device, and its newest commands, newest first.
-// CallingIn: it has called the till over ADMS in the last few minutes, so its punches come as
-// they are made; otherwise only when the till reads it. ClockAheadMinutes: its last punch came
-// stamped this far ahead of when it reached the till, so its clock is fast and its punches count
+// CallingIn: it has called the system over ADMS in the last few minutes, so its punches come as
+// they are made; otherwise only when the system reads it. ClockAheadMinutes: its last punch came
+// stamped this far ahead of when it reached the system, so its clock is fast and its punches count
 // at the wrong times; none when its clock is right (or behind, which cannot be told apart from a
 // punch kept while it was away and sent late).
 public sealed record AttendanceDeviceDto(
@@ -32,7 +32,7 @@ public sealed record AttendanceDeviceDto(
     DateTime LastSeenAtUtc, string? LastAddress, IReadOnlyList<DeviceCommandDto> Commands, DateTime? LastCalledInAtUtc, bool CallingIn,
     int? ClockAheadMinutes)
 {
-    // A punch can arrive a little ahead of the till's clock; this far, the device's clock is wrong.
+    // A punch can arrive a little ahead of the system's clock; this far, the device's clock is wrong.
     public static readonly TimeSpan ClockTolerance = TimeSpan.FromMinutes(10);
 
     public static AttendanceDeviceDto From(AttendanceDevice d, IEnumerable<DeviceCommand>? commands = null, int? clockAheadMinutes = null) => new(
@@ -44,7 +44,7 @@ public sealed record AttendanceDeviceDto(
 public sealed record GetAttendanceDevicesQuery : IRequest<IReadOnlyList<AttendanceDeviceDto>>;
 
 internal sealed class GetAttendanceDevicesHandler(
-    IAttendanceDeviceRepository devices, IDeviceCommandRepository commands, IAttendanceLogRepository logs, IRecordDescriptions clock)
+    IAttendanceDeviceRepository devices, IDeviceCommandRepository commands, IAttendanceLogRepository logs, IWorkClock clock)
     : IRequestHandler<GetAttendanceDevicesQuery, IReadOnlyList<AttendanceDeviceDto>>
 {
     public async Task<IReadOnlyList<AttendanceDeviceDto>> Handle(GetAttendanceDevicesQuery request, CancellationToken cancellationToken)
@@ -124,7 +124,7 @@ public sealed record DevicePunchesResult(int Received, int Kept);
 // whole log read again) is not kept twice. Each goes to the employee with its user number, or
 // waits for one to have it. Null when the device is not approved: nothing it sends is taken.
 //
-// A device keeps its punches while the till is away (the laptop off the network) and sends them
+// A device keeps its punches while the system is away (its server off the network) and sends them
 // all when it is back: any number, saved a thousand at a time. The days are worked out from the
 // punches' own times, so past days come out as if they had arrived on time. One that arrives for
 // a month whose pay is finalized is kept, and Corrections lists it for a manager.
@@ -223,7 +223,7 @@ public sealed record QueueDeviceCommandCommand(Guid DeviceId, DeviceCommandKind 
     : IRequest<DeviceCommandDto>, IRetryOnConflict;
 
 internal sealed class QueueDeviceCommandHandler(
-    IAttendanceDeviceRepository devices, IDeviceCommandRepository commands, IRecordDescriptions clock, IUnitOfWork unitOfWork)
+    IAttendanceDeviceRepository devices, IDeviceCommandRepository commands, IWorkClock clock, IUnitOfWork unitOfWork)
     : IRequestHandler<QueueDeviceCommandCommand, DeviceCommandDto>
 {
     // Its whole log is a year or two at most.
@@ -313,7 +313,7 @@ internal sealed class RecordDeviceUsersHandler(IAttendanceDeviceRepository devic
     }
 }
 
-// A user on a device: who has their number on the till, if anyone, and how many of their punches
+// A user on a device: who has their number in the system, if anyone, and how many of their punches
 // wait for someone to have it.
 public sealed record DeviceUserDto(
     Guid Id, string DeviceSerialNumber, string? DeviceName, string DeviceUserId, string Name, DateTime LastSeenAtUtc, Guid? EmployeeId,

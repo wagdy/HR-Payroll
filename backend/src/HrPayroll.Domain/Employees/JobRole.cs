@@ -1,8 +1,8 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Employees;
+namespace HrPayroll.Domain.Employees;
 
-// A job role in a department (الوظيفة): the kitchen's chef and helper, service's waiter and
+// A job role in a department (الوظيفة): sales' representative and team lead, operations' technician and
 // captain. An employee holds one of their department's roles, and is titled by its name. One name
 // to a department; a role is renamed for everyone holding it, and deleted once they hold another.
 public sealed class JobRole : AggregateRoot
@@ -27,7 +27,7 @@ public sealed class JobRole : AggregateRoot
     {
         var trimmed = name?.Trim() ?? string.Empty;
         if (trimmed.Length == 0)
-            throw new DomainException("Give the role its name: chef, waiter, cashier.");
+            throw new DomainException("Give the role its name: accountant, technician, sales representative.");
         if (trimmed.Length > MaxNameLength)
             throw new DomainException($"Keep the role's name under {MaxNameLength} characters.");
         Name = trimmed;

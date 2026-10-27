@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.StaticFiles;
 
-namespace OtantikPos.Node.Api.Hosting;
+namespace HrPayroll.Api.Hosting;
 
 // The Angular app, built into wwwroot. Served from here, the tills load the UI and call the API
 // on one origin, from the one machine that has to be running anyway, with or without internet.
@@ -26,7 +26,7 @@ internal static class SpaHosting
         await context.Response.SendFileAsync(index);
     }
 
-    // index.html is always revalidated, so a till picks up a new build on its next reload.
+    // index.html is always revalidated, so a browser picks up a new build on its next reload.
     // Everything else the Angular build emits has a content hash in its name and can be cached
     // for good.
     public static void SetCacheHeaders(StaticFileResponseContext context) =>

@@ -1,9 +1,9 @@
 using MediatR;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Employees;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Employees;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // A day's labour cost (تكلفة يوم): a quick reference, not the payroll. Everyone who punched in on
 // the day, at their day's rate (a monthly salary over 30, or their daily wage), by department.

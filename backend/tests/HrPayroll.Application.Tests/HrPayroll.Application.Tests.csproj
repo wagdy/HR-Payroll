@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- The use cases, wired as the app wires them, against in-memory fakes. Runs on Microsoft.Testing.Platform (the repository's global.json opts dotnet
+       test in); the project is an executable too, so `dotnet run` runs the tests. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -9,13 +11,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="xunit.v3" Version="4.0.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\otantik-pos\backend\src\OtantikPos.Ordering.Application\OtantikPos.Ordering.Application.csproj" />
-    <ProjectReference Include="..\..\otantik-pos\backend\src\OtantikPos.Inventory.Application\OtantikPos.Inventory.Application.csproj" />
+    <PackageReference Include="xunit.v3" Version="4.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HrPayroll.Application\HrPayroll.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

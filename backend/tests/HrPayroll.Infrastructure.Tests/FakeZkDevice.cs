@@ -4,7 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace OtantikPos.Node.Infrastructure.Tests;
+namespace HrPayroll.Infrastructure.Tests;
 
 // A ZKTeco attendance device on its own port, as far as the till can tell: the protocol's frames,
 // a session, a comm key when one is set, and its user table and attendance log handed over
@@ -99,7 +99,7 @@ public sealed class FakeZkDevice : IDisposable
 
                     if (command == Auth)
                     {
-                        authenticated = data.AsSpan().SequenceEqual(OtantikPos.Node.Infrastructure.Hr.ZkTeco.ZkClient.CommKey(CommKey, Session));
+                        authenticated = data.AsSpan().SequenceEqual(HrPayroll.Infrastructure.Hr.ZkTeco.ZkClient.CommKey(CommKey, Session));
                         await Answer(authenticated ? Ok : Unauthorized);
                         continue;
                     }

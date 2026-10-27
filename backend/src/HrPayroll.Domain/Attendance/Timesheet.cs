@@ -1,7 +1,7 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Employees;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Employees;
 
-namespace OtantikPos.Hr.Domain.Attendance;
+namespace HrPayroll.Domain.Attendance;
 
 public enum DayStatus
 {
@@ -110,13 +110,13 @@ public sealed record DayEvaluation(
 // suspended for a manager: an abandoned shift is never closed by guessing.
 //
 // Flexible hours have no shift: nothing is late, early or away, and the hours past nine worked in
-// a day are overtime. Their day runs as the till's business day does, from 04:00 to 04:00, so a
-// night past midnight is one day. A working day with no punches is still an absence.
+// a day are overtime. Their day runs from 04:00 to 04:00, the workday, so a night past midnight
+// is one day. A working day with no punches is still an absence.
 public static class Timesheet
 {
     public static readonly TimeSpan DayStartsBeforeShift = TimeSpan.FromHours(6);
 
-    // When the day of someone on flexible hours starts: when the till's business day does.
+    // When the day of someone on flexible hours starts: when the workday does.
     public static readonly TimeOnly FlexibleDayStartsAt = new(4, 0);
 
     // A punch-in this long without its punch-out is an abandoned shift: suspended for a manager.

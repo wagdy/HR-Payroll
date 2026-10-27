@@ -1,12 +1,12 @@
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
-namespace OtantikPos.Node.Api.Hosting;
+namespace HrPayroll.Api.Hosting;
 
-// The attendance device's own port (Attendance:DevicePort), when the till's screens stay on its
-// machine and only the device reaches it over the network: the till listens there too (as
-// --urls says), and answers nothing there but the device's /iclock paths. Unset, as in the
-// installed till, every port answers everything.
+// The attendance device's own port (Attendance:DevicePort), when the system's screens stay on
+// its machine and only the device reaches it over the network: the API listens there too (as
+// --urls says), and answers nothing there but the device's /iclock paths. Unset, every port
+// answers everything.
 internal static class DevicePort
 {
     public const string Setting = "Attendance:DevicePort";

@@ -1,13 +1,13 @@
 using System.Globalization;
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Inventory.Application.Approvals;
-using OtantikPos.Inventory.Application.Common;
-using OtantikPos.Inventory.Domain.Approvals;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Common;
+using HrPayroll.Domain.Approvals;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // HR's employees (الموظفين): added, changed, leaving and coming back. A manager's change is made at
 // once; anyone else's is a request (module Employee), and nothing changes until a manager
@@ -74,7 +74,7 @@ public sealed record EmployeeDetails(
 {
     public decimal Pay => EmploymentType == EmploymentType.Daily ? DailyWage : MonthlySalary;
 
-    public Guid Department => DepartmentId ?? OtantikPos.Hr.Domain.Employees.Department.GeneralId;
+    public Guid Department => DepartmentId ?? HrPayroll.Domain.Employees.Department.GeneralId;
 }
 
 // What a request holds: the details (a new employee, or a change), or that they leave or return.
@@ -219,7 +219,7 @@ internal sealed class EmployeeWriter(
         return role;
     }
 
-    // "New employee · Hassan · Chef · L.E 5,400.00 a month", and what it changes, line by line.
+    // "New employee · Hassan · Accountant · 5,400.00 a month", and what it changes, line by line.
     public async Task<(string Summary, ApprovalAction Action, IReadOnlyList<ApprovalChange> Changes)> DescribeAsync(
         Guid employeeId, EmployeeRequest request, CancellationToken cancellationToken)
     {
@@ -247,7 +247,7 @@ internal sealed class EmployeeWriter(
         Line("Job title", existing?.JobTitle, d.JobTitle.Trim());
         Line("Department", existing is null ? null : Department(existing.DepartmentId), Department(d.Department));
         Line("Pay", existing is null ? null : Pay(existing.EmploymentType, existing.IsDaily ? existing.DailyWage : existing.MonthlySalary), Pay(d.EmploymentType, d.Pay));
-        Line("Shift", existing is null ? null : Shift(existing.ShiftStartsAt), Shift(d.ShiftStartsAt));
+        Line("Work schedule", existing is null ? null : Shift(existing.ShiftStartsAt), Shift(d.ShiftStartsAt));
         Line("Days off", existing is null ? null : DaysOff(existing.DaysOff), DaysOff(Employees.Flags(d.DaysOff)));
         Line("Started on", existing is null ? null : Day(existing.HiredOn), Day(d.HiredOn));
         Line("Attendance device number", existing?.DeviceUserId ?? "—", string.IsNullOrWhiteSpace(d.DeviceUserId) ? "—" : d.DeviceUserId.Trim());
@@ -270,9 +270,9 @@ internal sealed class EmployeeWriter(
     private static string DaysOff(WeekDays days) =>
         days == WeekDays.None ? "None" : string.Join(", ", Employees.DaysOf(days).Select(d => Invariant.DateTimeFormat.GetAbbreviatedDayName(d)));
 
-    private static string Money(decimal value) => $"L.E {value.ToString("N2", Invariant)}";
+    private static string Money(decimal value) => value.ToString("N2", Invariant);
 
-    // "L.E 5,400.00 a month", or "L.E 250.00 a day" for daily pay.
+    // "5,400.00 a month", or "250.00 a day" for daily pay.
     private static string Pay(EmploymentType type, decimal amount) => $"{Money(amount)} {(type == EmploymentType.Daily ? "a day" : "a month")}";
 
     private static string Day(DateOnly day) => day.ToString("d MMM yyyy", Invariant);
@@ -286,7 +286,7 @@ internal sealed class GetEmployeesHandler(IEmployeeRepository employees) : IRequ
         (await employees.GetAllAsync(cancellationToken)).Select(EmployeeDto.From).ToList();
 }
 
-// An employee added or changed, leaving or coming back. RequestId is made by the till: a retry
+// An employee added or changed, leaving or coming back. RequestId is made by the app: a retry
 // finds what was made, or asked.
 public sealed record ChangeEmployeeCommand(
     Guid EmployeeId, Guid RequestId, EmployeeRequest Change, string? Reason, string StaffId, string StaffName, bool CanApprove)

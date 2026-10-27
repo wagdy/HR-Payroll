@@ -1,7 +1,7 @@
 using System.Globalization;
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Attendance;
+namespace HrPayroll.Domain.Attendance;
 
 public enum DeviceCommandKind
 {
@@ -12,7 +12,7 @@ public enum DeviceCommandKind
     ReadAttendance = 2,
 }
 
-// A command the till leaves for an attendance device (ZKTeco ADMS). The device asks for one every
+// A command the system leaves for an attendance device (ZKTeco ADMS). The device asks for one every
 // few seconds (getrequest) and is handed the oldest waiting, as "C:<number>:<command>"; it answers
 // on devicecmd with that number and a return code, 0 when done. What it brings back comes as an
 // upload like any other. Numbered per device, as the device knows them only by number.
@@ -60,7 +60,7 @@ public sealed class DeviceCommand : AggregateRoot
 
     public void Sent(DateTime now) => SentAtUtc ??= now;
 
-    // Its first answer is kept: a device sends one again when it missed the till's reply.
+    // Its first answer is kept: a device sends one again when it missed the system's reply.
     public void Answered(int returnCode, DateTime now)
     {
         if (AnsweredAtUtc is not null)

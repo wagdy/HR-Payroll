@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/backend/" />
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/HrPayroll.Domain/HrPayroll.Domain.csproj" />
+    <Project Path="backend/src/HrPayroll.Application/HrPayroll.Application.csproj" />
+    <Project Path="backend/src/HrPayroll.Infrastructure/HrPayroll.Infrastructure.csproj" />
+    <Project Path="backend/src/HrPayroll.Api/HrPayroll.Api.csproj" />
+  </Folder>
+  <Folder Name="/backend/tests/">
+    <Project Path="backend/tests/HrPayroll.Domain.Tests/HrPayroll.Domain.Tests.csproj" />
+    <Project Path="backend/tests/HrPayroll.Application.Tests/HrPayroll.Application.Tests.csproj" />
+    <Project Path="backend/tests/HrPayroll.Infrastructure.Tests/HrPayroll.Infrastructure.Tests.csproj" />
+    <Project Path="backend/tests/HrPayroll.Api.Tests/HrPayroll.Api.Tests.csproj" />
+  </Folder>
+</Solution>

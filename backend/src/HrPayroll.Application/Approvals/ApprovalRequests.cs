@@ -1,42 +1,18 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Inventory.Application.Categories;
-using OtantikPos.Inventory.Application.Common;
-using OtantikPos.Inventory.Application.Hr;
-using OtantikPos.Inventory.Application.Production;
-using OtantikPos.Inventory.Application.Purchases;
-using OtantikPos.Inventory.Application.RawMaterials;
-using OtantikPos.Inventory.Application.Treasury;
-using OtantikPos.Inventory.Domain.Approvals;
-using OtantikPos.Inventory.Domain.RawMaterials;
-using OtantikPos.Inventory.Domain.Recipes;
-using OtantikPos.Inventory.Domain.StockMovements;
+using HrPayroll.Domain.Common;
+using HrPayroll.Application.Common;
+using HrPayroll.Application.Hr;
+using HrPayroll.Domain.Approvals;
 
-namespace OtantikPos.Inventory.Application.Approvals;
+namespace HrPayroll.Application.Approvals;
 
-// Maker-checker for the costing modules. Whoever may decide (ApprovalDecide) acts at once;
-// anyone else asks, and nothing changes until a manager approves: a deletion (Deletions.cs) in
-// recipes, purchases, waste, stock counts, raw materials, prep items and production orders, and
-// a new or changed prep item or production order (PrepItems.cs, ProductionOrders.cs). One table
-// holds them all, keyed by the record each is about; a record with a request waiting is locked.
-
-// What a summary needs from outside the inventory module: a menu item's name for a recipe
-// linked to it, and the restaurant's business date of a moment.
-public interface IRecordDescriptions
-{
-    Task<string?> MenuItemNameAsync(RecipeTargetKind kind, int catalogItemId, int? variantId, CancellationToken cancellationToken);
-
-    DateOnly BusinessDateOf(DateTime utc);
-
-    // The calendar date in the restaurant: after midnight, a day ahead of the business date
-    // until the business day starts.
-    DateOnly LocalDateOf(DateTime utc);
-
-    // The restaurant's wall clock at a moment: what an attendance device's clock shows.
-    DateTime LocalTimeOf(DateTime utc);
-}
+// Maker-checker for HR & Payroll and Custody & Assets. Whoever may decide (ApprovalDecide) acts at
+// once; anyone else asks, and nothing changes until a manager approves: an employee added or
+// changed, leaving or coming back (Employees.cs), an advance (Advances.cs), and an asset added or
+// changed or a custody voucher (Custody.cs). One table holds them all, keyed by the record each is
+// about; a record with a request waiting is locked.
 
 public enum ApprovalOutcome
 {
@@ -84,14 +60,8 @@ public static class ApprovalLocks
             throw new DomainException($"{pending.RequestedBy} has asked {What(pending)}. It can be changed once a manager has decided.");
     }
 
-    // "for this to be deleted", "to change this".
-    internal static string What(ApprovalRequest pending) => pending.Action switch
-    {
-        ApprovalAction.Delete => "for this to be deleted",
-        ApprovalAction.Update => "to change this",
-        _ when pending.Module == ApprovalModule.Treasury => "to pay this",
-        _ => "for this",
-    };
+    // "to change this", "for this".
+    internal static string What(ApprovalRequest pending) => pending.Action == ApprovalAction.Update ? "to change this" : "for this";
 }
 
 // What a new or changed record holds while it waits, as JSON: enums by name, so the stored
@@ -107,26 +77,16 @@ internal static class ApprovalPayload
         ?? throw new DomainException("This request's change could not be read.");
 }
 
-// A manager's yes: what was asked is done (deleted, voided, archived, added, changed, made) and
-// the request closed, together. Approving again, after a lost answer, changes nothing. When it
-// can no longer be done (a price missing, an ingredient gone), it stays waiting, for the manager
-// to put right or reject.
+// A manager's yes: what was asked is done (added or changed) and the request closed, together.
+// Approving again, after a lost answer, changes nothing. When it can no longer be done (the
+// employee has left since), it stays waiting, for the manager to put right or reject.
 public sealed record ApproveRequestCommand(Guid RequestId, string StaffName) : IRequest<ApprovalRequestDto>, IRetryOnConflict;
 
 internal sealed class ApproveRequestHandler(
     IApprovalRequestRepository requests,
-    DeletionTargets deletions,
-    PrepItemWriter prepItems,
-    ProductionWriter production,
-    TreasuryWriter treasury,
-    InvoiceCorrector invoices,
-    MaterialUnitWriter units,
-    CategoryDeleter categoryDeleter,
     EmployeeWriter employees,
     HrAdvanceWriter hrAdvances,
     Custody.CustodyWriter custody,
-    IRawMaterialRepository materials,
-    IStockMovementRepository movements,
     IUnitOfWork unitOfWork) : IRequestHandler<ApproveRequestCommand, ApprovalRequestDto>
 {
     public async Task<ApprovalRequestDto> Handle(ApproveRequestCommand request, CancellationToken cancellationToken)
@@ -138,34 +98,12 @@ internal sealed class ApproveRequestHandler(
         approval.Approve(request.StaffName);
         switch (approval.Action, approval.Module)
         {
-            // A category deleted, what is in it moved and converted as asked, and saved with it.
-            case (ApprovalAction.Delete, ApprovalModule.PurchaseCategory):
-                await categoryDeleter.ApplyApprovedAsync(
-                    approval.RecordId, ApprovalPayload.Read<CategoryDeletion>(approval), approval.Id, request.StaffName, cancellationToken);
-                break;
-
-            case (ApprovalAction.Delete, _):
-                foreach (var reversal in await deletions.DeleteAsync(approval.Module, approval.RecordId, request.StaffName, cancellationToken))
-                    movements.Add(reversal);
-                break;
-
-            case (_, ApprovalModule.PrepItem):
-                await prepItems.SaveAsync(
-                    ApprovalPayload.Read<PrepItemChange>(approval), approval.Action == ApprovalAction.Update ? approval.RecordId : null,
-                    approval.RecordId, cancellationToken);
-                break;
-
-            case (ApprovalAction.Create, ApprovalModule.ProductionOrder):
-                await production.MakeAsync(
-                    ApprovalPayload.Read<ProductionChange>(approval), approval.RequestedBy, request.StaffName, cancellationToken);
-                break;
-
             // An employee added, changed, leaving or coming back, as asked.
             case (_, ApprovalModule.Employee):
                 await employees.ApplyAsync(approval.RecordId, ApprovalPayload.Read<EmployeeRequest>(approval), cancellationToken);
                 break;
 
-            // An advance paid outside the till, recorded in HR only.
+            // An advance, recorded as asked.
             case (ApprovalAction.Create, ApprovalModule.Advance):
                 await hrAdvances.ApplyAsync(approval.RecordId, ApprovalPayload.Read<HrAdvanceInput>(approval), approval.RequestedBy, request.StaffName, cancellationToken);
                 break;
@@ -173,30 +111,6 @@ internal sealed class ApproveRequestHandler(
             // An asset added or changed, or a custody voucher, as asked; by who asked.
             case (_, ApprovalModule.Custody):
                 await custody.ApplyAsync(approval.RecordId, ApprovalPayload.Read<Custody.CustodyRequest>(approval), approval.RequestedBy, cancellationToken);
-                break;
-
-            case (ApprovalAction.Create, ApprovalModule.Treasury):
-                await treasury.ApplyAsync(ApprovalPayload.Read<SafeVoucher>(approval), approval.RequestedBy, request.StaffName, cancellationToken);
-                break;
-
-            // An invoice corrected: the original voided, the correction posted in its place.
-            case (ApprovalAction.Update, ApprovalModule.PurchaseInvoice):
-                await invoices.ApplyAsync(
-                    await invoices.OriginalAsync(approval.RecordId, cancellationToken), ApprovalPayload.Read<InvoiceCorrection>(approval),
-                    approval.RequestedBy, request.StaffName, cancellationToken);
-                break;
-
-            // A material counted in another unit: everything recorded restated, and saved with it.
-            case (ApprovalAction.Update, ApprovalModule.RawMaterial):
-                await units.ApplyAsync(
-                    await materials.GetRequiredAsync(approval.RecordId, cancellationToken), ApprovalPayload.Read<MaterialUnitChange>(approval), approval.Id,
-                    cancellationToken);
-                break;
-
-            case (ApprovalAction.Update, ApprovalModule.ProductionOrder):
-                await production.ReviseAsync(
-                    await production.OrderAsync(approval.RecordId, cancellationToken), ApprovalPayload.Read<ProductionChange>(approval),
-                    by: request.StaffName, approvedBy: request.StaffName, cancellationToken);
                 break;
 
             default:
@@ -236,29 +150,4 @@ internal sealed class GetApprovalRequestsHandler(IApprovalRequestRepository requ
         request.Decided > 0
             ? (await requests.GetDecidedAsync(request.Decided, cancellationToken)).Select(ApprovalRequestDto.From).ToList()
             : []);
-}
-
-// What approving a batch waiting for it would move, worked out now: each ingredient taken at its
-// average cost at this moment, and the prep item put in at their total. For a correction, also
-// the batch it replaces, whose entries go back first: the manager sees the net movement. What the
-// manager signs off on. Null for any other request.
-public sealed record ApprovalPreviewDto(ProductionPreviewDto Batch, ProductionOrderDto? Replaces);
-
-public sealed record GetApprovalPreviewQuery(Guid RequestId) : IRequest<ApprovalPreviewDto?>;
-
-internal sealed class GetApprovalPreviewHandler(IApprovalRequestRepository requests, ProductionWriter production, IRawMaterialRepository materials)
-    : IRequestHandler<GetApprovalPreviewQuery, ApprovalPreviewDto?>
-{
-    public async Task<ApprovalPreviewDto?> Handle(GetApprovalPreviewQuery request, CancellationToken cancellationToken)
-    {
-        var approval = await requests.GetRequiredAsync(request.RequestId, cancellationToken);
-        if (approval.Module != ApprovalModule.ProductionOrder || approval.Action == ApprovalAction.Delete || !approval.IsPending)
-            return null;
-        var change = ApprovalPayload.Read<ProductionChange>(approval);
-        var batch = await production.PreviewAsync(change.PrepItemId, change.PlannedQuantity, change.ProducedQuantity, cancellationToken);
-        if (approval.Action != ApprovalAction.Update)
-            return new ApprovalPreviewDto(batch, null);
-        var replaced = await production.OrderAsync(approval.RecordId, cancellationToken);
-        return new ApprovalPreviewDto(batch, ProductionOrderDto.From(replaced, (await materials.GetAllAsync(cancellationToken)).ToDictionary(m => m.Id)));
-    }
 }

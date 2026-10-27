@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Attendance;
+namespace HrPayroll.Domain.Attendance;
 
 public enum PunchSource
 {
@@ -85,7 +85,7 @@ public sealed class AttendanceLog : AggregateRoot
         };
     }
 
-    // Its id is made by the till, so a retried one is entered once.
+    // Its id is made by the system, so a retried one is entered once.
     public static AttendanceLog Manual(Guid id, Guid employeeId, DateTime punchedAt, string reason, string recordedBy) =>
         new(PunchSource.Manual, employeeId, punchedAt)
         {

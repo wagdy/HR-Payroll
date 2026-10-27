@@ -1,18 +1,18 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Custody;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Leaves;
-using OtantikPos.Hr.Domain.Performance;
-using OtantikPos.Hr.Domain.Payroll;
-using OtantikPos.Inventory.Application.Hr;
-using OtantikPos.Inventory.Domain.Waste;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Custody;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Leaves;
+using HrPayroll.Domain.Performance;
+using HrPayroll.Domain.Payroll;
+using HrPayroll.Application.Hr;
+using HrPayroll.Domain.Approvals;
 
-namespace OtantikPos.Application.Tests;
+namespace HrPayroll.Application.Tests;
 
-// HR's records in memory, as the till's database keeps them.
+// HR's records in memory, as the database keeps them.
 public sealed class HrStore
 {
     public EmployeeStore Employees { get; } = new();
@@ -30,6 +30,8 @@ public sealed class HrStore
     public SlipStore Slips { get; } = new();
     public AllocationStore Allocations { get; } = new();
     public HrAdvanceStore HrAdvances { get; } = new();
+    public SalaryPaymentStore Payments { get; } = new();
+    public ApprovalRequestStore Approvals { get; } = new();
     public AssetCategoryStore AssetCategories { get; } = new();
     public StaffHrAccessStore StaffHrAccess { get; } = new();
     public LeaveTypeStore LeaveTypes { get; } = new();
@@ -40,7 +42,6 @@ public sealed class HrStore
     public DisciplinaryStore Disciplinary { get; } = new();
     public AssetItemStore Assets { get; } = new();
     public AssetTransactionStore AssetVouchers { get; } = new();
-    public BreakageStore Breakage { get; } = new();
     public PlainPinHasher Pins { get; } = new();
     public AttendanceSettingsStore Settings { get; } = new();
     public AttendanceNotifications Notifications { get; } = new();
@@ -262,13 +263,13 @@ public sealed class DeviceLink : IAttendanceDeviceLink
             : new DeviceProbe(false, $"No answer from {address} on port {port}."));
 
     public Task<DeviceReading> ReadAsync(string address, int port, int commKey, CancellationToken cancellationToken) =>
-        Holds is { } d ? Task.FromResult(d) : throw new Otantik.BuildingBlocks.DomainException($"No answer from {address} on port {port}.");
+        Holds is { } d ? Task.FromResult(d) : throw new HrPayroll.Domain.Common.DomainException($"No answer from {address} on port {port}.");
 }
 
 public sealed class AllocationStore : ListStore<AdvanceAllocation>, IAdvanceAllocationRepository
 {
-    public Task<IReadOnlyList<AdvanceAllocation>> GetForAdvancesAsync(IReadOnlyCollection<Guid> sourceTransactionIds, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<AdvanceAllocation>>(Items.Where(a => sourceTransactionIds.Contains(a.SourceId)).ToList());
+    public Task<IReadOnlyList<AdvanceAllocation>> GetForAdvancesAsync(IReadOnlyCollection<Guid> advanceIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AdvanceAllocation>>(Items.Where(a => advanceIds.Contains(a.AdvanceId)).ToList());
 
     public Task<IReadOnlyList<AdvanceAllocation>> GetForPayrollMonthAsync(DateOnly month, Guid? employeeId = null, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<AdvanceAllocation>>(Items.Where(a => a.PayrollMonth == month && (employeeId == null || a.EmployeeId == employeeId)).ToList());
@@ -281,6 +282,24 @@ public sealed class HrAdvanceStore : ListStore<HrAdvance>, IHrAdvanceRepository
 
     public Task<IReadOnlyList<HrAdvance>> GetPendingAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<HrAdvance>>(Items.Where(a => a.IsPending && !a.IsVoided).ToList());
+}
+
+public sealed class SalaryPaymentStore : ListStore<SalaryPayment>, ISalaryPaymentRepository
+{
+    public Task<IReadOnlyList<SalaryPayment>> GetForPayrollMonthAsync(DateOnly month, Guid? employeeId = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<SalaryPayment>>(Items.Where(p => p.PayrollMonth == month && (employeeId == null || p.EmployeeId == employeeId)).ToList());
+}
+
+public sealed class ApprovalRequestStore : ListStore<ApprovalRequest>, IApprovalRequestRepository
+{
+    public Task<IReadOnlyList<ApprovalRequest>> GetPendingAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ApprovalRequest>>(Items.Where(r => r.IsPending).OrderBy(r => r.RequestedAtUtc).ToList());
+
+    public Task<IReadOnlyList<ApprovalRequest>> GetDecidedAsync(int take, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ApprovalRequest>>(Items.Where(r => !r.IsPending).OrderByDescending(r => r.DecidedAtUtc).Take(take).ToList());
+
+    public Task<ApprovalRequest?> GetPendingForAsync(Guid recordId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(r => r.IsPending && r.RecordId == recordId));
 }
 
 public sealed class StaffHrAccessStore : ListStore<StaffHrAccess>, IStaffHrAccessRepository
@@ -302,22 +321,14 @@ public sealed class AssetCategoryStore : ListStore<AssetCategory>, IAssetCategor
 
 public sealed class AssetItemStore : ListStore<AssetItem>, IAssetItemRepository
 {
-    public Task<IReadOnlyList<AssetItem>> GetAllAsync(AssetOrigin? origin = null, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<AssetItem>>(Items.Where(a => origin is null || a.Origin == origin).OrderBy(a => a.Name).ToList());
+    public Task<IReadOnlyList<AssetItem>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AssetItem>>(Items.OrderBy(a => a.Name).ToList());
 
     public Task<IReadOnlyList<AssetItem>> GetInCustodyOfAsync(Guid employeeId, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<AssetItem>>(Items.Where(a => a.EmployeeId == employeeId && a.Status == AssetStatus.InCustody).ToList());
 
     public Task<bool> AnyInCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Items.Any(a => a.CategoryId == categoryId));
-
-    public Task<AssetItem?> GetBySourceLineAsync(Guid invoiceLineId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Items.SingleOrDefault(a => a.SourceInvoiceLineId == invoiceLineId));
-
-    public Task<IReadOnlyList<AssetItem>> GetFromInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<AssetItem>>(Items.Where(a => a.SourceInvoiceId == invoiceId).ToList());
-
-    public void Remove(AssetItem asset) => Items.Remove(asset);
 }
 
 public sealed class AssetTransactionStore : ListStore<AssetTransaction>, IAssetTransactionRepository
@@ -332,16 +343,7 @@ public sealed class AssetTransactionStore : ListStore<AssetTransaction>, IAssetT
         Task.FromResult(Items.Any(t => t.AssetItemId == assetItemId));
 }
 
-public sealed class BreakageStore : ListStore<BreakageEntry>, IBreakageEntryRepository
-{
-    public Task<IReadOnlyList<BreakageEntry>> GetBetweenAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<BreakageEntry>>(Items.Where(b => b.BusinessDate >= from && b.BusinessDate <= to).ToList());
-
-    public Task<BreakageEntry?> GetForTransactionAsync(Guid assetTransactionId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Items.SingleOrDefault(b => b.AssetTransactionId == assetTransactionId));
-}
-
-// A PIN "hashed" as itself, reversed: enough for the use cases, never what the till keeps.
+// A PIN "hashed" as itself, reversed: enough for the use cases, never what the database keeps.
 public sealed class PlainPinHasher : IPinHasher
 {
     public string NobodysHash => "nobody";

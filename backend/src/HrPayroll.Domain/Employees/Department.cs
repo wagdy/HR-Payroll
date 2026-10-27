@@ -1,8 +1,8 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Employees;
+namespace HrPayroll.Domain.Employees;
 
-// A department of the restaurant (الأقسام): the kitchen, service, management. Every employee is in
+// A department of the business (الأقسام): operations, sales, management. Every employee is in
 // one. General is always there, the one employees start in, so it is renamed but never deleted;
 // another is deleted once its employees are moved to a department that stays.
 public sealed class Department : AggregateRoot

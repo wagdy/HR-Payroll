@@ -1,7 +1,7 @@
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Employees;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Employees;
 
-namespace OtantikPos.Hr.Domain.Leaves;
+namespace HrPayroll.Domain.Leaves;
 
 // The days a leave takes: those of its dates the employee would work, neither a weekly day off of
 // theirs nor a public holiday, and while employed. A Sunday to Thursday asked by one off on

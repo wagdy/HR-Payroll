@@ -1,11 +1,11 @@
 using System.Globalization;
 using System.Security.Claims;
-using OtantikPos.Hr.Domain.Access;
+using HrPayroll.Domain.Access;
 
-namespace OtantikPos.Node.Api.Auth;
+namespace HrPayroll.Api.Auth;
 
 // What an employee portal token says: the employee's id (sub, as a staff token's), the role
-// Employee (never a till role, so no staff permission is ever granted to it), when their PIN was
+// Employee (never a user role, so no user permission is ever granted to it), when their PIN was
 // set, so a new PIN, or none, signs them out at once, and the HR & Payroll tabs a manager gave
 // them, a claim each, checked against the ones they have now on every request.
 public static class PortalClaims
@@ -15,10 +15,10 @@ public static class PortalClaims
     public const string PinSetAt = "pin_set";
     public const string HrTabsClaim = "hr_tabs";
 
-    public static bool IsEmployee(ClaimsPrincipal user) => user.FindFirstValue(StaffClaims.Role) == Role;
+    public static bool IsEmployee(ClaimsPrincipal user) => user.FindFirstValue(UserClaims.Role) == Role;
 
     public static Guid? EmployeeIdOf(ClaimsPrincipal user) =>
-        IsEmployee(user) && Guid.TryParse(user.FindFirstValue(StaffClaims.Id), out var id) ? id : null;
+        IsEmployee(user) && Guid.TryParse(user.FindFirstValue(UserClaims.Id), out var id) ? id : null;
 
     // None when it names none, or is not an employee's; a name that is not a tab is left out.
     public static HrTabs HrTabsOf(ClaimsPrincipal user) =>

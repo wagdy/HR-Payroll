@@ -6,12 +6,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Options;
-using Otantik.SharedKernel.Authorization;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Node.Api.Hosting;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Access;
+using HrPayroll.Api.Hosting;
 
-namespace OtantikPos.Node.Api.Auth;
+namespace HrPayroll.Api.Auth;
 
 // An HR & Payroll endpoint's tabs (صلاحيات الموظفين): whoever holds any of them may call it.
 //   [HrTab(HrTabs.Attendance)]                  seen on the Attendance tab
@@ -117,10 +116,10 @@ public sealed class HrCaller(IHttpContextAccessor accessor, IStaffHrAccessReposi
     public bool IsEmployee => PortalClaims.IsEmployee(User);
 
     // An employee changes things as an accountant does; staff need HrManage.
-    public bool CanManage => IsEmployee || (StaffClaims.RoleOf(User) is { } role && RolePermissions.Has(role, Permissions.HrManage));
+    public bool CanManage => IsEmployee || (UserClaims.RoleOf(User) is { } role && RolePermissions.Has(role, Permissions.HrManage));
 
     // What only a manager does, in the tabs: a manager, or an employee in a tab of theirs.
-    public bool CanDecide => IsEmployee || (StaffClaims.RoleOf(User) is { } role && RolePermissions.Has(role, Permissions.ApprovalDecide));
+    public bool CanDecide => IsEmployee || (UserClaims.RoleOf(User) is { } role && RolePermissions.Has(role, Permissions.ApprovalDecide));
 
     public async Task<HrTabs> TabsAsync(CancellationToken cancellationToken = default) => tabs ??= await ReadAsync(cancellationToken);
 
@@ -129,11 +128,11 @@ public sealed class HrCaller(IHttpContextAccessor accessor, IStaffHrAccessReposi
         var user = User;
         if (PortalClaims.IsEmployee(user))
             return PortalClaims.HrTabsOf(user);
-        if (OnPortalPort || StaffClaims.RoleOf(user) is not { } role || !RolePermissions.Has(role, Permissions.HrView))
+        if (OnPortalPort || UserClaims.RoleOf(user) is not { } role || !RolePermissions.Has(role, Permissions.HrView))
             return HrTabs.None;
         if (RolePermissions.Has(role, Permissions.ApprovalDecide))
             return HrTabs.All;
-        return StaffClaims.IdOf(user) is { } staffId && await staffAccess.GetByStaffIdAsync(staffId, cancellationToken) is { } row ? row.Tabs : HrTabs.All;
+        return UserClaims.IdOf(user) is { } staffId && await staffAccess.GetByStaffIdAsync(staffId, cancellationToken) is { } row ? row.Tabs : HrTabs.All;
     }
 
     private bool OnPortalPort => PortalPort.Of(configuration) is { } port && accessor.HttpContext?.Connection.LocalPort == port;

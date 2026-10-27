@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Payroll;
+namespace HrPayroll.Domain.Payroll;
 
 // A payroll month is a calendar month, named by its first day.
 public static class PayrollMonth
@@ -31,7 +31,7 @@ public enum AdjustmentSource
     // Entered by a manager.
     Manual = 1,
 
-    // Made by the till from the timesheet: a day off worked, say.
+    // Made by the system from the timesheet: a day off worked, say.
     Automatic = 2,
 }
 

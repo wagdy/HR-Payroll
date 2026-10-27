@@ -1,12 +1,12 @@
 using MediatR;
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Node.Infrastructure.Persistence;
+namespace HrPayroll.Infrastructure.Persistence;
 
 // Runs an IRetryOnConflict request again, from a clean change tracker, when its save collides
 // with another; a few times, a moment apart. Anything else, and a conflict that persists, goes
 // back to the caller as before.
-internal sealed class RetryOnConflictBehavior<TRequest, TResponse>(NodeDbContext db) : IPipelineBehavior<TRequest, TResponse>
+internal sealed class RetryOnConflictBehavior<TRequest, TResponse>(HrDbContext db) : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
     private const int Attempts = 3;

@@ -2,19 +2,18 @@ using System.Globalization;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Otantik.SharedKernel.Authorization;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Payroll;
-using OtantikPos.Inventory.Application.Approvals;
-using OtantikPos.Inventory.Application.Hr;
-using OtantikPos.Node.Api.Auth;
-using OtantikPos.Node.Infrastructure.Excel;
-using OtantikPos.Node.Infrastructure.Identity;
-using OtantikPos.Ordering.Application.Ports;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Payroll;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Hr;
+using HrPayroll.Api.Auth;
+using HrPayroll.Infrastructure.Excel;
+using HrPayroll.Infrastructure.Identity;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Node.Api.Controllers;
+namespace HrPayroll.Api.Controllers;
 
 // HR & Payroll (الموارد البشرية والرواتب): employees, their attendance, and the monthly payroll.
 // Each endpoint is its tabs' (HrTab): a manager holds them all; an accountant, and an employee in
@@ -24,20 +23,20 @@ namespace OtantikPos.Node.Api.Controllers;
 // asked of a manager (202) and made only when approved.
 // Correcting attendance, the devices and their settings, incentives and allowances, and
 // finalizing pay are a manager's, or an employee's holding that tab in the portal (Decide).
-// Their PINs and who holds which tab are a manager's alone. Advances and salaries are safe entries
-// (POST /api/financials/vouchers, kinds EmployeeAdvance and SalaryPayment).
+// Their PINs and who holds which tab are a manager's alone. Advances and salary payments are HR
+// records, deducted from and paid against the monthly payslips.
 //
-// Times of day are the restaurant's wall clock, sent without a zone: 2026-10-12T10:00:00.
+// Times of day are the business's wall clock, sent without a zone: 2026-10-12T10:00:00.
 [ApiController]
 [Route("api/hr")]
 [HrTab(HrTabs.All)]
 [TypeFilter(typeof(HrPrivacyFilter))]
 public sealed class HrController(ISender sender) : ControllerBase
 {
-    // The till's business day, for whoever works a tab: a day's attendance, a month's pay.
+    // The workday, for whoever works a tab: a day's attendance, a month's pay.
     [HttpGet("today")]
     [HrTab(HrTabs.All)]
-    public object GetToday([FromServices] IBusinessCalendar calendar) => new { Today = calendar.BusinessDateOf(DateTime.UtcNow) };
+    public object GetToday([FromServices] IWorkClock calendar) => new { Today = calendar.WorkdayOf(DateTime.UtcNow) };
 
     // ---- Employee permissions (صلاحيات الموظفين): a manager's ----
 
@@ -45,8 +44,8 @@ public sealed class HrController(ISender sender) : ControllerBase
     [HttpGet("access")]
     [HrTab(HrTabs.All)]
     [Authorize(Policy = Permissions.ApprovalDecide)]
-    public async Task<HrAccessDto> GetAccess([FromServices] StaffDirectory staff, CancellationToken cancellationToken) =>
-        await sender.Send(new GetHrAccessQuery(await GivenAsync(staff, cancellationToken)), cancellationToken);
+    public async Task<HrAccessDto> GetAccess([FromServices] UserDirectory users, CancellationToken cancellationToken) =>
+        await sender.Send(new GetHrAccessQuery(await GivenAsync(users, cancellationToken)), cancellationToken);
 
     // An employee's tabs, ["Now", "Attendance"]: they work them in the portal from their next sign-in.
     [HttpPut("access/employees/{employeeId:guid}")]
@@ -60,18 +59,18 @@ public sealed class HrController(ISender sender) : ControllerBase
     [HrTab(HrTabs.All)]
     [Authorize(Policy = Permissions.ApprovalDecide)]
     public async Task<ActionResult<StaffHrAccessDto>> SetStaffAccess(
-        string staffId, HrTabsRequest request, [FromServices] StaffDirectory staff, CancellationToken cancellationToken)
+        string staffId, HrTabsRequest request, [FromServices] UserDirectory users, CancellationToken cancellationToken)
     {
-        if ((await GivenAsync(staff, cancellationToken)).FirstOrDefault(s => s.Id == staffId) is not { } account)
+        if ((await GivenAsync(users, cancellationToken)).FirstOrDefault(s => s.Id == staffId) is not { } account)
             return NotFound();
         return await sender.Send(new SetStaffHrTabsCommand(account, HrTabSet.Join(request.Tabs), StaffName), cancellationToken);
     }
 
-    // The till accounts given tabs: those who see HR and are not a manager, the accountants.
-    private static async Task<IReadOnlyList<HrStaffAccount>> GivenAsync(StaffDirectory staff, CancellationToken cancellationToken) =>
-        (await staff.GetTillStaffAsync(cancellationToken))
-            .Where(s => RolePermissions.Has(s.Role, Permissions.HrView) && !RolePermissions.Has(s.Role, Permissions.ApprovalDecide))
-            .Select(s => new HrStaffAccount(s.Id, s.FullName, s.Role.ToString()))
+    // The users given tabs: those who see HR and are not a manager, the accountants.
+    private static async Task<IReadOnlyList<HrStaffAccount>> GivenAsync(UserDirectory users, CancellationToken cancellationToken) =>
+        (await users.GetAllAsync(cancellationToken))
+            .Where(u => u.IsActive && RolePermissions.Has(u.Role, Permissions.HrView) && !RolePermissions.Has(u.Role, Permissions.ApprovalDecide))
+            .Select(u => new HrStaffAccount(u.Id, u.FullName, u.Role.ToString()))
             .ToList();
 
     // ---- Employees ----
@@ -121,8 +120,8 @@ public sealed class HrController(ISender sender) : ControllerBase
     // What is in their custody now (العهدة), and since when.
     [HttpGet("employees/{employeeId:guid}/custody")]
     [HrTab(HrTabs.Employees)]
-    public Task<IReadOnlyList<OtantikPos.Inventory.Application.Custody.CustodyItemDto>> GetCustody(Guid employeeId, CancellationToken cancellationToken) =>
-        sender.Send(new OtantikPos.Inventory.Application.Custody.GetEmployeeCustodyQuery(employeeId), cancellationToken);
+    public Task<IReadOnlyList<HrPayroll.Application.Custody.CustodyItemDto>> GetCustody(Guid employeeId, CancellationToken cancellationToken) =>
+        sender.Send(new HrPayroll.Application.Custody.GetEmployeeCustodyQuery(employeeId), cancellationToken);
 
     // Their portal PIN, a manager's to set: 4 to 6 digits, kept hashed, never shown. Setting one
     // signs them out of the portal and unlocks it; they sign in with their mobile number.
@@ -174,7 +173,7 @@ public sealed class HrController(ISender sender) : ControllerBase
         return NoContent();
     }
 
-    // Added under the id the till made, or changed.
+    // Added under the id the app made, or changed.
     [HttpPut("employees/{employeeId:guid}")]
     [HrTab(HrTabs.Employees, Manage = true)]
     public Task<IActionResult> SaveEmployee(Guid employeeId, SaveEmployeeRequest request, CancellationToken cancellationToken) =>
@@ -215,31 +214,31 @@ public sealed class HrController(ISender sender) : ControllerBase
     public async Task<EmployeeImportResult> ImportEmployees(IFormFile file, CancellationToken cancellationToken)
     {
         if (file.Length > MaxImportBytes)
-            throw new Otantik.BuildingBlocks.DomainException("The file is larger than 5 MB: a sheet of employees is far smaller. Is it the right file?");
+            throw new HrPayroll.Domain.Common.DomainException("The file is larger than 5 MB: a sheet of employees is far smaller. Is it the right file?");
         await using var stream = file.OpenReadStream();
         return await sender.Send(
-            new ImportEmployeesCommand(EmployeeWorkbook.Read(stream), StaffClaims.IdOf(User) ?? string.Empty, StaffName, CanApprove), cancellationToken);
+            new ImportEmployeesCommand(EmployeeWorkbook.Read(stream), UserClaims.IdOf(User) ?? string.Empty, StaffName, CanApprove), cancellationToken);
     }
 
     // Everyone employed now, in the template's columns: to file, or to add to and import again.
     [HttpGet("employees/export")]
     [HrTab(HrTabs.Employees)]
-    public async Task<IActionResult> ExportEmployees([FromServices] IBusinessCalendar calendar, CancellationToken cancellationToken)
+    public async Task<IActionResult> ExportEmployees([FromServices] IWorkClock calendar, CancellationToken cancellationToken)
     {
         var employees = (await sender.Send(new GetEmployeesQuery(), cancellationToken)).Where(e => e.IsActive).ToList();
         var departments = await sender.Send(new GetDepartmentsQuery(), cancellationToken);
-        var today = calendar.BusinessDateOf(DateTime.UtcNow).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var today = calendar.WorkdayOf(DateTime.UtcNow).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         return File(EmployeeWorkbook.Export(employees, departments), EmployeeWorkbook.ContentType, $"employees-{today}.xlsx");
     }
 
     // The month's payroll as the Payroll tab shows it, with its totals.
     [HttpGet("payroll/export")]
     [HrTab(HrTabs.Payroll)]
-    public async Task<IActionResult> ExportPayroll([FromQuery] DateOnly month, [FromServices] IBusinessCalendar calendar, CancellationToken cancellationToken)
+    public async Task<IActionResult> ExportPayroll([FromQuery] DateOnly month, [FromServices] IWorkClock calendar, CancellationToken cancellationToken)
     {
         var payroll = await sender.Send(new GetPayrollQuery(month), cancellationToken);
         var departments = (await sender.Send(new GetDepartmentsQuery(), cancellationToken)).ToDictionary(d => d.Id, d => d.Name);
-        return File(PayrollWorkbook.Export(payroll, departments, calendar.BusinessDateOf(DateTime.UtcNow)), PayrollWorkbook.ContentType, PayrollWorkbook.FileName(month));
+        return File(PayrollWorkbook.Export(payroll, departments, calendar.WorkdayOf(DateTime.UtcNow)), PayrollWorkbook.ContentType, PayrollWorkbook.FileName(month));
     }
 
     private const int MaxImportBytes = 5 * 1024 * 1024;
@@ -348,7 +347,7 @@ public sealed class HrController(ISender sender) : ControllerBase
         return NoContent();
     }
 
-    // Where a device reaches this till: the device's own port when one is set, and this
+    // Where a device reaches this system: the device's own port when one is set, and this
     // machine's addresses on its networks. No port: the one the screens are served on. The
     // employee portal's port too, when there is one: where phones on the Wi-Fi open it.
     [HttpGet("devices/connection")]
@@ -356,8 +355,8 @@ public sealed class HrController(ISender sender) : ControllerBase
     public object GetDeviceConnection([FromServices] IConfiguration configuration) =>
         new { DevicePort = Hosting.DevicePort.Of(configuration), PortalPort = Hosting.PortalPort.Of(configuration), Addresses = Hosting.DevicePort.Addresses() };
 
-    // The device reached by the till over its own port (ZKTeco's, 4370), beside ADMS: whether it
-    // answers, and what it is. A manager's, as the till reaches out for it.
+    // The device reached by the system over its own port (ZKTeco's, 4370), beside ADMS: whether
+    // it answers, and what it is. A manager's, as the system reaches out for it.
     [HttpPost("devices/test")]
     [HrTab(HrTabs.Employees | HrTabs.Devices, Decide = true)]
     public Task<DeviceProbe> TestDevice(DeviceAddressRequest request, CancellationToken cancellationToken) =>
@@ -381,7 +380,7 @@ public sealed class HrController(ISender sender) : ControllerBase
     public Task<DeviceCommandDto> ReadDeviceAttendance(Guid deviceId, ReadAttendanceRequest request, CancellationToken cancellationToken) =>
         sender.Send(new QueueDeviceCommandCommand(deviceId, DeviceCommandKind.ReadAttendance, request.From, request.To, StaffName), cancellationToken);
 
-    // The users the devices have listed, and who on the till has each number.
+    // The users the devices have listed, and who in the system has each number.
     [HttpGet("device-users")]
     [HrTab(HrTabs.Employees | HrTabs.Devices)]
     public Task<IReadOnlyList<DeviceUserDto>> GetDeviceUsers(CancellationToken cancellationToken) => sender.Send(new GetDeviceUsersQuery(), cancellationToken);
@@ -427,16 +426,15 @@ public sealed class HrController(ISender sender) : ControllerBase
     public Task<PendingAdvanceDto> DistributeAdvance(Guid advanceId, DistributeAdvanceRequest request, CancellationToken cancellationToken) =>
         sender.Send(new DistributeAdvanceCommand(advanceId, request.Shares ?? [], StaffName), cancellationToken);
 
-    // An advance paid outside the till (from the owner's own pocket, say), recorded in HR only: no
-    // cash leaves the safe or the takings. To an employee, or to no one yet (a lump sum). A
-    // manager's at once (200); anyone else's asked of a manager (202).
+    // An advance, to an employee or to no one yet (a lump sum, given out a share each), deducted
+    // from pay. A manager's at once (200); anyone else's asked of a manager (202).
     [HttpPost("advances")]
     [HrTab(HrTabs.Advances, Manage = true)]
     public async Task<IActionResult> RecordHrAdvance(RecordHrAdvanceRequest request, CancellationToken cancellationToken)
     {
         var result = await sender.Send(new RecordHrAdvanceCommand(
             request.AdvanceId, request.RequestId ?? Guid.NewGuid(), new HrAdvanceInput(request.Amount, request.Date, request.EmployeeId, request.Notes),
-            StaffClaims.IdOf(User) ?? string.Empty, StaffName, CanApprove), cancellationToken);
+            UserClaims.IdOf(User) ?? string.Empty, StaffName, CanApprove), cancellationToken);
         return result.Outcome == ApprovalOutcome.Requested ? Accepted(new ApprovalResultDto(result.Outcome, result.Request!)) : Ok(result.Advance);
     }
 
@@ -488,18 +486,30 @@ public sealed class HrController(ISender sender) : ControllerBase
     public Task<PayrollAdjustmentDto> VoidAdjustment(Guid adjustmentId, CancellationToken cancellationToken) =>
         sender.Send(new VoidPayrollAdjustmentCommand(adjustmentId, StaffName), cancellationToken);
 
+    // What an employee is paid of a finalized month's pay: never more than it still owes.
+    [HttpPost("payroll/payments")]
+    [HrTab(HrTabs.Payroll, Decide = true)]
+    public Task<SalaryPaymentDto> RecordSalaryPayment(SalaryPaymentRequest request, CancellationToken cancellationToken) =>
+        sender.Send(new RecordSalaryPaymentCommand(
+            request.PaymentId, request.EmployeeId, request.Month, request.Date, request.Amount, request.Notes, StaffName), cancellationToken);
+
+    [HttpPost("payroll/payments/{paymentId:guid}/void")]
+    [HrTab(HrTabs.Payroll, Decide = true)]
+    public Task<SalaryPaymentDto> VoidSalaryPayment(Guid paymentId, CancellationToken cancellationToken) =>
+        sender.Send(new VoidSalaryPaymentCommand(paymentId, StaffName), cancellationToken);
+
     private async Task<IActionResult> ChangeAsync(Guid employeeId, Guid requestId, EmployeeRequest change, string? reason, CancellationToken cancellationToken)
     {
         var result = await sender.Send(
-            new ChangeEmployeeCommand(employeeId, requestId, change, reason, StaffClaims.IdOf(User) ?? string.Empty, StaffName, CanApprove), cancellationToken);
+            new ChangeEmployeeCommand(employeeId, requestId, change, reason, UserClaims.IdOf(User) ?? string.Empty, StaffName, CanApprove), cancellationToken);
         return result.Outcome == ApprovalOutcome.Requested
             ? Accepted(new ApprovalResultDto(result.Outcome, result.Request!))
             : Ok(result.Employee);
     }
 
-    private string StaffName => User.FindFirst(StaffClaims.Name)?.Value ?? string.Empty;
+    private string StaffName => User.FindFirst(UserClaims.Name)?.Value ?? string.Empty;
 
-    private bool CanApprove => StaffClaims.RoleOf(User) is { } role && RolePermissions.Has(role, Permissions.ApprovalDecide);
+    private bool CanApprove => UserClaims.RoleOf(User) is { } role && RolePermissions.Has(role, Permissions.ApprovalDecide);
 }
 
 public sealed record SaveEmployeeRequest(
@@ -552,7 +562,7 @@ public sealed record ReadAttendanceRequest(DateOnly? From, DateOnly? To = null);
 
 public sealed record DistributeAdvanceRequest(IReadOnlyList<AdvanceShareRequest>? Shares);
 
-// AdvanceId and RequestId made by the till: a retry finds what was made, or asked.
+// AdvanceId and RequestId made by the app: a retry finds what was made, or asked.
 public sealed record RecordHrAdvanceRequest(Guid AdvanceId, decimal Amount, DateOnly Date, Guid? EmployeeId = null, string? Notes = null, Guid? RequestId = null);
 
 // The device's IP address; its port, 4370 unless said; its comm key, 0 (none) unless said.
@@ -562,3 +572,6 @@ public sealed record ApproveDeviceRequest(string? Name);
 
 public sealed record AdjustmentRequest(
     Guid AdjustmentId, Guid EmployeeId, DateOnly Month, AdjustmentKind Kind, decimal Amount, string? Reason = null, DateOnly? ForDay = null);
+
+// PaymentId made by the app: a retry finds the payment made.
+public sealed record SalaryPaymentRequest(Guid PaymentId, Guid EmployeeId, DateOnly Month, DateOnly Date, decimal Amount, string? Notes = null);

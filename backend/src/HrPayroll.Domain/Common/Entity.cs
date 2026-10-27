@@ -1,4 +1,4 @@
-namespace Otantik.BuildingBlocks;
+namespace HrPayroll.Domain.Common;
 
 public abstract class Entity
 {

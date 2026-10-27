@@ -1,4 +1,4 @@
-namespace Otantik.BuildingBlocks;
+namespace HrPayroll.Domain.Common;
 
 // Constrained to aggregate roots on purpose. There is no OrderItem repository: an item is
 // loaded, changed and saved through its Order, which is what keeps the order's totals and

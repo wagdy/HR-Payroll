@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace OtantikPos.Inventory.Application.Common;
+namespace HrPayroll.Application.Common;
 
 // Cells of an imported spreadsheet, as a person reads them.
 internal static class SheetText
@@ -49,3 +49,6 @@ internal static class SheetText
         return Clean(plain.ToString().Replace("\0", string.Empty))?.ToUpperInvariant() ?? string.Empty;
     }
 }
+
+// A row of an imported sheet that was left out, and why.
+public sealed record SkippedSheetRow(int Row, string? Name, string Reason);

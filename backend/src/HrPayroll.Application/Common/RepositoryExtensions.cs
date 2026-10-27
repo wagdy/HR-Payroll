@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Inventory.Application.Common;
+namespace HrPayroll.Application.Common;
 
 public static class RepositoryExtensions
 {

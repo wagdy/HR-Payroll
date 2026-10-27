@@ -1,10 +1,9 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Payroll;
-using OtantikPos.Inventory.Domain.Treasury;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Payroll;
 
-namespace Otantik.Domain.Tests;
+namespace HrPayroll.Domain.Tests;
 
 // HR's rules: who is on the payroll, how their punches become a day's hours, lateness and
 // overtime, and how a month's pay is made of it.
@@ -519,7 +518,7 @@ public class HrTests
         Assert.Throws<DomainException>(() => AdministrativePenalty.ForAmount(chef.Id, Monday, 10.255m, "Late", "Omar"));
         Assert.Throws<DomainException>(() => AdministrativePenalty.ForAmount(chef.Id, Monday, AdministrativePenalty.MaxAmount + 1, "Late", "Omar"));
 
-        // Two hours and L.E 150.50 on the Monday: 40 + 150.50 off the pay, the money apart.
+        // Two hours and 150.50 on the Monday: 40 + 150.50 off the pay, the money apart.
         var october = new DateOnly(2026, 10, 1);
         var days = PayrollMonth.Days(october).Select(d =>
             chef.IsDayOff(d) ? Nothing(d, DayStatus.DayOff)
@@ -676,53 +675,7 @@ public class HrTests
     }
 
     [Fact]
-    public void An_advance_leaves_the_safe_or_the_takings_at_once_and_counts_in_a_payroll_month()
-    {
-        var employee = Guid.NewGuid();
-        var october = new DateOnly(2026, 10, 1);
-
-        var fromSafe = SafeTransaction.EmployeeAdvance(Guid.NewGuid(), 300, Monday, employee, october, null, "Omar");
-        Assert.Equal((SafeTransactionKind.EmployeeAdvance, CashFund.Safe, -300m, (Guid?)employee, (DateOnly?)october),
-            (fromSafe.Kind, fromSafe.Fund, fromSafe.Amount, fromSafe.EmployeeId, fromSafe.PayrollMonth));
-        Assert.Null(fromSafe.ExpenseItemId);
-
-        var fromTakings = SafeTransaction.EmployeeAdvance(Guid.NewGuid(), 300, Monday, employee, october, null, "Omar", revenueDate: Monday);
-        Assert.Equal(CashFund.DayRevenue, fromTakings.Fund);
-        // Next month's pay, when October's payroll is closed; never an earlier month's.
-        Assert.Equal(new DateOnly(2026, 11, 1),
-            SafeTransaction.EmployeeAdvance(Guid.NewGuid(), 300, Monday, employee, new DateOnly(2026, 11, 1), null, "Omar").PayrollMonth);
-        Assert.Throws<DomainException>(() => SafeTransaction.EmployeeAdvance(Guid.NewGuid(), 300, Monday, employee, new DateOnly(2026, 9, 1), null, "Omar"));
-        Assert.Throws<DomainException>(() => SafeTransaction.EmployeeAdvance(Guid.NewGuid(), 300, Monday, employee, Monday, null, "Omar"));
-        Assert.Throws<DomainException>(() => SafeTransaction.EmployeeAdvance(Guid.NewGuid(), 0, Monday, employee, october, null, "Omar"));
-
-        var reversal = fromSafe.Void(Guid.NewGuid(), Friday, "Omar");
-        Assert.Equal((300m, (Guid?)employee, (DateOnly?)october), (reversal.Amount, reversal.EmployeeId, reversal.PayrollMonth));
-
-        Assert.Equal(-4_730m, SafeTransaction.SalaryPayment(Guid.NewGuid(), 4_730, new DateOnly(2026, 11, 1), employee, october, null, "Omar").Amount);
-        Assert.Throws<DomainException>(() => SafeTransaction.SalaryPayment(Guid.NewGuid(), 4_730, new DateOnly(2026, 9, 30), employee, october, null, "Omar"));
-    }
-
-    [Fact]
-    public void Advances_handed_out_with_no_one_named_are_given_out_a_share_each_from_their_own_month_on()
-    {
-        var handedOut = new DateOnly(2026, 10, 12);
-        var lump = SafeTransaction.PendingAdvance(Guid.NewGuid(), 1_000, handedOut, "Kitchen", "Sara", revenueDate: handedOut);
-        Assert.Equal((true, (Guid?)null, (DateOnly?)null, CashFund.DayRevenue, -1_000m), (lump.IsPendingAdvance, lump.EmployeeId, lump.PayrollMonth, lump.Fund, lump.Amount));
-        Assert.Throws<DomainException>(() => SafeTransaction.PendingAdvance(Guid.NewGuid(), 100, handedOut, null, "Sara", revenueDate: handedOut.AddDays(1)));
-
-        var share = new AdvanceAllocation(Guid.NewGuid(), lump.Id, false, Guid.NewGuid(), 333.335m, handedOut, new DateOnly(2026, 11, 1), "  Grill  ", "Omar");
-        Assert.Equal((333.34m, "Grill", false), (share.Amount, share.Notes, share.IsVoided));
-        Assert.Throws<DomainException>(() => new AdvanceAllocation(Guid.NewGuid(), lump.Id, false, Guid.NewGuid(), 0, handedOut, new DateOnly(2026, 10, 1), null, "Omar"));
-        // Never from the pay of a month before it was handed out.
-        Assert.Throws<DomainException>(() => new AdvanceAllocation(Guid.NewGuid(), lump.Id, false, Guid.NewGuid(), 50, handedOut, new DateOnly(2026, 9, 1), null, "Omar"));
-        share.Void("Omar");
-        Assert.True(share.IsVoided);
-        Assert.Throws<DomainException>(() => share.Void("Omar"));
-        Assert.Equal((lump.Id, (Guid?)lump.Id, (Guid?)null, false), (share.SourceId, share.SourceTransactionId, share.SourceAdvanceId, share.OutsideTill));
-    }
-
-    [Fact]
-    public void Advances_paid_outside_the_till_are_hrs_alone_paid_to_someone_or_given_out_later()
+    public void An_advance_is_hrs_record_paid_to_someone_from_a_months_pay_or_given_out_later()
     {
         var paid = new DateOnly(2026, 10, 22);
         var hassan = Guid.NewGuid();
@@ -735,11 +688,38 @@ public class HrTests
         Assert.Throws<DomainException>(() => new HrAdvance(Guid.NewGuid(), 100, paid, null, new DateOnly(2026, 10, 1), null, "Omar"));
         Assert.Throws<DomainException>(() => new HrAdvance(Guid.NewGuid(), 100, paid, hassan, new DateOnly(2026, 9, 1), null, "Omar"));
         Assert.Throws<DomainException>(() => new HrAdvance(Guid.NewGuid(), 0, paid, hassan, new DateOnly(2026, 10, 1), null, "Omar"));
-
-        var share = new AdvanceAllocation(Guid.NewGuid(), lump.Id, true, hassan, 300, paid, new DateOnly(2026, 10, 1), null, "Omar");
-        Assert.Equal((lump.Id, (Guid?)null, (Guid?)lump.Id, true), (share.SourceId, share.SourceTransactionId, share.SourceAdvanceId, share.OutsideTill));
         lump.Void("Omar");
         Assert.Throws<DomainException>(() => lump.Void("Omar"));
+    }
+
+    [Fact]
+    public void Advances_handed_out_with_no_one_named_are_given_out_a_share_each_from_their_own_month_on()
+    {
+        var handedOut = new DateOnly(2026, 10, 12);
+        var lump = new HrAdvance(Guid.NewGuid(), 1_000, handedOut, null, null, "Operations", "Sara");
+
+        var share = new AdvanceAllocation(Guid.NewGuid(), lump.Id, Guid.NewGuid(), 333.335m, handedOut, new DateOnly(2026, 11, 1), "  Night team  ", "Omar");
+        Assert.Equal((333.34m, "Night team", false, lump.Id), (share.Amount, share.Notes, share.IsVoided, share.AdvanceId));
+        Assert.Throws<DomainException>(() => new AdvanceAllocation(Guid.NewGuid(), lump.Id, Guid.NewGuid(), 0, handedOut, new DateOnly(2026, 10, 1), null, "Omar"));
+        // Never from the pay of a month before it was handed out.
+        Assert.Throws<DomainException>(() => new AdvanceAllocation(Guid.NewGuid(), lump.Id, Guid.NewGuid(), 50, handedOut, new DateOnly(2026, 9, 1), null, "Omar"));
+        share.Void("Omar");
+        Assert.True(share.IsVoided);
+        Assert.Throws<DomainException>(() => share.Void("Omar"));
+    }
+
+    [Fact]
+    public void A_salary_payment_is_of_a_months_pay_on_a_day_of_it_or_after_and_is_voided_once()
+    {
+        var october = new DateOnly(2026, 10, 1);
+        var paid = new SalaryPayment(Guid.NewGuid(), Guid.NewGuid(), october, new DateOnly(2026, 11, 1), 4_730.555m, "  Bank transfer ", "Omar");
+        Assert.Equal((4_730.56m, "Bank transfer", false), (paid.Amount, paid.Notes, paid.IsVoided));
+        Assert.Throws<DomainException>(() => new SalaryPayment(Guid.NewGuid(), Guid.NewGuid(), october, new DateOnly(2026, 9, 30), 100, null, "Omar"));
+        Assert.Throws<DomainException>(() => new SalaryPayment(Guid.NewGuid(), Guid.NewGuid(), october, october, 0, null, "Omar"));
+        Assert.Throws<DomainException>(() => new SalaryPayment(Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 10, 2), october, 100, null, "Omar"));
+        paid.Void("Omar");
+        Assert.Equal((true, "Omar"), (paid.IsVoided, paid.VoidedBy));
+        Assert.Throws<DomainException>(() => paid.Void("Omar"));
     }
 
     private static DayEvaluation Nothing(DateOnly day, DayStatus status) => new(day, status, null, null, 0, 0, 0, 0, 0, 0);

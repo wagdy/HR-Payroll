@@ -6,13 +6,12 @@ using System.Text;
 using System.Text.Json;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.SignalR.Client;
-using Otantik.SharedKernel.Orders;
-using OtantikPos.Inventory.Application.Hr;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Node.Infrastructure.Excel;
+using HrPayroll.Application.Hr;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Infrastructure.Excel;
 
-namespace OtantikPos.Node.Api.Tests;
+namespace HrPayroll.Api.Tests;
 
 // HR & Payroll through the API: employees as a manager makes them and an accountant asks for them,
 // advances out of the safe, the takings and the daily batch, the attendance device's punches, and
@@ -33,10 +32,14 @@ public class HrApiTests
         return await response.Content.ReadAsStringAsync(Cancel);
     }
 
+    // The employees listed, without the outsider: an employee too, signed in to the portal.
+    private static IEnumerable<JsonElement> Listed(JsonElement employees) =>
+        employees.EnumerateArray().Where(e => e.GetProperty("name").GetString() != TestApi.OutsiderName);
+
     private static string Iso(DateOnly day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private static async Task<DateOnly> TodayAsync(HttpClient client) =>
-        DateOnly.Parse((await Json(await client.GetAsync("/api/financials/today", Cancel))).GetProperty("today").GetString()!, CultureInfo.InvariantCulture);
+        DateOnly.Parse((await Json(await client.GetAsync("/api/hr/today", Cancel))).GetProperty("today").GetString()!, CultureInfo.InvariantCulture);
 
     private static object Employee(string name, string job, decimal salary, DateOnly hiredOn, string? device = null, string shift = "10:00:00", string[]? daysOff = null) =>
         new { requestId = Guid.NewGuid(), name, jobTitle = job, monthlySalary = salary, shiftStartsAt = shift, daysOff = daysOff ?? [], hiredOn = Iso(hiredOn), deviceUserId = device };
@@ -48,15 +51,14 @@ public class HrApiTests
         return id;
     }
 
-    private static Task<HttpResponseMessage> AdvanceAsync(HttpClient client, Guid employee, decimal amount, DateOnly date, DateOnly? fromTakingsOf = null) =>
-        client.PostAsJsonAsync("/api/financials/vouchers", new
+    private static Task<HttpResponseMessage> AdvanceAsync(HttpClient client, Guid employee, decimal amount, DateOnly date) =>
+        client.PostAsJsonAsync("/api/hr/advances", new
         {
-            requestId = Guid.NewGuid(), transactionId = Guid.NewGuid(), kind = "EmployeeAdvance", amount, date = Iso(date), employeeId = employee,
-            revenueDate = fromTakingsOf is { } day ? Iso(day) : null,
+            advanceId = Guid.NewGuid(), requestId = Guid.NewGuid(), amount, date = Iso(date), employeeId = employee,
         }, Cancel);
 
     private static async Task ApproveAsync(HttpClient manager, JsonElement asked) =>
-        await Json(await manager.PostAsJsonAsync($"/api/inventory/approval-requests/{asked.GetProperty("request").GetProperty("id").GetGuid()}/approve", new { }, Cancel));
+        await Json(await manager.PostAsJsonAsync($"/api/approval-requests/{asked.GetProperty("request").GetProperty("id").GetGuid()}/approve", new { }, Cancel));
 
     [Fact]
     public async Task Employees_are_a_managers_at_once_and_an_accountants_once_approved()
@@ -64,10 +66,10 @@ public class HrApiTests
         await using var api = await TestApi.StartAsync();
         var manager = await api.ManagerAsync();
         var accountant = await api.AccountantAsync(manager);
-        var cashier = await api.CashierAsync(manager);
+        var outsider = await api.OutsiderAsync();
         var start = new DateOnly(2026, 9, 1);
 
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.GetAsync("/api/hr/employees", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync("/api/hr/employees", Cancel)).StatusCode);
 
         var hassanId = Guid.NewGuid();
         var hassan = await Json(await manager.PutAsJsonAsync(
@@ -83,15 +85,15 @@ public class HrApiTests
         var monaId = Guid.NewGuid();
         var asked = await Json(await accountant.PutAsJsonAsync($"/api/hr/employees/{monaId}", Employee("Mona", "Waiter", 4_000, start, shift: "12:00:00"), Cancel));
         Assert.Equal("Requested", asked.GetProperty("outcome").GetString());
-        Assert.Equal("New employee · Mona · Waiter · L.E 4,000.00 a month, from 12:00", asked.GetProperty("request").GetProperty("summary").GetString());
-        Assert.Single((await Json(await manager.GetAsync("/api/hr/employees", Cancel))).EnumerateArray());
+        Assert.Equal("New employee · Mona · Waiter · 4,000.00 a month, from 12:00", asked.GetProperty("request").GetProperty("summary").GetString());
+        Assert.Single(Listed(await Json(await manager.GetAsync("/api/hr/employees", Cancel))));
         await ApproveAsync(manager, asked);
-        Assert.Equal(["Hassan", "Mona"], (await Json(await manager.GetAsync("/api/hr/employees", Cancel))).EnumerateArray().Select(e => e.GetProperty("name").GetString()));
+        Assert.Equal(["Hassan", "Mona"], Listed(await Json(await manager.GetAsync("/api/hr/employees", Cancel))).Select(e => e.GetProperty("name").GetString()));
 
         // A change asked for says what it changes, and locks the employee until it is decided.
         var raise = await Json(await accountant.PutAsJsonAsync($"/api/hr/employees/{monaId}", Employee("Mona", "Waiter", 4_500, start, shift: "12:00:00"), Cancel));
         Assert.Equal(
-            [("Pay", "L.E 4,000.00 a month", "L.E 4,500.00 a month")],
+            [("Pay", "4,000.00 a month", "4,500.00 a month")],
             raise.GetProperty("request").GetProperty("changes").EnumerateArray()
                 .Select(c => (c.GetProperty("label").GetString(), c.GetProperty("before").GetString(), c.GetProperty("after").GetString())));
         Assert.Contains("can be changed once a manager has decided", await Problem(await manager.PostAsJsonAsync(
@@ -114,7 +116,7 @@ public class HrApiTests
         await using var api = await TestApi.StartAsync();
         var manager = await api.ManagerAsync();
         var accountant = await api.AccountantAsync(manager);
-        var cashier = await api.CashierAsync(manager);
+        var outsider = await api.OutsiderAsync();
         var start = new DateOnly(2026, 9, 1);
         object Profile(string name, string? nationalId, string? mobile, decimal salary = 5_400) => new
         {
@@ -133,7 +135,7 @@ public class HrApiTests
         var profile = await Json(await accountant.GetAsync($"/api/hr/employees/{hassanId}", Cancel));
         Assert.Equal(("Hassan Mahmoud Ali", "29001010123456"), (profile.GetProperty("name").GetString(), profile.GetProperty("nationalId").GetString()));
         Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"/api/hr/employees/{Guid.NewGuid()}", Cancel)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.GetAsync($"/api/hr/employees/{hassanId}", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync($"/api/hr/employees/{hassanId}", Cancel)).StatusCode);
 
         Assert.Contains("Hassan Mahmoud Ali has national ID 29001010123456",
             await Problem(await manager.PutAsJsonAsync($"/api/hr/employees/{Guid.NewGuid()}", Profile("Karim", "29001010123456", null), Cancel)));
@@ -165,11 +167,11 @@ public class HrApiTests
             return new MultipartFormDataContent { { file, "file", name } };
         }
         var photo = $"/api/hr/employees/{hassanId}/id-photo";
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.PutAsync(photo, Upload(jpeg, "image/jpeg", "card.jpg"), Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.PutAsync(photo, Upload(jpeg, "image/jpeg", "card.jpg"), Cancel)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync(photo, Cancel)).StatusCode);
         Assert.Contains("not the photo or PDF it says it is", await Problem(await manager.PutAsync(photo, Upload([1, 2, 3], "image/jpeg", "card.jpg"), Cancel)));
         Assert.Contains("Upload a photo", await Problem(await manager.PutAsync(photo, Upload([0x47, 0x49, 0x46], "image/gif", "card.gif"), Cancel)));
-        var big = new byte[OtantikPos.Hr.Domain.Employees.Employee.MaxIdPhotoBytes + 1];
+        var big = new byte[HrPayroll.Domain.Employees.Employee.MaxIdPhotoBytes + 1];
         jpeg.CopyTo(big, 0);
         Assert.Contains("under 5 MB", await Problem(await manager.PutAsync(photo, Upload(big, "image/jpeg", "card.jpg"), Cancel)));
 
@@ -177,12 +179,12 @@ public class HrApiTests
         var idPhoto = uploaded.GetProperty("idPhoto");
         Assert.Equal(("card.jpg", "image/jpeg", 8), (idPhoto.GetProperty("fileName").GetString(), idPhoto.GetProperty("contentType").GetString(), idPhoto.GetProperty("bytes").GetInt32()));
         Assert.False(string.IsNullOrEmpty(idPhoto.GetProperty("uploadedBy").GetString()));
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.GetAsync(photo, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync(photo, Cancel)).StatusCode);
         var shown = await accountant.GetAsync(photo, Cancel);
         Assert.Equal(("image/jpeg", "nosniff"), (shown.Content.Headers.ContentType!.MediaType, shown.Headers.GetValues("X-Content-Type-Options").Single()));
         Assert.Equal(jpeg, await shown.Content.ReadAsByteArrayAsync(Cancel));
         // The list of employees says there is one, without its bytes.
-        var listed = (await Json(await manager.GetAsync("/api/hr/employees", Cancel))).EnumerateArray().Single();
+        var listed = Listed(await Json(await manager.GetAsync("/api/hr/employees", Cancel))).Single();
         Assert.Equal("card.jpg", listed.GetProperty("idPhoto").GetProperty("fileName").GetString());
 
         // Replaced by a scan; taken off by whoever manages HR.
@@ -190,7 +192,7 @@ public class HrApiTests
         var downloaded = await manager.GetAsync($"{photo}?download=true", Cancel);
         Assert.Equal(("application/pdf", "scan.pdf"), (downloaded.Content.Headers.ContentType!.MediaType, downloaded.Content.Headers.ContentDisposition!.FileName));
         Assert.Equal(pdf, await downloaded.Content.ReadAsByteArrayAsync(Cancel));
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.DeleteAsync(photo, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.DeleteAsync(photo, Cancel)).StatusCode);
         var removed = await Json(await manager.DeleteAsync(photo, Cancel));
         Assert.Equal(JsonValueKind.Null, removed.GetProperty("idPhoto").ValueKind);
         Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync(photo, Cancel)).StatusCode);
@@ -204,7 +206,6 @@ public class HrApiTests
         await using var api = await TestApi.StartAsync();
         var manager = await api.ManagerAsync();
         var accountant = await api.AccountantAsync(manager);
-        var cashier = await api.CashierAsync(manager);
         var today = await TodayAsync(manager);
         var day = today.AddDays(-2);
         var month = new DateOnly(day.Year, day.Month, 1);
@@ -244,7 +245,6 @@ public class HrApiTests
 
         // The day's cost: Hassan at 180 a day and Samir at his 270, Mona not in; Hassan's two hours
         // over beside it, at 20 an hour.
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.GetAsync($"/api/hr/payroll/daily-cost?date={Iso(day)}", Cancel)).StatusCode);
         var cost = await Json(await accountant.GetAsync($"/api/hr/payroll/daily-cost?date={Iso(day)}", Cancel));
         Assert.Equal((3, 2, 450m, 40m), (cost.GetProperty("employed").GetInt32(), cost.GetProperty("worked").GetInt32(),
             cost.GetProperty("cost").GetDecimal(), cost.GetProperty("overtimePay").GetDecimal()));
@@ -268,6 +268,9 @@ public class HrApiTests
             k.GetProperty("roles").EnumerateArray().Select(r => (r.GetProperty("name").GetString(), r.GetProperty("employed").GetInt32(),
                 r.GetProperty("monthlyCost").GetDecimal(), r.GetProperty("dailyCost").GetDecimal())));
         Assert.Equal((4_050m, 0m), (departments["General"].GetProperty("monthlyCost").GetDecimal(), departments["General"].GetProperty("dailyCost").GetDecimal()));
+        // An employee signed in to the portal, with no HR tab, sees none of it.
+        var outsider = await api.OutsiderAsync();
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync($"/api/hr/payroll/daily-cost?date={Iso(day)}", Cancel)).StatusCode);
 
         // The month's total salaries, before anything is deducted, and its administrative penalties.
         Assert.Equal(HttpStatusCode.NoContent, (await manager.PutAsJsonAsync(
@@ -286,7 +289,7 @@ public class HrApiTests
         await using var api = await TestApi.StartAsync();
         var manager = await api.ManagerAsync();
         var accountant = await api.AccountantAsync(manager);
-        var cashier = await api.CashierAsync(manager);
+        var outsider = await api.OutsiderAsync();
         var today = await TodayAsync(manager);
         await HireAsync(manager, "Karim", today.AddMonths(-2), "21");
         static byte[] Saved(XLWorkbook workbook)
@@ -313,7 +316,7 @@ public class HrApiTests
             (await Json(await manager.GetAsync("/api/hr/employees", Cancel))).EnumerateArray().ToDictionary(e => e.GetProperty("name").GetString()!);
 
         // The template: its headings, nothing on it to import by mistake, and the departments.
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.GetAsync("/api/hr/employees/template", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync("/api/hr/employees/template", Cancel)).StatusCode);
         var download = await accountant.GetAsync("/api/hr/employees/template", Cancel);
         Assert.True(download.IsSuccessStatusCode);
         Assert.Equal((EmployeeWorkbook.ContentType, EmployeeWorkbook.TemplateFileName),
@@ -340,7 +343,7 @@ public class HrApiTests
             ["Youssef", "Monthly", 4000, "Service", "Waiter", "12:00", "", "", "33"],
         ]);
         var filled = Saved(template);
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.PostAsync("/api/hr/employees/import", Upload(filled), Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.PostAsync("/api/hr/employees/import", Upload(filled), Cancel)).StatusCode);
         var result = await Json(await manager.PostAsync("/api/hr/employees/import", Upload(filled), Cancel));
         Assert.Equal(
             [("Hassan Ali", "Kitchen", "Chef", false), ("منى سعيد", "Kitchen", "Helper", false)],
@@ -350,9 +353,9 @@ public class HrApiTests
         Assert.Equal(
             [
                 (4, "Hassan Ali is on the sheet twice: row 2 has them already."),
-                (5, "Shift start: \"25:00\" is not a time of day. Write it as 10:00 or 16:30, or Flexible (مرن)."),
+                (5, "Work schedule start: \"25:00\" is not a time of day. Write it as 10:00 or 16:30, or Flexible (مرن)."),
                 (6, "Number 7 is on the sheet twice: row 2 has it already."),
-                (7, "Karim is on the till already."),
+                (7, "Karim is in the system already."),
                 (8, "Days off: \"Funday\" is not a day of the week. Write them as Friday, Saturday or الجمعة، السبت."),
                 (9, "Employment type: \"Weekly\" is neither Monthly nor Daily (شهري أو يومي)."),
                 (10, "No start date: the day they started, which their first month's pay counts from."),
@@ -377,10 +380,10 @@ public class HrApiTests
         // The same sheet again adds no one twice.
         var again = await Json(await manager.PostAsync("/api/hr/employees/import", Upload(filled), Cancel));
         Assert.Empty(again.GetProperty("imported").EnumerateArray());
-        Assert.Contains((2, "Hassan Ali is on the till already."), Skipped(again));
+        Assert.Contains((2, "Hassan Ali is in the system already."), Skipped(again));
 
         // An accountant's, headed in Arabic in an order of its own: each asked of a manager, and a
-        // department not on the till left for a manager to add.
+        // department not in the system left for a manager to add.
         using var arabic = new XLWorkbook();
         var theirs = arabic.Worksheets.Add("موظفين");
         string[] headings = ["الاسم", "القسم", "الوظيفة", "الراتب", "بداية الوردية", "تاريخ التعيين"];
@@ -391,25 +394,27 @@ public class HrApiTests
         var asked = await Json(await accountant.PostAsync("/api/hr/employees/import", Upload(arabicFile), Cancel));
         Assert.Equal([("Samir", "Chef", true)], asked.GetProperty("imported").EnumerateArray()
             .Select(e => (e.GetProperty("name").GetString(), e.GetProperty("jobTitle").GetString(), e.GetProperty("requested").GetBoolean())));
-        Assert.Equal([(3, "Bar is not a department on the till: a manager adds it on the Departments tab first.")], Skipped(asked));
+        Assert.Equal([(3, "Bar is not a department in the system: a manager adds it on the Departments tab first.")], Skipped(asked));
         Assert.Empty(asked.GetProperty("departmentsAdded").EnumerateArray());
         Assert.False((await Employees()).ContainsKey("Samir"));
         Assert.Equal([(2, "Samir is asked for already, waiting for a manager's approval.")],
             Skipped(await Json(await accountant.PostAsync("/api/hr/employees/import", Upload(arabicFile), Cancel))).Take(1));
-        var request = (await Json(await manager.GetAsync("/api/inventory/approval-requests", Cancel))).GetProperty("pending").EnumerateArray()
+        var request = (await Json(await manager.GetAsync("/api/approval-requests", Cancel))).GetProperty("pending").EnumerateArray()
             .Single(r => r.GetProperty("module").GetString() == "Employee");
-        Assert.Equal("New employee · Samir · Chef · L.E 6,000.00 a month, from 09:30", request.GetProperty("summary").GetString());
-        await Json(await manager.PostAsJsonAsync($"/api/inventory/approval-requests/{request.GetProperty("id").GetGuid()}/approve", new { }, Cancel));
+        Assert.Equal("New employee · Samir · Chef · 6,000.00 a month, from 09:30", request.GetProperty("summary").GetString());
+        await Json(await manager.PostAsJsonAsync($"/api/approval-requests/{request.GetProperty("id").GetGuid()}/approve", new { }, Cancel));
         Assert.Equal(kitchen.GetProperty("roles")[0].GetProperty("id").GetGuid(), (await Employees())["Samir"].GetProperty("jobRoleId").GetGuid());
 
         // Everyone employed, exported in the template's columns: read back, it makes them again.
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.GetAsync("/api/hr/employees/export", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync("/api/hr/employees/export", Cancel)).StatusCode);
         var export = await accountant.GetAsync("/api/hr/employees/export", Cancel);
         Assert.True(export.IsSuccessStatusCode);
         Assert.Equal($"employees-{Iso(today)}.xlsx", export.Content.Headers.ContentDisposition!.FileNameStar);
         using var exported = new XLWorkbook(new MemoryStream(await export.Content.ReadAsByteArrayAsync(Cancel)));
         var list = exported.Worksheet(EmployeeWorkbook.DataSheetName);
         Assert.Single(list.Tables);
+        // The outsider is employed too: taken off the sheet.
+        list.RowsUsed().Skip(1).Single(r => r.Cell(1).GetString() == TestApi.OutsiderName).Delete();
         var rows = list.RowsUsed().Skip(1).ToList();
         // By department, then name.
         Assert.Equal(["Karim", "Hassan Ali", "Samir", "منى سعيد"], rows.Select(r => r.Cell(1).GetString()));
@@ -431,7 +436,7 @@ public class HrApiTests
 
         // The month's payroll for the accounts: each slip's columns, and their totals.
         var month = new DateOnly(today.Year, today.Month, 1);
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.GetAsync($"/api/hr/payroll/export?month={Iso(month)}", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync($"/api/hr/payroll/export?month={Iso(month)}", Cancel)).StatusCode);
         var payroll = await accountant.GetAsync($"/api/hr/payroll/export?month={Iso(month)}", Cancel);
         Assert.True(payroll.IsSuccessStatusCode);
         Assert.Equal($"payroll-{month:yyyy-MM}.xlsx", payroll.Content.Headers.ContentDisposition!.FileNameStar);
@@ -449,51 +454,50 @@ public class HrApiTests
     }
 
     [Fact]
-    public async Task An_advance_leaves_the_takings_at_once_and_is_owed_until_the_months_pay()
+    public async Task An_advance_is_owed_until_the_months_pay_and_an_accountants_waits_for_a_manager()
     {
         await using var api = await TestApi.StartAsync();
         var manager = await api.ManagerAsync();
         var accountant = await api.AccountantAsync(manager);
-        var cashier = await api.CashierAsync(manager);
+        var outsider = await api.OutsiderAsync();
         var today = await TodayAsync(manager);
         var month = new DateOnly(today.Year, today.Month, 1);
         var hassan = await HireAsync(manager, "Hassan", month.AddMonths(-1));
+        Task<HttpResponseMessage> Record(HttpClient client, Guid id, decimal amount, Guid? employee, string? notes = null) =>
+            client.PostAsJsonAsync("/api/hr/advances", new { advanceId = id, amount, date = Iso(today), employeeId = employee, notes }, Cancel);
+        async Task<decimal> Deducted() => (await Json(await accountant.GetAsync($"/api/hr/payroll?month={Iso(month)}", Cancel)))
+            .GetProperty("slips")[0].GetProperty("figures").GetProperty("advances").GetDecimal();
 
-        // From today's takings: out of the drawer at once, before the takings are entered.
-        var advance = await Json(await AdvanceAsync(manager, hassan, 300, today, fromTakingsOf: today));
-        Assert.Equal(("EmployeeAdvance", "DayRevenue", -300m), (advance.GetProperty("kind").GetString(), advance.GetProperty("fund").GetString(), advance.GetProperty("amount").GetDecimal()));
+        // A manager's at once, recorded once however often it is sent; refused to someone holding no tab.
+        Assert.Equal(HttpStatusCode.Forbidden, (await Record(outsider, Guid.NewGuid(), 100, hassan)).StatusCode);
+        var toHassan = Guid.NewGuid();
+        var made = await Json(await Record(manager, toHassan, 500, hassan, "Rent"));
+        Assert.Equal(("Hassan", Iso(month), "Boss", 500m), (made.GetProperty("employee").GetString(), made.GetProperty("payrollMonth").GetString(),
+            made.GetProperty("recordedBy").GetString(), made.GetProperty("amount").GetDecimal()));
+        await Json(await Record(manager, toHassan, 500, hassan, "Rent"));
 
-        // And in the daily batch, paid as the batch is.
-        var batch = await Json(await manager.PostAsJsonAsync("/api/inventory/purchase-invoices/batch", new
-        {
-            invoiceDate = Iso(today), paymentMethod = "DayRevenue", revenueDate = Iso(today), invoices = Array.Empty<object>(),
-            advances = new[] { new { transactionId = Guid.NewGuid(), employeeId = hassan, amount = 200m, notes = "Rent" } },
-        }, Cancel));
-        Assert.Equal(("Hassan", 200m, "Applied"), (batch.GetProperty("advances")[0].GetProperty("employee").GetString(),
-            batch.GetProperty("advances")[0].GetProperty("amount").GetDecimal(), batch.GetProperty("advances")[0].GetProperty("outcome").GetString()));
-        Assert.Contains("An advance is cash", await Problem(await manager.PostAsJsonAsync("/api/inventory/purchase-invoices/batch", new
-        {
-            invoiceDate = Iso(today), paymentMethod = "Credit", invoices = Array.Empty<object>(),
-            advances = new[] { new { transactionId = Guid.NewGuid(), employeeId = hassan, amount = 50m } },
-        }, Cancel)));
-
-        // An accountant's waits for a manager: no cash moves.
-        Assert.Equal(HttpStatusCode.Accepted, (await AdvanceAsync(accountant, hassan, 1_000, today, fromTakingsOf: today)).StatusCode);
-
-        var preview = await Json(await manager.GetAsync($"/api/financials/takings?day={Iso(today)}", Cancel));
-        Assert.Equal((500m, 2), (preview.GetProperty("paidOut").GetDecimal(), preview.GetProperty("employeePayments").GetInt32()));
-        var day = (await Json(await manager.GetAsync($"/api/financials/daily-cash?from={Iso(today)}&to={Iso(today)}", Cancel))).GetProperty("days")[0];
-        Assert.Equal(500m, day.GetProperty("deductions").GetDecimal());
-        Assert.Equal(["Advance to Hassan", "Advance to Hassan"], day.GetProperty("paid").EnumerateArray().Select(l => l.GetProperty("description").GetString()));
-
-        var advances = await Json(await accountant.GetAsync($"/api/financials/advances?from={Iso(month)}&to={Iso(today)}", Cancel));
-        Assert.Equal([(200m, Iso(month)), (300m, Iso(month))], advances.EnumerateArray().Select(a => (a.GetProperty("amount").GetDecimal(), a.GetProperty("payrollMonth").GetString())));
-        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.GetAsync($"/api/financials/advances?from={Iso(month)}&to={Iso(today)}", Cancel)).StatusCode);
-
-        // On this month's slip, deducted.
+        // Off this month's pay, on the slip.
+        Assert.Equal(500m, await Deducted());
         var slip = (await Json(await accountant.GetAsync($"/api/hr/payroll?month={Iso(month)}", Cancel))).GetProperty("slips")[0];
-        Assert.Equal(500m, slip.GetProperty("figures").GetProperty("advances").GetDecimal());
-        Assert.Equal(2, slip.GetProperty("advances").GetArrayLength());
+        Assert.Equal(("Rent", false), (slip.GetProperty("advances")[0].GetProperty("notes").GetString(), slip.GetProperty("advances")[0].GetProperty("isShare").GetBoolean()));
+        var allocated = (await Json(await accountant.GetAsync($"/api/hr/advances?month={Iso(month)}", Cancel))).GetProperty("allocated").EnumerateArray().Single();
+        Assert.Equal(("Direct", toHassan), (allocated.GetProperty("origin").GetString(), allocated.GetProperty("advanceId").GetGuid()));
+
+        // An accountant's waits for a manager, as their other HR entries do.
+        var asked = await Record(accountant, Guid.NewGuid(), 200, hassan);
+        Assert.True(asked.StatusCode == HttpStatusCode.Accepted, await asked.Content.ReadAsStringAsync(Cancel));
+        var request = (await Json(asked)).GetProperty("request");
+        Assert.Equal(("Advance", "Advance · Hassan · 200.00"), (request.GetProperty("module").GetString(), request.GetProperty("summary").GetString()));
+        Assert.Equal(500m, await Deducted());
+        await Json(await manager.PostAsJsonAsync($"/api/approval-requests/{request.GetProperty("id").GetGuid()}/approve", new { }, Cancel));
+        Assert.Equal(700m, await Deducted());
+
+        // Voided by a manager, while its month's pay is open.
+        Assert.Equal(HttpStatusCode.Forbidden, (await accountant.PostAsync($"/api/hr/advances/{toHassan}/void", null, Cancel)).StatusCode);
+        await Json(await manager.PostAsync($"/api/hr/advances/{toHassan}/void", null, Cancel));
+        Assert.Equal(200m, await Deducted());
+        Assert.Contains("already been voided", await Problem(await manager.PostAsync($"/api/hr/advances/{toHassan}/void", null, Cancel)));
+
         // The month is not over: its pay is not finalized yet.
         Assert.Contains("The month is not over", await Problem(await manager.PostAsync($"/api/hr/payroll/{hassan}/finalize?month={Iso(month)}", null, Cancel)));
     }
@@ -512,44 +516,29 @@ public class HrApiTests
             client.PostAsJsonAsync($"/api/hr/advances/{advance}/distribute", new { shares }, Cancel);
         async Task<JsonElement> Advances() => await Json(await accountant.GetAsync($"/api/hr/advances?month={Iso(month)}", Cancel));
 
-        // A lump sum from today's takings, no one named (Scenario C), in the daily batch: out of the
-        // drawer at once, as any advance.
+        // A lump sum with no one named, and one paid to Hassan.
         var lump = Guid.NewGuid();
-        var batch = await Json(await manager.PostAsJsonAsync("/api/inventory/purchase-invoices/batch", new
-        {
-            invoiceDate = Iso(today), paymentMethod = "DayRevenue", revenueDate = Iso(today), invoices = Array.Empty<object>(),
-            advances = new[] { new { transactionId = lump, employeeId = (Guid?)null, amount = 1_000m, notes = "Kitchen staff" } },
-        }, Cancel));
-        Assert.Equal(("Advances, not given out yet", JsonValueKind.Null, "Applied"), (batch.GetProperty("advances")[0].GetProperty("employee").GetString(),
-            batch.GetProperty("advances")[0].GetProperty("employeeId").ValueKind, batch.GetProperty("advances")[0].GetProperty("outcome").GetString()));
-        var day = (await Json(await manager.GetAsync($"/api/financials/daily-cash?from={Iso(today)}&to={Iso(today)}", Cancel))).GetProperty("days")[0];
-        Assert.Equal((1_000m, "Advances, not given out yet"), (day.GetProperty("deductions").GetDecimal(),
-            day.GetProperty("paid")[0].GetProperty("description").GetString()));
-
-        // One paid to Hassan from the safe (Scenario B), and an accountant's lump sum, which waits for
-        // a manager as their advances do.
+        await Json(await manager.PostAsJsonAsync("/api/hr/advances", new { advanceId = lump, amount = 1_000m, date = Iso(today), employeeId = (Guid?)null, notes = "Operations team" }, Cancel));
         await Json(await AdvanceAsync(manager, hassan, 150, today));
-        var asked = await accountant.PostAsJsonAsync("/api/financials/vouchers", new
-        {
-            requestId = Guid.NewGuid(), transactionId = Guid.NewGuid(), kind = "EmployeeAdvance", amount = 400, date = Iso(today), employeeId = (Guid?)null,
-        }, Cancel);
+        // An accountant's lump sum waits for a manager, as their advances do.
+        var asked = await accountant.PostAsJsonAsync("/api/hr/advances", new { advanceId = Guid.NewGuid(), amount = 400m, date = Iso(today), employeeId = (Guid?)null }, Cancel);
         Assert.Equal(HttpStatusCode.Accepted, asked.StatusCode);
-        Assert.StartsWith("Advances, not given out yet · L.E 400.00", (await Json(asked)).GetProperty("request").GetProperty("summary").GetString());
+        Assert.StartsWith("Advances not given out yet · 400.00", (await Json(asked)).GetProperty("request").GetProperty("summary").GetString());
 
         // HR's view: Hassan's direct advance allocated; the lump sum pending, all of it.
         var seen = await Advances();
         Assert.Equal([("Direct", "Hassan", 150m)], seen.GetProperty("allocated").EnumerateArray()
             .Select(a => (a.GetProperty("origin").GetString(), a.GetProperty("employee").GetString(), a.GetProperty("amount").GetDecimal())));
         var pending = seen.GetProperty("pending").EnumerateArray().Single();
-        Assert.Equal((lump, 1_000m, 0m, 1_000m, false, Iso(today), "Kitchen staff"), (pending.GetProperty("id").GetGuid(), pending.GetProperty("amount").GetDecimal(),
+        Assert.Equal((lump, 1_000m, 0m, 1_000m, false, "Operations team"), (pending.GetProperty("id").GetGuid(), pending.GetProperty("amount").GetDecimal(),
             pending.GetProperty("allocated").GetDecimal(), pending.GetProperty("remaining").GetDecimal(), pending.GetProperty("fullyAllocated").GetBoolean(),
-            pending.GetProperty("fromTakingsOf").GetString(), pending.GetProperty("notes").GetString()));
+            pending.GetProperty("notes").GetString()));
 
         // Given out by a manager, in parts, never more than is left, one share each.
         Assert.Equal(HttpStatusCode.Forbidden, (await Distribute(accountant, lump, new { employeeId = hassan, amount = 500 })).StatusCode);
-        var part = await Json(await Distribute(manager, lump, new { employeeId = hassan, amount = 500, notes = "Grill" }));
+        var part = await Json(await Distribute(manager, lump, new { employeeId = hassan, amount = 500, notes = "Night shift" }));
         Assert.Equal((500m, 500m), (part.GetProperty("allocated").GetDecimal(), part.GetProperty("remaining").GetDecimal()));
-        Assert.Contains("L.E 500.00 of these advances is left to give out, and the shares come to L.E 600.00",
+        Assert.Contains("500.00 of these advances is left to give out, and the shares come to 600.00",
             await Problem(await Distribute(manager, lump, new { employeeId = mona, amount = 600 })));
         Assert.Contains("Mona is on the list twice", await Problem(await Distribute(manager, lump,
             new { employeeId = mona, amount = 100 }, new { employeeId = mona, amount = 100 })));
@@ -566,102 +555,23 @@ public class HrApiTests
             slips["Mona"].GetProperty("figures").GetProperty("advances").GetDecimal()));
         Assert.Equal(2, slips["Hassan"].GetProperty("advances").GetArrayLength());
         Assert.StartsWith("Share of the advances handed out on", slips["Mona"].GetProperty("advances")[0].GetProperty("notes").GetString());
+        Assert.True(slips["Mona"].GetProperty("advances")[0].GetProperty("isShare").GetBoolean());
         seen = await Advances();
         Assert.Equal(3, seen.GetProperty("allocated").GetArrayLength());
         Assert.True(seen.GetProperty("pending")[0].GetProperty("fullyAllocated").GetBoolean());
 
         // Not voided while shares of it stand; a share taken back goes back to be given out.
-        Assert.Contains("take those shares back on HR → Advances first", await Problem(await manager.PostAsJsonAsync("/api/inventory/deletion-requests", new
-        {
-            requestId = Guid.NewGuid(), module = "Treasury", recordId = lump,
-        }, Cancel)));
+        Assert.Contains("take those shares back first", await Problem(await manager.PostAsync($"/api/hr/advances/{lump}/void", null, Cancel)));
         var monasShare = all.GetProperty("shares").EnumerateArray().Single(s => s.GetProperty("employee").GetString() == "Mona").GetProperty("id").GetGuid();
         Assert.Equal(HttpStatusCode.Forbidden, (await accountant.PostAsync($"/api/hr/advance-shares/{monasShare}/take-back", null, Cancel)).StatusCode);
         var back = await Json(await manager.PostAsync($"/api/hr/advance-shares/{monasShare}/take-back", null, Cancel));
         Assert.Equal((500m, 1), (back.GetProperty("remaining").GetDecimal(), back.GetProperty("shares").GetArrayLength()));
         Assert.Equal(0m, (await Json(await accountant.GetAsync($"/api/hr/payroll?month={Iso(month)}", Cancel))).GetProperty("slips").EnumerateArray()
             .Single(s => s.GetProperty("employee").GetProperty("name").GetString() == "Mona").GetProperty("figures").GetProperty("advances").GetDecimal());
-
-        // Financials' list says it is not given out yet.
-        var financials = (await Json(await accountant.GetAsync($"/api/financials/advances?from={Iso(month)}&to={Iso(today)}", Cancel))).EnumerateArray()
-            .Single(a => a.GetProperty("id").GetGuid() == lump);
-        Assert.Equal(("Not given out yet", JsonValueKind.Null, JsonValueKind.Null), (financials.GetProperty("employee").GetString(),
-            financials.GetProperty("employeeId").ValueKind, financials.GetProperty("payrollMonth").ValueKind));
     }
 
     [Fact]
-    public async Task Advances_paid_outside_the_till_are_hrs_alone_and_come_off_the_pay_all_the_same()
-    {
-        await using var api = await TestApi.StartAsync();
-        var manager = await api.ManagerAsync();
-        var accountant = await api.AccountantAsync(manager);
-        var cashier = await api.CashierAsync(manager);
-        var today = await TodayAsync(manager);
-        var month = new DateOnly(today.Year, today.Month, 1);
-        var hassan = await HireAsync(manager, "Hassan", month.AddMonths(-1));
-        var mona = await HireAsync(manager, "Mona", month.AddMonths(-1));
-        Task<HttpResponseMessage> Record(HttpClient client, Guid id, decimal amount, Guid? employee, string? notes = null) =>
-            client.PostAsJsonAsync("/api/hr/advances", new { advanceId = id, amount, date = Iso(today), employeeId = employee, notes }, Cancel);
-        async Task<JsonElement> Advances() => await Json(await accountant.GetAsync($"/api/hr/advances?month={Iso(month)}", Cancel));
-        async Task<Dictionary<string, JsonElement>> Slips() => (await Json(await accountant.GetAsync($"/api/hr/payroll?month={Iso(month)}", Cancel)))
-            .GetProperty("slips").EnumerateArray().ToDictionary(s => s.GetProperty("employee").GetProperty("name").GetString()!);
-
-        // To Hassan, from the owner's pocket: recorded once, however often it is sent.
-        Assert.Equal(HttpStatusCode.Forbidden, (await Record(cashier, Guid.NewGuid(), 100, hassan)).StatusCode);
-        var toHassan = Guid.NewGuid();
-        var made = await Json(await Record(manager, toHassan, 500, hassan, "Rent"));
-        Assert.Equal(("Hassan", Iso(month), "Boss"), (made.GetProperty("employee").GetString(), made.GetProperty("payrollMonth").GetString(),
-            made.GetProperty("recordedBy").GetString()));
-        await Json(await Record(manager, toHassan, 500, hassan, "Rent"));
-
-        // No cash moved: the safe, the takings and Financials know nothing of it.
-        var cash = await Json(await manager.GetAsync($"/api/financials/daily-cash?from={Iso(today)}&to={Iso(today)}", Cancel));
-        Assert.Equal((0m, 0), (cash.GetProperty("deductions").GetDecimal(), cash.GetProperty("days").GetArrayLength()));
-        Assert.Empty((await Json(await accountant.GetAsync($"/api/financials/advances?from={Iso(month)}&to={Iso(today)}", Cancel))).EnumerateArray());
-
-        // But it comes off Hassan's pay, said to be paid outside the till.
-        var hassansSlip = (await Slips())["Hassan"];
-        Assert.Equal(500m, hassansSlip.GetProperty("figures").GetProperty("advances").GetDecimal());
-        Assert.Equal((true, "Rent"), (hassansSlip.GetProperty("advances")[0].GetProperty("outsideTill").GetBoolean(),
-            hassansSlip.GetProperty("advances")[0].GetProperty("notes").GetString()));
-        var allocated = (await Advances()).GetProperty("allocated").EnumerateArray().Single();
-        Assert.Equal(("Outside", true, JsonValueKind.Null), (allocated.GetProperty("origin").GetString(), allocated.GetProperty("outsideTill").GetBoolean(),
-            allocated.GetProperty("sourceTransactionId").ValueKind));
-
-        // To no one yet: a lump sum, given out as one from the till is.
-        var lump = Guid.NewGuid();
-        await Json(await Record(manager, lump, 900, null, "Eid"));
-        var pending = (await Advances()).GetProperty("pending").EnumerateArray().Single();
-        Assert.Equal((lump, 900m, true, JsonValueKind.Null), (pending.GetProperty("id").GetGuid(), pending.GetProperty("remaining").GetDecimal(),
-            pending.GetProperty("outsideTill").GetBoolean(), pending.GetProperty("fromTakingsOf").ValueKind));
-        var given = await Json(await manager.PostAsJsonAsync($"/api/hr/advances/{lump}/distribute", new { shares = new[] { new { employeeId = mona, amount = 400 } } }, Cancel));
-        Assert.Equal((500m, true), (given.GetProperty("remaining").GetDecimal(), given.GetProperty("outsideTill").GetBoolean()));
-        var monasLine = (await Slips())["Mona"].GetProperty("advances")[0];
-        Assert.Equal((400m, true), (monasLine.GetProperty("amount").GetDecimal(), monasLine.GetProperty("outsideTill").GetBoolean()));
-
-        // An accountant's waits for a manager, as their other HR entries do.
-        var asked = await Record(accountant, Guid.NewGuid(), 200, hassan);
-        Assert.True(asked.StatusCode == HttpStatusCode.Accepted, await asked.Content.ReadAsStringAsync(Cancel));
-        var request = (await Json(asked)).GetProperty("request");
-        Assert.Equal(("Advance", "Advance paid outside the till · Hassan · L.E 200.00"), (request.GetProperty("module").GetString(),
-            request.GetProperty("summary").GetString()));
-        Assert.Equal(500m, (await Slips())["Hassan"].GetProperty("figures").GetProperty("advances").GetDecimal());
-        await Json(await manager.PostAsJsonAsync($"/api/inventory/approval-requests/{request.GetProperty("id").GetGuid()}/approve", new { }, Cancel));
-        Assert.Equal(700m, (await Slips())["Hassan"].GetProperty("figures").GetProperty("advances").GetDecimal());
-
-        // Voided by a manager: a lump sum once its shares are taken back.
-        Assert.Equal(HttpStatusCode.Forbidden, (await accountant.PostAsync($"/api/hr/advances/{toHassan}/void", null, Cancel)).StatusCode);
-        Assert.Contains("take those shares back first", await Problem(await manager.PostAsync($"/api/hr/advances/{lump}/void", null, Cancel)));
-        await Json(await manager.PostAsync($"/api/hr/advance-shares/{given.GetProperty("shares")[0].GetProperty("id").GetGuid()}/take-back", null, Cancel));
-        await Json(await manager.PostAsync($"/api/hr/advances/{lump}/void", null, Cancel));
-        await Json(await manager.PostAsync($"/api/hr/advances/{toHassan}/void", null, Cancel));
-        Assert.Empty((await Advances()).GetProperty("pending").EnumerateArray());
-        Assert.Equal(200m, (await Slips())["Hassan"].GetProperty("figures").GetProperty("advances").GetDecimal());
-        Assert.Contains("already been voided", await Problem(await manager.PostAsync($"/api/hr/advances/{toHassan}/void", null, Cancel)));
-    }
-
-    [Fact]
-    public async Task A_months_pay_is_finalized_with_its_advances_and_paid_from_the_safe()
+    public async Task A_months_pay_is_finalized_with_its_advances_and_paid_by_salary_payments()
     {
         await using var api = await TestApi.StartAsync();
         var manager = await api.ManagerAsync();
@@ -672,7 +582,7 @@ public class HrApiTests
         var days = DateTime.DaysInMonth(lastMonth.Year, lastMonth.Month);
         // Started on the month's last day, which was leave: a day's share of the salary, nothing absent.
         var hassan = await HireAsync(manager, "Hassan", lastDay);
-        var first = await Json(await AdvanceAsync(manager, hassan, 50, lastDay));
+        await Json(await AdvanceAsync(manager, hassan, 50, lastDay));
         Assert.Equal(HttpStatusCode.Forbidden, (await accountant.PutAsJsonAsync($"/api/hr/employees/{hassan}/days/{Iso(lastDay)}", new { kind = "Leave" }, Cancel)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await manager.PutAsJsonAsync($"/api/hr/employees/{hassan}/days/{Iso(lastDay)}", new { kind = "Leave", notes = "Wedding" }, Cancel)).StatusCode);
         await Json(await manager.PostAsJsonAsync("/api/hr/payroll/adjustments", new
@@ -687,36 +597,32 @@ public class HrApiTests
             figures.GetProperty("baseSalary").GetDecimal(), figures.GetProperty("incentives").GetDecimal(), figures.GetProperty("advances").GetDecimal(),
             figures.GetProperty("absentDays").GetInt32(), figures.GetProperty("openDays").GetInt32()));
 
+        // Paid only once finalized.
+        object Payment(decimal amount) => new { paymentId = Guid.NewGuid(), employeeId = hassan, month = Iso(lastMonth), date = Iso(today), amount, notes = "Transfer" };
+        Assert.Contains("once it is finalized", await Problem(await manager.PostAsJsonAsync("/api/hr/payroll/payments", Payment(10), Cancel)));
+
         Assert.Equal(HttpStatusCode.Forbidden, (await accountant.PostAsync($"/api/hr/payroll/{hassan}/finalize?month={Iso(lastMonth)}", null, Cancel)).StatusCode);
         var slip = await Json(await manager.PostAsync($"/api/hr/payroll/{hassan}/finalize?month={Iso(lastMonth)}", null, Cancel));
         var net = share + 100 - 50;
         Assert.Equal(("Finalized", net, net), (slip.GetProperty("status").GetString(), slip.GetProperty("figures").GetProperty("netPayable").GetDecimal(),
             slip.GetProperty("salaryOwed").GetDecimal()));
 
-        // Finalized: its advance stays, its days and adjustments stay, and what is paid later counts next month.
-        Assert.Contains("finalized pay", await Problem(await manager.PostAsJsonAsync("/api/inventory/deletion-requests", new
-        {
-            requestId = Guid.NewGuid(), module = "Treasury", recordId = first.GetProperty("id").GetGuid(),
-        }, Cancel)));
+        // Finalized: its days stay, and an advance made later counts next month.
         Assert.Contains("is finalized", await Problem(await manager.PutAsJsonAsync($"/api/hr/employees/{hassan}/days/{Iso(lastDay)}", new { kind = (string?)null }, Cancel)));
         var later = await Json(await AdvanceAsync(manager, hassan, 70, lastDay));
         Assert.Equal(Iso(lastMonth.AddMonths(1)), later.GetProperty("payrollMonth").GetString());
 
-        // Its net paid from the safe: no more than is owed, and once.
-        object Salary(decimal amount) => new
-        {
-            requestId = Guid.NewGuid(), transactionId = Guid.NewGuid(), kind = "SalaryPayment", amount, date = Iso(today), employeeId = hassan,
-            payrollMonth = Iso(lastMonth),
-        };
-        Assert.Contains("pay that much or less", await Problem(await manager.PostAsJsonAsync("/api/financials/vouchers", Salary(net + 1), Cancel)));
-        await Json(await manager.PostAsJsonAsync("/api/financials/vouchers", Salary(net), Cancel));
-        Assert.Contains("is paid", await Problem(await manager.PostAsJsonAsync("/api/financials/vouchers", Salary(1), Cancel)));
-        var paid = (await Json(await manager.GetAsync($"/api/hr/payroll?month={Iso(lastMonth)}", Cancel))).GetProperty("slips")[0];
-        Assert.Equal((net, 0m), (paid.GetProperty("salaryPaid").GetDecimal(), paid.GetProperty("salaryOwed").GetDecimal()));
-
-        // The month's wages in the KPIs: what the work cost, the advance not counted again.
-        var kpis = await Json(await manager.GetAsync($"/api/costing/kpis?year={lastMonth.Year}&month={lastMonth.Month}", Cancel));
-        Assert.Equal(share + 100, kpis.GetProperty("statement").GetProperty("loggedWages").GetDecimal());
+        // Its net paid: no more than is owed; a payment voided is owed again.
+        Assert.Equal(HttpStatusCode.Forbidden, (await accountant.PostAsJsonAsync("/api/hr/payroll/payments", Payment(10), Cancel)).StatusCode);
+        Assert.Contains("pay that much or less", await Problem(await manager.PostAsJsonAsync("/api/hr/payroll/payments", Payment(net + 1), Cancel)));
+        var paid = await Json(await manager.PostAsJsonAsync("/api/hr/payroll/payments", Payment(net), Cancel));
+        Assert.Contains("paid in full", await Problem(await manager.PostAsJsonAsync("/api/hr/payroll/payments", Payment(1), Cancel)));
+        var settled = (await Json(await manager.GetAsync($"/api/hr/payroll?month={Iso(lastMonth)}", Cancel))).GetProperty("slips")[0];
+        Assert.Equal((net, 0m, "Transfer"), (settled.GetProperty("salaryPaid").GetDecimal(), settled.GetProperty("salaryOwed").GetDecimal(),
+            settled.GetProperty("salaries")[0].GetProperty("notes").GetString()));
+        await Json(await manager.PostAsync($"/api/hr/payroll/payments/{paid.GetProperty("id").GetGuid()}/void", null, Cancel));
+        settled = (await Json(await manager.GetAsync($"/api/hr/payroll?month={Iso(lastMonth)}", Cancel))).GetProperty("slips")[0];
+        Assert.Equal((0m, net), (settled.GetProperty("salaryPaid").GetDecimal(), settled.GetProperty("salaryOwed").GetDecimal()));
     }
 
     [Fact]
@@ -771,8 +677,8 @@ public class HrApiTests
 
         // A disciplinary action's penalty deduction on the same day: its own, beside the manager's
         // hours, in money, off the same pay.
-        var deduction = new OtantikPos.Hr.Domain.Performance.DisciplinaryAction(
-            Guid.NewGuid(), hassan, day, "Absence", OtantikPos.Hr.Domain.Performance.SeverityLevel.PenaltyDeduction, null, 250, "boss", "Boss");
+        var deduction = new HrPayroll.Domain.Performance.DisciplinaryAction(
+            Guid.NewGuid(), hassan, day, "Absence", HrPayroll.Domain.Performance.SeverityLevel.PenaltyDeduction, null, 250, "boss", "Boss");
         await api.Db(db =>
         {
             db.DisciplinaryActions.Add(deduction);
@@ -1108,9 +1014,10 @@ public class HrApiTests
         async Task<Dictionary<string, JsonElement>> Now() => (await Json(await accountant.GetAsync("/api/hr/attendance/now", Cancel)))
             .GetProperty("employees").EnumerateArray().ToDictionary(e => e.GetProperty("employee").GetProperty("name").GetString()!);
 
-        // Whoever sees HR is told each changed card as it changes, over the till's own connection.
+        // Whoever sees HR is told each changed card as it changes, over the live connection.
         var pushed = new ConcurrentQueue<EmployeeStatusDto>();
-        await using var hub = await api.ConnectTillAsync(accountant, new ConcurrentQueue<Order>());
+        var batches = new ConcurrentQueue<IReadOnlyList<EmployeeStatusDto>>();
+        await using var hub = await api.ConnectHubAsync(accountant, batches);
         hub.On<List<EmployeeStatusDto>>("EmployeeStatusChanged", statuses => statuses.ForEach(pushed.Enqueue));
         async Task<EmployeeStatusDto> Pushed(Guid employee, PresenceState state)
         {
@@ -1165,7 +1072,7 @@ public class HrApiTests
         var today = await TodayAsync(manager);
         var day = today.AddDays(-3);
         await HireAsync(manager, "Hassan", today.AddMonths(-2), "7");
-        using var k40 = new OtantikPos.Node.Infrastructure.Tests.FakeZkDevice();
+        using var k40 = new HrPayroll.Infrastructure.Tests.FakeZkDevice();
         k40.Users.AddRange([(1, "7", "Hassan"), (2, "12", "منى")]);
         k40.Punches.AddRange([
             ("7", day.ToDateTime(new TimeOnly(10, 4)), 0, 1), ("7", day.ToDateTime(new TimeOnly(19, 30)), 1, 1), ("12", day.ToDateTime(new TimeOnly(11, 0)), 0, 15),
@@ -1211,7 +1118,7 @@ public class HrApiTests
         Assert.Equal((false, 4, 1), (sync.GetProperty("newDevice").GetBoolean(), sync.GetProperty("punches").GetInt32(), sync.GetProperty("newPunches").GetInt32()));
 
         // One that called over ADMS and waits: approved by its first sync, and it keeps its serial's place.
-        using var door = new OtantikPos.Node.Infrastructure.Tests.FakeZkDevice { SerialNumber = "CQZ0000000002", Model = "K40" };
+        using var door = new HrPayroll.Infrastructure.Tests.FakeZkDevice { SerialNumber = "CQZ0000000002", Model = "K40" };
         Assert.Equal(HttpStatusCode.Forbidden, (await api.Anonymous().GetAsync("/iclock/cdata?SN=CQZ0000000002&options=all", Cancel)).StatusCode);
         sync = await Json(await manager.PostAsJsonAsync("/api/hr/devices/sync", At("127.0.0.1", door.Port), Cancel));
         Assert.Equal((false, "K40 (127.0.0.1)", 0), (sync.GetProperty("newDevice").GetBoolean(), sync.GetProperty("deviceName").GetString(), sync.GetProperty("punches").GetInt32()));

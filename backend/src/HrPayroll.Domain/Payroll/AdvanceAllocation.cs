@@ -1,22 +1,19 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Payroll;
+namespace HrPayroll.Domain.Payroll;
 
-// A share of an advance handed out with no one named (السلفيات المعلقة): a lump sum taken from a
-// day's takings or the safe as "advances" (SourceTransactionId, the cash that moved), or paid
-// outside the till and recorded in HR only (SourceAdvanceId), given out to employees later by a
-// manager, a share each. A share is deducted from its employee's pay of PayrollMonth, as an
-// advance paid to them is: the month the money was handed out, or the first after it whose pay is
-// not finalized for them. A share moves no money: it only says whose it is.
+// A share of an advance handed out with no one named (السلفيات المعلقة): a lump sum recorded as an
+// HR advance with no employee (AdvanceId), given out to employees later by a manager, a share
+// each. A share is deducted from its employee's pay of PayrollMonth, as an advance paid to them
+// is: the month the money was handed out, or the first after it whose pay is not finalized for
+// them. A share moves no money: it only says whose it is.
 public sealed class AdvanceAllocation : AggregateRoot
 {
     public const int MaxNotesLength = 300;
 
     private AdvanceAllocation() { }
 
-    // `outsideTill`: the source is an HR advance paid outside the till, not a safe entry.
-    public AdvanceAllocation(
-        Guid id, Guid sourceId, bool outsideTill, Guid employeeId, decimal amount, DateOnly date, DateOnly payrollMonth, string? notes, string allocatedBy)
+    public AdvanceAllocation(Guid id, Guid advanceId, Guid employeeId, decimal amount, DateOnly date, DateOnly payrollMonth, string? notes, string allocatedBy)
     {
         if (amount <= 0)
             throw new DomainException("Give each share an amount more than nothing.");
@@ -25,8 +22,7 @@ public sealed class AdvanceAllocation : AggregateRoot
         if (Payroll.PayrollMonth.Required(payrollMonth) < Payroll.PayrollMonth.Of(date))
             throw new DomainException("A share is deducted from the pay of the month the advance was handed out in, or a later one.");
         Id = id;
-        SourceTransactionId = outsideTill ? null : sourceId;
-        SourceAdvanceId = outsideTill ? sourceId : null;
+        AdvanceId = advanceId;
         EmployeeId = employeeId;
         Amount = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
         Date = date;
@@ -36,12 +32,8 @@ public sealed class AdvanceAllocation : AggregateRoot
         AllocatedAtUtc = DateTime.UtcNow;
     }
 
-    // The advance handed out with no one named: the safe entry the cash moved with, or the HR
-    // advance paid outside the till. One or the other.
-    public Guid? SourceTransactionId { get; private set; }
-    public Guid? SourceAdvanceId { get; private set; }
-    public Guid SourceId => SourceTransactionId ?? SourceAdvanceId!.Value;
-    public bool OutsideTill => SourceAdvanceId is not null;
+    // The advance handed out with no one named.
+    public Guid AdvanceId { get; private set; }
     public Guid EmployeeId { get; private set; }
     public decimal Amount { get; private set; }
 

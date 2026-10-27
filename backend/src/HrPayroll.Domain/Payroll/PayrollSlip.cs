@@ -1,8 +1,8 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Employees;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Employees;
 
-namespace OtantikPos.Hr.Domain.Payroll;
+namespace HrPayroll.Domain.Payroll;
 
 public enum PayrollSlipStatus
 {
@@ -77,7 +77,7 @@ public sealed record PayrollFigures(
     public decimal NetPayable => Net > 0 ? Net : 0;
     public decimal CarriedForward => Net < 0 ? -Net : 0;
 
-    // What the month's work cost the restaurant: the pay less what was deducted for time not
+    // What the month's work cost the business: the pay less what was deducted for time not
     // worked and for penalties. Advances and last month's shortfall settle what was owed; they
     // cost nothing.
     public decimal WagesCost => Gross - LatenessPenalty - AbsencePenalty - AdministrativePenalty - UnpaidLeaveDeduction;
@@ -103,7 +103,7 @@ public static class PayrollCalculator
             : day.ShortMinutes;
 
     // `days` are the month's days as the timesheet has them; an employed day without one is not
-    // worked out yet, and counts as open. `advances` are what the treasury paid them against this
+    // worked out yet, and counts as open. `advances` are what they were advanced against this
     // month, less voids; `broughtForward` what last month's slip carried over.
     public static PayrollFigures Calculate(
         Employee employee,

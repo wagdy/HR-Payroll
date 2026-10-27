@@ -1,4 +1,4 @@
-namespace OtantikPos.Hr.Domain.Access;
+namespace HrPayroll.Domain.Access;
 
 // The tabs of HR & Payroll (صلاحيات الموظفين), one bit each, and Custody & Assets beside them:
 // what a manager gives an employee, or an accountant, to see and work. A manager has them all,

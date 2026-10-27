@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Identity;
-using OtantikPos.Inventory.Application.Hr;
+using HrPayroll.Application.Hr;
 
-namespace OtantikPos.Node.Infrastructure.Identity;
+namespace HrPayroll.Infrastructure.Identity;
 
-// An employee's portal PIN, hashed as a till PIN is: ASP.NET Identity's salted, slow hash.
+// An employee's portal PIN, hashed as a password is: ASP.NET Identity's salted, slow hash.
 internal sealed class PinHasher : IPinHasher
 {
     private static readonly PasswordHasher<object> Hasher = new();

@@ -1,11 +1,12 @@
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Inventory.Application.Approvals;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // The employee self-service portal (البوابة): an employee signs in with their mobile number and a
 // PIN a manager set, and sees, read-only, their own details, payslips and custody; nothing else.
@@ -132,18 +133,18 @@ internal sealed class GetPortalProfileHandler(IEmployeeRepository employees, IDe
 // business month, two years at most.
 public sealed record GetPortalMonthsQuery(Guid EmployeeId) : IRequest<IReadOnlyList<DateOnly>>;
 
-internal sealed class GetPortalMonthsHandler(IEmployeeRepository employees, IRecordDescriptions clock)
+internal sealed class GetPortalMonthsHandler(IEmployeeRepository employees, IWorkClock clock)
     : IRequestHandler<GetPortalMonthsQuery, IReadOnlyList<DateOnly>>
 {
     public async Task<IReadOnlyList<DateOnly>> Handle(GetPortalMonthsQuery request, CancellationToken cancellationToken) =>
-        await employees.GetByIdAsync(request.EmployeeId, cancellationToken) is { } e ? Portal.Months(e, clock.BusinessDateOf(DateTime.UtcNow)) : [];
+        await employees.GetByIdAsync(request.EmployeeId, cancellationToken) is { } e ? Portal.Months(e, clock.WorkdayOf(DateTime.UtcNow)) : [];
 }
 
 // Their payslip for a month: a draft as it stands now, or as it was finalized. None for a month
 // they have no payslip for.
 public sealed record GetPortalPayslipQuery(Guid EmployeeId, DateOnly Month) : IRequest<PayrollSlipDto?>;
 
-internal sealed class GetPortalPayslipHandler(IEmployeeRepository employees, PayrollWorker payroll, IRecordDescriptions clock)
+internal sealed class GetPortalPayslipHandler(IEmployeeRepository employees, PayrollWorker payroll, IWorkClock clock)
     : IRequestHandler<GetPortalPayslipQuery, PayrollSlipDto?>
 {
     public async Task<PayrollSlipDto?> Handle(GetPortalPayslipQuery request, CancellationToken cancellationToken)
@@ -151,7 +152,7 @@ internal sealed class GetPortalPayslipHandler(IEmployeeRepository employees, Pay
         if (await employees.GetByIdAsync(request.EmployeeId, cancellationToken) is not { } e)
             return null;
         var month = new DateOnly(request.Month.Year, request.Month.Month, 1);
-        if (!Portal.Months(e, clock.BusinessDateOf(DateTime.UtcNow)).Contains(month))
+        if (!Portal.Months(e, clock.WorkdayOf(DateTime.UtcNow)).Contains(month))
             return null;
         return (await payroll.WorkOutAsync(month, e.Id, cancellationToken)).Select(PayrollWorker.SlipDto).FirstOrDefault();
     }

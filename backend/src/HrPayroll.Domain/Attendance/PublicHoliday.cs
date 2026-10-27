@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Attendance;
+namespace HrPayroll.Domain.Attendance;
 
 // A public holiday (عطلة رسمية): its name and the days it runs, one or several (the Eids). It is
 // everyone's: a paid day off, never an absence. Whoever works it is measured as on any other day

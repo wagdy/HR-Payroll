@@ -1,7 +1,7 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Attendance;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Attendance;
 
-namespace OtantikPos.Hr.Domain.Performance;
+namespace HrPayroll.Domain.Performance;
 
 // How far a disciplinary action goes (درجة الجزاء), in the order they escalate.
 public enum SeverityLevel
@@ -52,7 +52,7 @@ public sealed class DisciplinaryAction : AggregateRoot
             if (penaltyAmount is not > 0)
                 throw new DomainException("A penalty deduction has its amount.");
             if (penaltyAmount > AdministrativePenalty.MaxAmount)
-                throw new DomainException($"A penalty deduction is at most L.E {AdministrativePenalty.MaxAmount:N0}.");
+                throw new DomainException($"A penalty deduction is at most {AdministrativePenalty.MaxAmount:N0}.");
             if (decimal.Round(penaltyAmount.Value, 2) != penaltyAmount)
                 throw new DomainException("Give the penalty's amount to the piastre at most: 150.50.");
         }
@@ -85,7 +85,7 @@ public sealed class DisciplinaryAction : AggregateRoot
     public SeverityLevel SeverityLevel { get; private set; }
     public string? Notes { get; private set; }
     public decimal? PenaltyAmount { get; private set; }
-    // The manager's till account, and their name.
+    // The manager's user account, and their name.
     public string IssuerId { get; private set; } = string.Empty;
     public string IssuerName { get; private set; } = string.Empty;
     public DateTime IssuedAtUtc { get; private set; }

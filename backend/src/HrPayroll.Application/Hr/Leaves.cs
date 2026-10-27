@@ -1,14 +1,14 @@
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Leaves;
-using OtantikPos.Hr.Domain.Payroll;
-using OtantikPos.Inventory.Application.Approvals;
-using OtantikPos.Inventory.Application.Common;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Leaves;
+using HrPayroll.Domain.Payroll;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // Leaves (الإجازات): their types, each employee's balances a year, and the requests a manager
 // approves, rejects, or cancels from a day on once approved. A request takes the working days of
@@ -169,14 +169,14 @@ internal sealed class CountLeaveDaysHandler(IEmployeeRepository employees, IPubl
 // Waiting ones (Status Pending), an employee's, or a year's; the latest first, waiting ones the oldest first.
 public sealed record GetLeaveRequestsQuery(LeaveRequestStatus? Status = null, Guid? EmployeeId = null, int? Year = null) : IRequest<IReadOnlyList<LeaveRequestDto>>;
 
-internal sealed class GetLeaveRequestsHandler(IEmployeeRepository employees, ILeaveTypeRepository types, ILeaveRequestRepository requests, IRecordDescriptions clock)
+internal sealed class GetLeaveRequestsHandler(IEmployeeRepository employees, ILeaveTypeRepository types, ILeaveRequestRepository requests, IWorkClock clock)
     : IRequestHandler<GetLeaveRequestsQuery, IReadOnlyList<LeaveRequestDto>>
 {
     public async Task<IReadOnlyList<LeaveRequestDto>> Handle(GetLeaveRequestsQuery request, CancellationToken cancellationToken)
     {
         var list = request.Status == LeaveRequestStatus.Pending ? await requests.GetPendingAsync(cancellationToken)
             : request.EmployeeId is { } employeeId ? await requests.GetForEmployeeAsync(employeeId, cancellationToken)
-            : await requests.GetForYearAsync(request.Year ?? clock.BusinessDateOf(DateTime.UtcNow).Year, cancellationToken);
+            : await requests.GetForYearAsync(request.Year ?? clock.WorkdayOf(DateTime.UtcNow).Year, cancellationToken);
         var filtered = list.Where(r => (request.Status is null || r.Status == request.Status)
             && (request.EmployeeId is null || r.EmployeeId == request.EmployeeId)
             && (request.Year is null || r.Year == request.Year)).ToList();
@@ -306,14 +306,14 @@ internal sealed class RejectLeaveRequestHandler(IEmployeeRepository employees, I
     }
 }
 
-// A manager's: an approved leave cancelled from `From` on (the business day unless said), its
+// A manager's: an approved leave cancelled from `From` on (the workday unless said), its
 // days from then given back and unmarked; from its first day or before, all of it.
 public sealed record CancelLeaveRequestCommand(Guid Id, DateOnly? From, string? Notes, string StaffId, string StaffName)
     : IRequest<LeaveRequestDto>, IRetryOnConflict;
 
 internal sealed class CancelLeaveRequestHandler(
     IEmployeeRepository employees, ILeaveTypeRepository types, IEmployeeLeaveBalanceRepository balances, ILeaveRequestRepository requests,
-    IDayMarkRepository marks, IPayrollSlipRepository slips, IRecordDescriptions clock, IUnitOfWork unitOfWork, AttendanceBroadcast broadcast)
+    IDayMarkRepository marks, IPayrollSlipRepository slips, IWorkClock clock, IUnitOfWork unitOfWork, AttendanceBroadcast broadcast)
     : IRequestHandler<CancelLeaveRequestCommand, LeaveRequestDto>
 {
     public async Task<LeaveRequestDto> Handle(CancelLeaveRequestCommand request, CancellationToken cancellationToken)
@@ -323,7 +323,7 @@ internal sealed class CancelLeaveRequestHandler(
             throw new DomainException(asked.IsPending ? "This leave waits for a decision: reject it instead." : $"This leave was {asked.Status.ToString().ToLowerInvariant()} already.");
         var employee = await employees.GetRequiredAsync(asked.EmployeeId, cancellationToken);
         var type = await types.GetByIdAsync(asked.LeaveTypeId, cancellationToken) ?? throw new NotFoundException(nameof(LeaveType), asked.LeaveTypeId);
-        var from = request.From ?? clock.BusinessDateOf(DateTime.UtcNow);
+        var from = request.From ?? clock.WorkdayOf(DateTime.UtcNow);
         var whole = from <= asked.StartDate;
         var givenBack = (await marks.GetForLeaveRequestAsync(asked.Id, cancellationToken)).Where(m => whole || m.Date >= from).ToList();
         foreach (var month in givenBack.Select(m => PayrollMonth.Of(m.Date)).Distinct())
@@ -346,12 +346,12 @@ internal sealed class CancelLeaveRequestHandler(
 public sealed record GetEmployeeLeavesQuery(Guid EmployeeId) : IRequest<EmployeeLeavesDto>;
 
 internal sealed class GetEmployeeLeavesHandler(
-    IEmployeeRepository employees, ILeaveTypeRepository types, IEmployeeLeaveBalanceRepository balances, ILeaveRequestRepository requests, IRecordDescriptions clock)
+    IEmployeeRepository employees, ILeaveTypeRepository types, IEmployeeLeaveBalanceRepository balances, ILeaveRequestRepository requests, IWorkClock clock)
     : IRequestHandler<GetEmployeeLeavesQuery, EmployeeLeavesDto>
 {
     public async Task<EmployeeLeavesDto> Handle(GetEmployeeLeavesQuery request, CancellationToken cancellationToken)
     {
-        var year = clock.BusinessDateOf(DateTime.UtcNow).Year;
+        var year = clock.WorkdayOf(DateTime.UtcNow).Year;
         var theirs = await LeaveBalances.ReadAsync(employees, types, balances, requests, year, request.EmployeeId, cancellationToken);
         var asked = await requests.GetForEmployeeAsync(request.EmployeeId, cancellationToken);
         var choices = (await types.GetAllAsync(cancellationToken)).Select(t => new LeaveChoiceDto(t.Id, t.Name, t.IsPaid)).ToList();

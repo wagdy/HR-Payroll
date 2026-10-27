@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Runs on Microsoft.Testing.Platform, not VSTest. On the .NET 10 SDK, dotnet test only
-       runs it with the opt-in in the repository's global.json. The test project is also an
-       executable, so `dotnet run` runs the tests without dotnet test at all. -->
+  <!-- The domain's rules, on their own. Runs on Microsoft.Testing.Platform (the repository's global.json opts dotnet
+       test in); the project is an executable too, so `dotnet run` runs the tests. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -16,9 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\shared\Otantik.SharedKernel\Otantik.SharedKernel.csproj" />
-    <ProjectReference Include="..\..\otantik-pos\backend\src\OtantikPos.Inventory.Domain\OtantikPos.Inventory.Domain.csproj" />
-    <ProjectReference Include="..\..\otantik-pos\backend\src\OtantikPos.Hr.Domain\OtantikPos.Hr.Domain.csproj" />
+    <ProjectReference Include="..\..\src\HrPayroll.Domain\HrPayroll.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

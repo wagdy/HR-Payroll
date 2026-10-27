@@ -1,13 +1,13 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Custody;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Hr.Domain.Leaves;
-using OtantikPos.Hr.Domain.Performance;
-using OtantikPos.Hr.Domain.Payroll;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Custody;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Domain.Leaves;
+using HrPayroll.Domain.Performance;
+using HrPayroll.Domain.Payroll;
 
-namespace OtantikPos.Hr.Domain;
+namespace HrPayroll.Domain;
 
 // What HR keeps, as the use cases ask for it. Read lists are not tracked; what is changed is.
 
@@ -51,22 +51,14 @@ public interface IAssetCategoryRepository : IRepository<AssetCategory>
 
 public interface IAssetItemRepository : IRepository<AssetItem>
 {
-    // By name; of one origin, or all of them.
-    Task<IReadOnlyList<AssetItem>> GetAllAsync(AssetOrigin? origin = null, CancellationToken cancellationToken = default);
+    // By name.
+    Task<IReadOnlyList<AssetItem>> GetAllAsync(CancellationToken cancellationToken = default);
 
     // What is in an employee's custody now.
     Task<IReadOnlyList<AssetItem>> GetInCustodyOfAsync(Guid employeeId, CancellationToken cancellationToken = default);
 
     Task<bool> AnyInCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default);
 
-    // The asset a posted invoice line made, if it made one.
-    Task<AssetItem?> GetBySourceLineAsync(Guid invoiceLineId, CancellationToken cancellationToken = default);
-
-    // Tracked: the assets an invoice's lines made.
-    Task<IReadOnlyList<AssetItem>> GetFromInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default);
-
-    // Only one that never moved: its invoice voided before it was handed out.
-    void Remove(AssetItem asset);
 }
 
 public interface IAssetTransactionRepository : IRepository<AssetTransaction>
@@ -74,7 +66,7 @@ public interface IAssetTransactionRepository : IRepository<AssetTransaction>
     // An asset's vouchers, the latest first.
     Task<IReadOnlyList<AssetTransaction>> GetForAssetAsync(Guid assetItemId, CancellationToken cancellationToken = default);
 
-    // The vouchers of the business days from `from` to `to`, the latest first.
+    // The vouchers of the days from `from` to `to`, the latest first.
     Task<IReadOnlyList<AssetTransaction>> GetBetweenAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
 
     Task<bool> AnyForAssetAsync(Guid assetItemId, CancellationToken cancellationToken = default);
@@ -142,7 +134,7 @@ public interface IDeviceCommandRepository : IRepository<DeviceCommand>
 
 public interface IDeviceUserRepository : IRepository<DeviceUser>
 {
-    // Tracked: the users a device has told the till of.
+    // Tracked: the users a device has told the system of.
     Task<IReadOnlyList<DeviceUser>> GetForDeviceAsync(string serialNumber, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DeviceUser>> GetAllAsync(CancellationToken cancellationToken = default);
@@ -195,14 +187,14 @@ public interface IPayrollAdjustmentRepository : IRepository<PayrollAdjustment>
 // Shares of advances handed out with no one named, taken-back ones too.
 public interface IAdvanceAllocationRepository : IRepository<AdvanceAllocation>
 {
-    // The shares of these advances: safe entries or HR advances, by their ids.
-    Task<IReadOnlyList<AdvanceAllocation>> GetForAdvancesAsync(IReadOnlyCollection<Guid> sourceIds, CancellationToken cancellationToken = default);
+    // The shares of these advances, by their ids.
+    Task<IReadOnlyList<AdvanceAllocation>> GetForAdvancesAsync(IReadOnlyCollection<Guid> advanceIds, CancellationToken cancellationToken = default);
 
     // The shares deducted in a payroll month: everyone's, or one employee's.
     Task<IReadOnlyList<AdvanceAllocation>> GetForPayrollMonthAsync(DateOnly month, Guid? employeeId = null, CancellationToken cancellationToken = default);
 }
 
-// Advances paid outside the till, recorded in HR only; voided ones too.
+// Advances, voided ones too.
 public interface IHrAdvanceRepository : IRepository<HrAdvance>
 {
     // Those paid to an employee and deducted in a payroll month: everyone's, or one employee's.
@@ -212,6 +204,13 @@ public interface IHrAdvanceRepository : IRepository<HrAdvance>
     Task<IReadOnlyList<HrAdvance>> GetPendingAsync(CancellationToken cancellationToken = default);
 }
 
+// What was paid of each month's pay, voided payments too.
+public interface ISalaryPaymentRepository : IRepository<SalaryPayment>
+{
+    // A payroll month's: everyone's, or one employee's.
+    Task<IReadOnlyList<SalaryPayment>> GetForPayrollMonthAsync(DateOnly month, Guid? employeeId = null, CancellationToken cancellationToken = default);
+}
+
 public interface IPayrollSlipRepository : IRepository<PayrollSlip>
 {
     Task<PayrollSlip?> GetAsync(Guid employeeId, DateOnly month, CancellationToken cancellationToken = default);
@@ -219,7 +218,7 @@ public interface IPayrollSlipRepository : IRepository<PayrollSlip>
     Task<IReadOnlyList<PayrollSlip>> GetForMonthAsync(DateOnly month, CancellationToken cancellationToken = default);
 }
 
-// The HR tabs of till accounts that are not a manager's, by the account's id.
+// The HR tabs of system users who are not managers, by the user's id.
 public interface IStaffHrAccessRepository : IRepository<StaffHrAccess>
 {
     Task<StaffHrAccess?> GetByStaffIdAsync(string staffId, CancellationToken cancellationToken = default);

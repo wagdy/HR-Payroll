@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Performance;
+namespace HrPayroll.Domain.Performance;
 
 // A measure employees are evaluated on (مؤشر أداء): punctuality, hygiene, service. A manager's
 // list; each evaluation scores the ones it takes from 1 to 5. One that evaluations have scored is

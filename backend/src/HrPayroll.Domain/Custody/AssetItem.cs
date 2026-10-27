@@ -1,14 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Custody;
-
-// Where an asset came from: entered in HR, or bought on a posted purchase invoice (a line of an
-// expense item marked as an asset).
-public enum AssetOrigin
-{
-    HrManual = 1,
-    FinancialPurchase = 2,
-}
+namespace HrPayroll.Domain.Custody;
 
 public enum AssetStatus
 {
@@ -22,14 +14,14 @@ public enum AssetStatus
     Maintenance = 3,
 
     // All of it broken (كسر هالك): none left.
-    BrokenWaste = 4,
+    Broken = 4,
 
     // All of it lost or thrown away (مستبعد): none left.
     Discarded = 5,
 }
 
-// An asset (أصل), or a number of one kind: "Dinner plates × 40", a laptop × 1, at a cost a piece
-// when it is known. All of it is with one employee at a time, or with no one. It changes hands
+// An asset (أصل), or a number of one kind: "Office chairs × 40", a laptop × 1, at a cost a piece
+// when it is known. Entered in HR, by hand. All of it is with one employee at a time, or with no one. It changes hands
 // only by vouchers (AssetTransaction): a check-in (إذن دخول) puts it in an employee's custody; a
 // check-out (إذن خروج) takes it out, with why: handed back, to maintenance, or some of it broken,
 // lost or thrown away. Nothing is deleted: what is gone stays, with no quantity left.
@@ -42,22 +34,8 @@ public sealed class AssetItem : AggregateRoot
 
     private AssetItem() { }
 
-    public AssetItem(
-        Guid id,
-        string name,
-        Guid? categoryId,
-        decimal? unitCost,
-        int quantity,
-        AssetOrigin origin,
-        string createdBy,
-        Guid? sourceInvoiceId = null,
-        Guid? sourceInvoiceLineId = null,
-        string? notes = null)
+    public AssetItem(Guid id, string name, Guid? categoryId, decimal? unitCost, int quantity, string createdBy, string? notes = null)
     {
-        if (!Enum.IsDefined(origin))
-            throw new DomainException("Say where the asset came from.");
-        if ((origin == AssetOrigin.FinancialPurchase) != (sourceInvoiceId is not null && sourceInvoiceLineId is not null))
-            throw new DomainException("An asset bought on an invoice names its invoice and line; one entered in HR, none.");
         if (quantity is < 1 or > MaxQuantity)
             throw new DomainException($"Enter how many there are: 1 to {MaxQuantity:N0}.");
         Id = id;
@@ -66,9 +44,6 @@ public sealed class AssetItem : AggregateRoot
         SetUnitCost(unitCost);
         SetNotes(notes);
         Quantity = quantity;
-        Origin = origin;
-        SourceInvoiceId = sourceInvoiceId;
-        SourceInvoiceLineId = sourceInvoiceLineId;
         Status = AssetStatus.InStore;
         CreatedBy = createdBy;
         CreatedAtUtc = DateTime.UtcNow;
@@ -86,12 +61,7 @@ public sealed class AssetItem : AggregateRoot
     // Whose custody it is in (أمين العهدة); none in the store or at maintenance.
     public Guid? EmployeeId { get; private set; }
 
-    public AssetOrigin Origin { get; private set; }
     public AssetStatus Status { get; private set; }
-
-    // The posted invoice and line it was bought on, for a financial one.
-    public Guid? SourceInvoiceId { get; private set; }
-    public Guid? SourceInvoiceLineId { get; private set; }
 
     public string? Notes { get; private set; }
     public string CreatedBy { get; private set; } = string.Empty;
@@ -100,7 +70,7 @@ public sealed class AssetItem : AggregateRoot
     public decimal? TotalCost => UnitCost is { } cost ? cost * Quantity : null;
 
     // None of it is left.
-    public bool IsGone => Status is AssetStatus.BrokenWaste or AssetStatus.Discarded;
+    public bool IsGone => Status is AssetStatus.Broken or AssetStatus.Discarded;
 
     public void Rename(string name)
     {
@@ -174,7 +144,7 @@ public sealed class AssetItem : AggregateRoot
                 if (Quantity == 0)
                 {
                     EmployeeId = null;
-                    Status = reason == AssetMovementReason.Breakage ? AssetStatus.BrokenWaste : AssetStatus.Discarded;
+                    Status = reason == AssetMovementReason.Breakage ? AssetStatus.Broken : AssetStatus.Discarded;
                 }
 
                 break;

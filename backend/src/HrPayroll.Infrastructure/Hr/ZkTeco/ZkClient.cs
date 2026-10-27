@@ -2,10 +2,10 @@ using System.Buffers.Binary;
 using System.Net.Sockets;
 using System.Text;
 
-namespace OtantikPos.Node.Infrastructure.Hr.ZkTeco;
+namespace HrPayroll.Infrastructure.Hr.ZkTeco;
 
 // ZKTeco's own protocol over TCP (port 4370 by default), as the standalone devices speak it: the
-// till connects to the device and reads it, where ADMS has the device call the till. ZKTeco does
+// system connects to the device and reads it, where ADMS has the device call the system. ZKTeco does
 // not publish it; this follows the open-source pyzk client, packet for packet.
 //
 // Every packet is a frame: 50 50 82 7D, then the length of what follows (little-endian), then a

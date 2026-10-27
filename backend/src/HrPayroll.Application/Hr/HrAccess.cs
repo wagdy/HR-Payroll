@@ -1,18 +1,18 @@
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Employees;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Employees;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // Employee permissions (صلاحيات الموظفين): the HR & Payroll tabs a manager gives an employee, who
-// works them in the portal on their phone, or an accountant, on the till. A manager's to give, and
+// works them in the portal on their phone, or an accountant, in the system. A manager's to give, and
 // a manager has every tab. Whoever is given a tab works it as an accountant does: what they change
 // is asked of a manager, and what only a manager does (correcting attendance, finalizing pay,
 // the devices) stays a manager's.
 
-// A till account the tabs are given to: an accountant's, read by the API from the till's accounts.
+// A system user the tabs are given to: an accountant, read by the API from the users.
 public sealed record HrStaffAccount(string Id, string Name, string Role);
 
 // HasMobile and HasPin: whether they can sign in to the portal to use their tabs.

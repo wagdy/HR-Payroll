@@ -1,13 +1,13 @@
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Attendance;
-using OtantikPos.Hr.Domain.Payroll;
-using OtantikPos.Hr.Domain.Performance;
-using OtantikPos.Inventory.Application.Approvals;
-using OtantikPos.Inventory.Application.Common;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Payroll;
+using HrPayroll.Domain.Performance;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // Performance & Disciplinary (تقييم الأداء والإنذارات): a manager's KPIs, the evaluations scored on
 // them, and disciplinary actions, a penalty deduction among them reaching the pay as an
@@ -138,14 +138,14 @@ internal sealed class GetEmployeePerformanceHandler(
     }
 }
 
-// A manager's evaluation on a day up to today, while they were employed. Id made by the till: a
+// A manager's evaluation on a day up to today, while they were employed. Id made by the app: a
 // retry finds the one made.
 public sealed record RecordEvaluationCommand(
     Guid Id, Guid EmployeeId, DateOnly Date, IReadOnlyList<KpiScoreInput> Scores, string? Notes, string StaffId, string StaffName)
     : IRequest<EvaluationDto>, IRetryOnConflict;
 
 internal sealed class RecordEvaluationHandler(
-    IEmployeeRepository employees, IPerformanceKpiRepository kpis, IPerformanceEvaluationRepository evaluations, IRecordDescriptions clock, IUnitOfWork unitOfWork)
+    IEmployeeRepository employees, IPerformanceKpiRepository kpis, IPerformanceEvaluationRepository evaluations, IWorkClock clock, IUnitOfWork unitOfWork)
     : IRequestHandler<RecordEvaluationCommand, EvaluationDto>
 {
     public async Task<EvaluationDto> Handle(RecordEvaluationCommand request, CancellationToken cancellationToken)
@@ -171,7 +171,7 @@ public sealed record IssueDisciplinaryActionCommand(
 
 internal sealed class IssueDisciplinaryActionHandler(
     IEmployeeRepository employees, IDisciplinaryActionRepository actions, IAdministrativePenaltyRepository penalties, IPayrollSlipRepository slips,
-    IRecordDescriptions clock, IUnitOfWork unitOfWork)
+    IWorkClock clock, IUnitOfWork unitOfWork)
     : IRequestHandler<IssueDisciplinaryActionCommand, DisciplinaryActionDto>
 {
     public async Task<DisciplinaryActionDto> Handle(IssueDisciplinaryActionCommand request, CancellationToken cancellationToken)
@@ -224,10 +224,10 @@ internal sealed class WithdrawDisciplinaryActionHandler(
 
 internal static class Performances
 {
-    // On a day they were employed, and not after the business day.
-    public static void EnsureDay(OtantikPos.Hr.Domain.Employees.Employee employee, DateOnly date, IRecordDescriptions clock)
+    // On a day they were employed, and not after the workday.
+    public static void EnsureDay(HrPayroll.Domain.Employees.Employee employee, DateOnly date, IWorkClock clock)
     {
-        if (date > clock.BusinessDateOf(DateTime.UtcNow))
+        if (date > clock.WorkdayOf(DateTime.UtcNow))
             throw new DomainException("It is dated today or before.");
         if (!employee.IsEmployedOn(date))
             throw new DomainException($"{employee.Name} is not employed on {date:d MMM yyyy}.");

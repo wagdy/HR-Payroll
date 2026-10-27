@@ -1,10 +1,10 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using OtantikPos.Inventory.Application.Hr;
-using OtantikPos.Node.Api.Auth;
+using HrPayroll.Application.Hr;
+using HrPayroll.Api.Auth;
 
-namespace OtantikPos.Node.Api.Controllers;
+namespace HrPayroll.Api.Controllers;
 
 // The employee self-service portal (البوابة): read-only, and only ever the signed-in employee's
 // own record, taken from their token, never from the request. Their details and ID card, their
@@ -63,7 +63,7 @@ public sealed class PortalController(ISender sender) : ControllerBase
     public Task<LeaveRequestDto> RequestLeave(PortalLeaveRequest request, CancellationToken cancellationToken) =>
         sender.Send(new SubmitLeaveRequestCommand(
             request.RequestId, Me, request.LeaveTypeId, request.StartDate, request.EndDate, request.Reason,
-            User.FindFirst(StaffClaims.Name)?.Value ?? string.Empty), cancellationToken);
+            User.FindFirst(UserClaims.Name)?.Value ?? string.Empty), cancellationToken);
 
     // Their evaluations and disciplinary actions, read-only: what was withdrawn left out.
     [HttpGet("performance")]

@@ -1,8 +1,8 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Access;
-using OtantikPos.Hr.Domain.Employees;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Employees;
 
-namespace Otantik.Domain.Tests;
+namespace HrPayroll.Domain.Tests;
 
 // Employee permissions (صلاحيات الموظفين): the HR & Payroll tabs, one bit each, given to an
 // employee or to an accountant.

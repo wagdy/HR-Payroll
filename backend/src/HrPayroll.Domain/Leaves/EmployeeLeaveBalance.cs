@@ -1,7 +1,7 @@
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain.Employees;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Employees;
 
-namespace OtantikPos.Hr.Domain.Leaves;
+namespace HrPayroll.Domain.Leaves;
 
 // An employee's days of a paid leave in a year (رصيد الإجازات), in half days: given
 // (TotalAllocatedDays) and taken (UsedDays). A year opens at the type's days a year, a new

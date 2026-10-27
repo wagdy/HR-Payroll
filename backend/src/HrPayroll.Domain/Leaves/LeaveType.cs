@@ -1,6 +1,6 @@
-using Otantik.BuildingBlocks;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Hr.Domain.Leaves;
+namespace HrPayroll.Domain.Leaves;
 
 // A kind of leave (نوع الإجازة): annual, sick, casual, unpaid. Paid leave is a paid day, not an
 // absence, taken from the employee's balance of it, which opens each year at DefaultDaysPerYear.

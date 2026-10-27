@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Diagnostics;
-using Otantik.BuildingBlocks;
-using OtantikPos.Ordering.Application.Ports;
+using HrPayroll.Domain.Common;
 
-namespace OtantikPos.Node.Api.ErrorHandling;
+namespace HrPayroll.Api.ErrorHandling;
 
 // Turns the exceptions the lower layers throw on purpose into the right status code, with the
-// message as ProblemDetails.detail. Those messages are written to be shown at the till as they
-// are ("Quantity must be between 1 and 100.", "Look the customer up by mobile number before
-// applying points.").
+// message as ProblemDetails.detail. Those messages are written to be shown to the user as they
+// are ("Choose monthly or daily pay.", "A leave ends on or after the day it starts.").
 //
 // Anything else is a fault: logged here with a reference, and answered with only that
 // reference, so no stack trace reaches a browser. On .NET 10 the exception middleware does not
@@ -29,11 +27,7 @@ internal sealed class ApplicationExceptionHandler(
             ForbiddenException => (StatusCodes.Status403Forbidden, "Not allowed.", exception.Message),
             ConflictException => (StatusCodes.Status409Conflict, "Conflict.", exception.Message),
 
-            // Customer lookup, points, a till that has never synced: things that need the cloud
-            // while the internet is down. The till says so, and everything else keeps working.
-            DeliverySystemUnavailableException => (StatusCodes.Status503ServiceUnavailable, "The delivery system cannot be reached.", exception.Message),
-
-            // The till closed the tab or lost the network mid-request. Nothing to tell anyone.
+            // The browser closed the tab or lost the network mid-request. Nothing to tell anyone.
             OperationCanceledException when httpContext.RequestAborted.IsCancellationRequested => (499, "Client closed request.", (string?)null),
 
             _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred.", (string?)null),
@@ -59,10 +53,9 @@ internal sealed class ApplicationExceptionHandler(
     // Applied to every ProblemDetails the API writes: the ones above, controller Problem()
     // calls, and the bare 401/403/404s from UseStatusCodePages.
     //
-    // Adds an `errors` array holding the detail: the shape the delivery system's API returns
-    // and its Angular client reads (err.error?.errors?.[0]), so one error helper serves both.
-    // Model-validation 400s keep their own `errors`, an object keyed by field, which that
-    // client already handles.
+    // Adds an `errors` array holding the detail, the shape the Angular app reads
+    // (err.error?.errors?.[0]). Model-validation 400s keep their own `errors`, an object keyed by
+    // field, which the app handles too.
     public static void Customize(ProblemDetailsContext context)
     {
         var problem = context.ProblemDetails;

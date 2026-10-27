@@ -1,26 +1,25 @@
 using System.Globalization;
 using MediatR;
-using Otantik.BuildingBlocks;
-using OtantikPos.Hr.Domain;
-using OtantikPos.Hr.Domain.Employees;
-using OtantikPos.Inventory.Application.Approvals;
-using OtantikPos.Inventory.Application.Common;
-using OtantikPos.Inventory.Application.RawMaterials;
-using OtantikPos.Inventory.Domain.Approvals;
+using HrPayroll.Domain.Common;
+using HrPayroll.Domain;
+using HrPayroll.Domain.Employees;
+using HrPayroll.Application.Approvals;
+using HrPayroll.Application.Common;
+using HrPayroll.Domain.Approvals;
 
-namespace OtantikPos.Inventory.Application.Hr;
+namespace HrPayroll.Application.Hr;
 
 // Employees brought in from a spreadsheet, one a row: the first data migration, or a season's
 // hires. Each row is an employee as the form makes one: their name, monthly or daily pay, its
 // amount, their department and role, the shift's start (or flexible hours), days off, the day
 // they started and their number on the attendance device.
 //
-// A department not on the till is added, as the materials import adds a category; a role not in
+// A department not in the system is added; a role not in
 // its department is made, as typing a new one on the form does. A row whose name, or device
-// number, is already on the till (or asked for) is skipped, so a sheet imported twice adds no one
+// number, is already in the system (or asked for) is skipped, so a sheet imported twice adds no one
 // twice; so is the same name or number again on the sheet. A manager's import adds them at once;
 // anyone else's asks a manager for each, as adding one by hand does. Departments are a manager's,
-// so a row of theirs naming one not on the till is skipped until a manager adds it.
+// so a row of theirs naming one not in the system is skipped until a manager adds it.
 
 // A row as read: each cell as written, the dates as yyyy-MM-dd and times as HH:mm.
 public sealed record EmployeeSheetRow(
@@ -43,7 +42,7 @@ internal sealed class ImportEmployeesHandler(
     IApprovalRequestRepository requests,
     IUnitOfWork unitOfWork) : IRequestHandler<ImportEmployeesCommand, EmployeeImportResult>
 {
-    // A restaurant's staff are tens; a chain's, hundreds.
+    // A business's staff are tens, or hundreds.
     public const int MaxRows = 1000;
 
     private sealed record Plan(int Row, EmployeeDetails Details, string DepartmentName, string? NewDepartmentKey);
@@ -55,15 +54,15 @@ internal sealed class ImportEmployeesHandler(
         if (request.Rows.Count > MaxRows)
             throw new DomainException($"Import at most {MaxRows:N0} employees at a time: split the sheet.");
 
-        // Who is on the till already, those who left too (they come back, they are not added),
+        // Who is in the system already, those who left too (they come back, they are not added),
         // and who is asked for and not decided yet.
         var takenNames = new Dictionary<string, string>();
         var takenNumbers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var e in await employees.GetAllAsync(cancellationToken))
         {
             takenNames.TryAdd(SheetText.Key(e.Name), e.IsActive
-                ? $"{e.Name} is on the till already."
-                : $"{e.Name} is on the till already, as one who has left: bring them back on the Employees tab.");
+                ? $"{e.Name} is in the system already."
+                : $"{e.Name} is in the system already, as one who has left: bring them back on the Employees tab.");
             if (e.DeviceUserId is { } number)
                 takenNumbers.TryAdd(number, $"Number {number} on the attendance device is {e.Name}'s already.");
         }
@@ -125,14 +124,14 @@ internal sealed class ImportEmployeesHandler(
 
             if (SheetText.Clean(row.JobRole) is not { } title)
             {
-                Skip("No job role: their role in the department, such as Chef or Waiter.");
+                Skip("No job role: their role in the department, such as Accountant or Technician.");
                 continue;
             }
 
             TimeOnly? shift = null;
             if (SheetText.Clean(row.ShiftStartsAt) is not { } shiftText)
             {
-                Skip("No shift start: when their nine hours begin (10:00), or Flexible (مرن) for flexible hours.");
+                Skip("No work schedule start: when their nine hours begin (10:00), or Flexible (مرن) for flexible hours.");
                 continue;
             }
 
@@ -140,7 +139,7 @@ internal sealed class ImportEmployeesHandler(
             {
                 if (EmployeeCells.Time(shiftText) is not { } start)
                 {
-                    Skip($"Shift start: \"{shiftText}\" is not a time of day. Write it as 10:00 or 16:30, or Flexible (مرن).");
+                    Skip($"Work schedule start: \"{shiftText}\" is not a time of day. Write it as 10:00 or 16:30, or Flexible (مرن).");
                     continue;
                 }
 
@@ -167,7 +166,7 @@ internal sealed class ImportEmployeesHandler(
             Department? department = departmentKey is null ? general : byKey.GetValueOrDefault(departmentKey);
             if (department is null && !request.CanApprove)
             {
-                Skip($"{departmentText} is not a department on the till: a manager adds it on the Departments tab first.");
+                Skip($"{departmentText} is not a department in the system: a manager adds it on the Departments tab first.");
                 continue;
             }
 

@@ -2,15 +2,16 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using MediatR;
-using OtantikPos.Inventory.Application.Approvals;
+using HrPayroll.Application.Approvals;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using OtantikPos.Inventory.Application.Hr;
+using HrPayroll.Application.Hr;
+using HrPayroll.Application.Common;
 
-namespace OtantikPos.Node.Api.Controllers;
+namespace HrPayroll.Api.Controllers;
 
 // The attendance devices' own door: ZKTeco's ADMS push protocol ("iclock"), as a ZKTeco K40 Pro
-// speaks it over the restaurant's network. Its paths are the device's, fixed, so it is outside
+// speaks it over the business's network. Its paths are the device's, fixed, so it is outside
 // /api.
 //
 // A device cannot sign in: it names itself by its serial number (?SN=), over plain HTTP. So these
@@ -20,7 +21,7 @@ namespace OtantikPos.Node.Api.Controllers;
 //
 // GET  cdata?SN=…&options=all       it starts: its options, with the stamp to send after.
 // POST cdata?SN=…&table=ATTLOG       punches, a line each: PIN⇥yyyy-MM-dd HH:mm:ss⇥status⇥verify⇥…
-//                                    any number of them: what it kept while the till was away.
+//                                    any number of them: what it kept while the system was away.
 // POST cdata?SN=…&table=USERINFO     its users, a line each (PIN=…⇥Name=…⇥…), when asked: their
 //      (or OPERLOG, "USER PIN=…")    number and name are kept, nothing else (no password or card).
 // POST cdata?SN=…&table=…            anything else (operations): taken as read, not kept.
@@ -32,7 +33,7 @@ namespace OtantikPos.Node.Api.Controllers;
 [AllowAnonymous]
 [Route("iclock")]
 [ApiExplorerSettings(IgnoreApi = true)]
-public sealed partial class IclockController(ISender sender, IRecordDescriptions clock, ILogger<IclockController> logger) : ControllerBase
+public sealed partial class IclockController(ISender sender, IWorkClock clock, ILogger<IclockController> logger) : ControllerBase
 {
     // A day's punches are a few hundred lines; a device sending its whole log after weeks away, or
     // read again, tens of thousands, which it splits. A line is under 60 bytes.
@@ -193,7 +194,7 @@ public sealed partial class IclockController(ISender sender, IRecordDescriptions
 
     private string? Address => HttpContext.Connection.RemoteIpAddress?.ToString();
 
-    // The restaurant's offset from UTC now, as the device takes it: whole hours, or minutes for a
+    // The business's offset from UTC now, as the device takes it: whole hours, or minutes for a
     // zone on the half hour. The device sets its clock from the time of our answer (UTC) and this
     // zone; left out, it keeps its own, +8 as ZKTeco ships it, and its punches run hours ahead.
     // Sent on each start, so a change of daylight saving reaches it the next time it starts.
@@ -208,7 +209,7 @@ public sealed partial class IclockController(ISender sender, IRecordDescriptions
 
     private ContentResult Text(string body) => Content(body, "text/plain", Encoding.UTF8);
 
-    private ObjectResult Refused() => StatusCode(StatusCodes.Status403Forbidden, "This device waits for a manager to approve it on the till.");
+    private ObjectResult Refused() => StatusCode(StatusCodes.Status403Forbidden, "This device waits for a manager to approve it in the system.");
 
     [GeneratedRegex("^[A-Za-z0-9-]+$")]
     private static partial Regex SerialPattern();

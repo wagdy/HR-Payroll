@@ -4,7 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace OtantikPos.Node.Api.Tests;
+namespace HrPayroll.Api.Tests;
 
 // Leaves through the API: the three types the till starts with, balances (a new hire's share of
 // annual leave, each year afresh), requests asked in the portal or by HR, and a manager's approval,
