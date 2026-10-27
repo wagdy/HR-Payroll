@@ -122,7 +122,10 @@ export class ReadAttendanceDialog {
   template: `
     <section class="setup">
       <h2>Connecting a device <span class="inline-ar">ربط جهاز البصمة</span></h2>
-      <p>On the K40 Pro: <strong>Main menu → COMM. → Cloud Server Setting</strong>. Server mode ADMS, domain name off, proxy off, HTTPS off.</p>
+      <p>
+        On the K40 Pro: <strong>Main menu → COMM. → Cloud Server Setting</strong>. Server mode ADMS, domain name
+        {{ target()?.byName ? 'on (the address is a name)' : 'off' }}, proxy off, HTTPS off.
+      </p>
       <dl>
         <div>
           <dt>Server address</dt>
@@ -134,7 +137,12 @@ export class ReadAttendanceDialog {
         </div>
       </dl>
       @if (connection(); as c) {
-        @if (!c.deviceOnNetwork) {
+        @if (c.publicAddress) {
+          <p class="muted small">
+            The system is in the cloud: the device calls it over the internet at this address and port, plain HTTP, through a proxy to its own
+            port. The device needs a DNS server set (COMM. → Ethernet) to find the name.
+          </p>
+        } @else if (!c.deviceOnNetwork) {
           <p class="unreachable" role="alert">
             <mat-icon>wifi_off</mat-icon>
             <span>
@@ -146,15 +154,17 @@ export class ReadAttendanceDialog {
         } @else if (devicePort()) {
           <p class="muted small">Port {{ devicePort() }} is the device’s own: it answers nothing but the device, and the system’s screens stay on this machine.</p>
         }
-        @if (!c.addresses.length) {
+        @if (!c.addresses.length && !c.publicAddress) {
           <p class="muted small">This machine has no network address now: connect it to the office network, then open this page again.</p>
         }
       }
       <p class="muted small">It shows up below within a minute, waiting. Approve it, and its punches start coming in, the ones it already holds too.</p>
-      <p class="muted small">
-        Reserve this machine’s address on the router, so it keeps it: the device holds its punches while the system is away and sends them all when it
-        can reach this address again.
-      </p>
+      @if (!connection()?.publicAddress) {
+        <p class="muted small">
+          Reserve this machine’s address on the router, so it keeps it: the device holds its punches while the system is away and sends them all when it
+          can reach this address again.
+        </p>
+      }
     </section>
 
     @if (canApprove()) {

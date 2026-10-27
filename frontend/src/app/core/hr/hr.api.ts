@@ -712,17 +712,28 @@ export interface DeviceConnection {
   addresses: string[];
   deviceOnNetwork: boolean;
   portalOnNetwork: boolean;
+  // Deployed in the cloud: where a device on the internet is pointed (a TCP proxy to the device's
+  // own port, plain HTTP), and the portal's address.
+  publicAddress?: string | null;
+  publicPort?: number | null;
+  portalUrl?: string | null;
 }
 
-// The server address and port to give a device: this machine's network addresses when the screen
-// is open on it (a device cannot reach "localhost"), else the address the screen is open at; the
-// device's own port, else the API's.
-export function deviceTarget(c: DeviceConnection, screen: { hostname: string }): { address: string; port: number } {
+// The server address and port to give a device: the public ones when the system is in the cloud;
+// else this machine's network addresses when the screen is open on it (a device cannot reach
+// "localhost"), or the address the screen is open at; the device's own port, else the API's.
+// byName: an address that is a name, not digits, which the device takes with Enable Domain Name on.
+export function deviceTarget(c: DeviceConnection, screen: { hostname: string }): { address: string; port: number; byName: boolean } {
+  if (c.publicAddress && c.publicPort) {
+    return { address: c.publicAddress, port: c.publicPort, byName: !isIpAddress(c.publicAddress) };
+  }
   const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(screen.hostname);
-  return {
-    address: local && c.addresses.length ? c.addresses.join(' or ') : screen.hostname,
-    port: c.devicePort ?? c.serverPort,
-  };
+  const address = local && c.addresses.length ? c.addresses.join(' or ') : screen.hostname;
+  return { address, port: c.devicePort ?? c.serverPort, byName: !local && !isIpAddress(screen.hostname) };
+}
+
+function isIpAddress(host: string): boolean {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(':');
 }
 
 // An employee's HR tabs; hasMobile and hasPin say whether they can sign in to the portal to use them.

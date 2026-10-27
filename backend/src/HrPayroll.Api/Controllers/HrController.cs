@@ -357,7 +357,8 @@ public sealed class HrController(ISender sender) : ControllerBase
     // Where an attendance device and the portal's phones reach this machine: its network
     // addresses; the device's own port (Attendance:DevicePort) and the portal's (Portal:Port) when
     // set, else the API's own (ServerPort, the one this request came in on); and whether the API
-    // listens there for the network, not this machine alone.
+    // listens there for the network, not this machine alone. Deployed in the cloud, the public
+    // address and port the device is given (PlatformHosting), and the portal's address.
     [HttpGet("devices/connection")]
     [HrTab(HrTabs.Now | HrTabs.Employees | HrTabs.Devices)]
     public object GetDeviceConnection([FromServices] IConfiguration configuration, [FromServices] IServer server)
@@ -365,6 +366,7 @@ public sealed class HrController(ISender sender) : ControllerBase
         var devicePort = Hosting.DevicePort.Of(configuration);
         var portalPort = Hosting.PortalPort.Of(configuration);
         var serverPort = HttpContext.Connection.LocalPort;
+        var target = Hosting.PlatformHosting.DeviceTarget(configuration);
         return new
         {
             DevicePort = devicePort,
@@ -373,6 +375,10 @@ public sealed class HrController(ISender sender) : ControllerBase
             Addresses = Hosting.DevicePort.Addresses(),
             DeviceOnNetwork = Hosting.DevicePort.ListensOnNetwork(server, devicePort ?? serverPort),
             PortalOnNetwork = portalPort is { } port && Hosting.DevicePort.ListensOnNetwork(server, port),
+            // From the internet (a cloud deployment): where the device is pointed, and the portal.
+            PublicAddress = target?.Address,
+            PublicPort = target?.Port,
+            PortalUrl = Hosting.PlatformHosting.PortalUrl(configuration),
         };
     }
 

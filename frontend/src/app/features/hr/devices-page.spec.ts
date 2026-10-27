@@ -120,6 +120,20 @@ describe('the attendance devices', () => {
     expect(el.querySelector('.unreachable')).toBeNull();
   });
 
+  // In the cloud: the platform's proxy to the device's own port, a name the device looks up.
+  it('gives the device the cloud’s address and port when the system is deployed', async () => {
+    deviceConnection.mockReturnValue(of(aConnection({ publicAddress: 'shuttle.proxy.rlwy.net', publicPort: 15140, portalUrl: 'https://hr.up.railway.app/portal' })));
+    const { el, fixture } = await render();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect([...el.querySelectorAll('.setup dd')].map(text)).toEqual(['shuttle.proxy.rlwy.net', '15140']);
+    const setup = text(el.querySelector('.setup')!);
+    expect(setup).toContain('domain name on (the address is a name), proxy off, HTTPS off');
+    expect(setup).toContain('The system is in the cloud');
+    expect(setup).not.toContain('Reserve this machine’s address');
+  });
+
   // The system listening on this machine alone: a device on the network could never call in.
   it('says plainly when the device cannot reach the system from the network', async () => {
     deviceConnection.mockReturnValue(of(aConnection({ deviceOnNetwork: false })));

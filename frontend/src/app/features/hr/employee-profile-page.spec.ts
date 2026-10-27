@@ -305,6 +305,14 @@ describe('an employee’s profile', () => {
     expect(el.querySelector('.custody a')!.getAttribute('href')).toBe('/custody/assets');
   });
 
+  it('says the cloud portal’s address, from anywhere, when the system is deployed', async () => {
+    deviceConnection.mockReturnValue(of(aConnection({ portalUrl: 'https://hr.up.railway.app/portal' })));
+    const { el, refresh } = await render();
+    await refresh();
+
+    expect(cell(el.querySelector('.card.pin')!)).toContain('From anywhere: https://hr.up.railway.app/portal');
+  });
+
   it('sets, changes and takes off their portal PIN, a manager’s, and says where the portal is', async () => {
     employee.mockReturnValue(of({ ...hassan, hasPin: false, pinSetAtUtc: null }));
     const { el, page, refresh } = await render();

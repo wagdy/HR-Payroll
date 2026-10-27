@@ -99,6 +99,16 @@ cd frontend && npx ng test --watch=false
 
 ## Building for production
 
-`npm run build` in `frontend/` writes the app into `backend/src/HrPayroll.Api/wwwroot`, and the
-API serves it beside `/api`. Set `Auth:SigningKey`, the connection string and the first manager
-from the environment, never in a committed file.
+The `Dockerfile` builds the app and the API into one image, the API serving the app beside `/api`:
+
+```bash
+docker build -t hr-payroll .
+```
+
+It listens on `PORT` (8080 unless the platform says) and on the attendance device's own port
+5092. The database comes from `DATABASE_URL` (`postgres://user:password@host:port/database`) or
+`ConnectionStrings__HrPayroll`; the migrations are applied on start. Set `Auth__SigningKey` and
+the first manager (`Auth__FirstManager__*`) from the environment, never in a committed file.
+
+To deploy on Railway, with the device calling in over the internet, see
+[docs/deploy-railway.md](docs/deploy-railway.md).

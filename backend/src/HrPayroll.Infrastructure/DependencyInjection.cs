@@ -21,8 +21,8 @@ public static class DependencyInjection
     // Every port of the application, except the live notifications, which come from the API's hub.
     public static IServiceCollection AddHrInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString(ConnectionStringName)
-            ?? throw new InvalidOperationException($"Connection string '{ConnectionStringName}' is not configured.");
+        // DATABASE_URL first (a hosting platform's), else ConnectionStrings:HrPayroll.
+        var connectionString = DatabaseConnection.Resolve(configuration);
 
         services.Configure<CompanyOptions>(configuration.GetSection(CompanyOptions.Section));
         services.AddSingleton<ICompanyProfile, CompanyProfileStore>();

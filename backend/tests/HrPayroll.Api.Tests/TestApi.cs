@@ -52,6 +52,8 @@ public sealed class TestApi : IAsyncDisposable
         {
             web.UseEnvironment("Testing");
             web.UseSetting($"ConnectionStrings:{HrPayroll.Infrastructure.DependencyInjection.ConnectionStringName}", api._connectionString);
+            // Never a hosting platform's database, whatever this machine's environment says.
+            web.UseSetting(HrPayroll.Infrastructure.Persistence.DatabaseConnection.UrlVariable, string.Empty);
             web.UseSetting("Auth:SigningKey", "test-only-signing-key-0123456789-0123456789");
             web.UseSetting("Auth:FirstManager:Email", BossEmail);
             web.UseSetting("Auth:FirstManager:Name", "Boss");

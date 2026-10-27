@@ -13,6 +13,8 @@ using HrPayroll.Infrastructure;
 using HrPayroll.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+// On a hosting platform, its PORT, and the device's own port beside it.
+builder.ListenOnPlatformPort();
 
 builder.Services.AddHrApplication();
 builder.Services.AddHrInfrastructure(builder.Configuration);

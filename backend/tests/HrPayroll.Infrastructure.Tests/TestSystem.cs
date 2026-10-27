@@ -30,6 +30,8 @@ public sealed class TestSystem : IAsyncDisposable
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             [$"ConnectionStrings:{DependencyInjection.ConnectionStringName}"] = system._connectionString,
+            // Never a hosting platform's database, whatever this machine's environment says.
+            [DatabaseConnection.UrlVariable] = string.Empty,
         });
         builder.Services.AddHrApplication();
         builder.Services.AddHrInfrastructure(builder.Configuration);

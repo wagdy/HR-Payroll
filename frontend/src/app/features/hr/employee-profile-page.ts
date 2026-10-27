@@ -333,7 +333,7 @@ export class PinDialog {
                 <p class="muted">No PIN yet: they cannot sign in to the portal.</p>
               }
               @if (portalAddress(); as address) {
-                <p class="muted small">On the office Wi-Fi: <span class="digits">{{ address }}</span></p>
+                <p class="muted small">{{ address.startsWith('https://') ? 'From anywhere' : 'On the office Wi-Fi' }}: <span class="digits">{{ address }}</span></p>
               }
               @if (canSetPin() && e.isActive && e.mobileNumber) {
                 <div class="card-actions">
@@ -761,8 +761,10 @@ export class EmployeeProfilePage {
     }
     try {
       const where = await firstValueFrom(this.api.deviceConnection());
-      // Only where phones on the network reach it.
-      this.portalAddress.set(where.portalPort && where.portalOnNetwork && where.addresses.length ? `http://${where.addresses[0]}:${where.portalPort}/portal` : null);
+      // The cloud's address, from anywhere; else the office Wi-Fi's, only where phones on the network reach it.
+      this.portalAddress.set(
+        where.portalUrl ?? (where.portalPort && where.portalOnNetwork && where.addresses.length ? `http://${where.addresses[0]}:${where.portalPort}/portal` : null),
+      );
     } catch {
       this.portalAddress.set(null);
     }
