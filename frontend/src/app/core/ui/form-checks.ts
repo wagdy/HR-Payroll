@@ -1,9 +1,9 @@
 import { signal } from '@angular/core';
 import { ErrorStateMatcher } from '@angular/material/core';
-import { NotifyService } from '../../core/ui/notify.service';
+import { NotifyService } from './notify.service';
 
-// What stops a form being sent, said where it is and pointing at its field: "Invoice 2, line 3:
-// enter the quantity", the field the one whose accessible name is "Invoice 2, Quantity, line 3".
+// What stops a form being sent, said where it is and pointing at its field: "Pay: enter the
+// monthly salary", the field the one whose accessible name is "Monthly salary".
 export interface FormProblem {
   where: string;
   what: string;

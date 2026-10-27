@@ -6,7 +6,7 @@ import { of } from 'rxjs';
 import { AttendanceDevice, DeviceCommand, HrApi } from '../../core/hr/hr.api';
 import { saveDeviceLink, savedDeviceLink } from '../../core/hr/device-link';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
+import { Approvals } from '../approvals/approvals';
 import { DeviceNameDialog, DevicesPage, ReadAttendanceDialog } from './devices-page';
 import { HrAccess } from '../../core/hr/hr-access';
 
@@ -25,7 +25,7 @@ function command(extra: Partial<DeviceCommand> = {}): DeviceCommand {
   };
 }
 const approved: AttendanceDevice = {
-  ...waiting, id: 'd2', serialNumber: 'CQZ0000000002', name: 'Kitchen door', isApproved: true, approvedBy: 'Omar', lastCalledInAtUtc: null, callingIn: false,
+  ...waiting, id: 'd2', serialNumber: 'CQZ0000000002', name: 'Main door', isApproved: true, approvedBy: 'Omar', lastCalledInAtUtc: null, callingIn: false,
 };
 
 describe('the attendance devices', () => {
@@ -90,23 +90,23 @@ describe('the attendance devices', () => {
     expect(text(rows[0].querySelector('button')!)).toBe('Approve');
     expect(text(rows[1].querySelector('.status')!)).toBe('Approvedمعتمد');
     expect(text(rows[1].querySelectorAll('td')[1].querySelector('.muted')!)).toBe('by Omar');
-    // Whether each calls the till over ADMS, so its punches come as they are made.
+    // Whether each calls the system over ADMS, so its punches come as they are made.
     expect(text(rows[0].querySelector('.adms')!)).toBe('wifi Calling in over ADMS: punches come as they are made');
     expect(text(rows[1].querySelector('.adms')!)).toBe('wifi_off Not calling in over ADMS: punches come only with Sync');
     expect(rows[1].querySelector('.adms')!.classList).toContain('bad-text');
   });
 
-  it('says when a device’s clock is ahead of the till’s', async () => {
+  it('says when a device’s clock is ahead of the system’s', async () => {
     devices.mockReturnValue(of([{ ...approved, callingIn: true, clockAheadMinutes: 300 }]));
     const { el } = await render();
 
     expect([...el.querySelectorAll('tbody tr')[0].querySelectorAll('.adms')].map(text)).toEqual([
       'wifi Calling in over ADMS: punches come as they are made',
-      "schedule Its clock is about 5 hours ahead: restart it to set its clock by the till's",
+      "schedule Its clock is about 5 hours ahead: restart it to set its clock by the system's",
     ]);
   });
 
-  it('gives the device this machine’s network address and the device’s own port, when the till has one', async () => {
+  it('gives the device this machine’s network address and the device’s own port, when the system has one', async () => {
     deviceConnection.mockReturnValue(of({ devicePort: 5082, addresses: ['192.168.1.132'] }));
     const { el, fixture } = await render();
     await fixture.whenStable();
@@ -140,7 +140,7 @@ describe('the attendance devices', () => {
 
     await page['readUsers'](approved);
     expect(readDeviceUsers).toHaveBeenCalledWith('d2');
-    expect(notify.info).toHaveBeenCalledWith('Kitchen door: asked for its users. It takes the command the next time it asks, within seconds.');
+    expect(notify.info).toHaveBeenCalledWith('Main door: asked for its users. It takes the command the next time it asks, within seconds.');
 
     open.mockReturnValue({ afterClosed: () => of({ from: '2026-09-01', to: '2026-10-21' }) });
     await page['readAttendance'](approved);
@@ -177,7 +177,7 @@ describe('the attendance devices', () => {
     expect(savedDeviceLink()).toEqual({ address: '192.168.1.40', port: 4370, commKey: 0 });
 
     // No answer: said, in red, and the address not remembered.
-    const none = 'No answer from 192.168.1.50 on port 4370. Is the device on, and is this machine on the restaurant’s network?';
+    const none = 'No answer from 192.168.1.50 on port 4370. Is the device on, and is this machine on the office network?';
     page['deviceAddress'] = '192.168.1.50';
     testDevice.mockReturnValue(of({ reached: false, message: none, serialNumber: null, model: null, firmware: null, users: null, records: null }));
     await page['test']();
@@ -187,7 +187,7 @@ describe('the attendance devices', () => {
     expect(savedDeviceLink()).toEqual({ address: '192.168.1.40', port: 4370, commKey: 0 });
 
     // Not an address: nothing to press.
-    page['deviceAddress'] = 'kitchen door';
+    page['deviceAddress'] = 'accounts door';
     expect(page['linkable']()).toBe(false);
     page['deviceAddress'] = '192.168.1.300';
     expect(page['linkable']()).toBe(false);
@@ -200,25 +200,25 @@ describe('the attendance devices', () => {
     devices.mockClear();
 
     syncDevice.mockReturnValue(of({
-      serialNumber: 'CQZ7232060112', deviceName: 'K40 Pro (192.168.1.106)', newDevice: true, users: 2, usersNotOnTheTill: 1, punches: 3, newPunches: 3,
+      serialNumber: 'CQZ7232060112', deviceName: 'K40 Pro (192.168.1.106)', newDevice: true, users: 2, usersNotInTheSystem: 1, punches: 3, newPunches: 3,
     }));
     await page['sync']();
     fixture.detectChanges();
     expect(syncDevice).toHaveBeenCalledWith('192.168.1.106', 4370, 12345);
     expect(text(el.querySelector('section.link .result')!)).toBe(
-      'check_circle K40 Pro (192.168.1.106): 2 users and 3 punches read, 3 new. New to the till: approved, and listed below. ' +
-        '1 of its users is not linked to anyone on the till yet. Link it on the Employees tab',
+      'check_circle K40 Pro (192.168.1.106): 2 users and 3 punches read, 3 new. New to the system: approved, and listed below. ' +
+        '1 of its users is not linked to anyone in the system yet. Link it on the Employees tab',
     );
     expect(el.querySelector('section.link .result a')!.getAttribute('href')).toBe('/hr/employees');
     expect(notify.info).toHaveBeenCalledWith('Synced K40 Pro (192.168.1.106): 3 new punches.');
     expect(devices).toHaveBeenCalledTimes(1);
 
     syncDevice.mockReturnValue(of({
-      serialNumber: 'CQZ7232060112', deviceName: 'Kitchen door', newDevice: false, users: 1, usersNotOnTheTill: 0, punches: 1, newPunches: 0,
+      serialNumber: 'CQZ7232060112', deviceName: 'Main door', newDevice: false, users: 1, usersNotInTheSystem: 0, punches: 1, newPunches: 0,
     }));
     await page['sync']();
     fixture.detectChanges();
-    expect(text(el.querySelector('section.link .result')!)).toBe('check_circle Kitchen door: 1 user and 1 punch read, none of them new.');
+    expect(text(el.querySelector('section.link .result')!)).toBe('check_circle Main door: 1 user and 1 punch read, none of them new.');
   });
 
   it('saves how punches are read, once changed', async () => {

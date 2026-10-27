@@ -15,7 +15,7 @@ import { errorMessage } from '../../core/http/error-message';
 import { AttendanceDevice, AttendancePolicy, DeviceCommand, HrApi } from '../../core/hr/hr.api';
 import { HrAccess } from '../../core/hr/hr-access';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
+import { Approvals } from '../approvals/approvals';
 
 // A device's name, as the manager gives it on approving it.
 @Component({
@@ -29,7 +29,7 @@ import { Approvals } from '../costing/approvals';
       }
       <mat-form-field class="wide">
         <mat-label>Name · الاسم</mat-label>
-        <input matInput [(ngModel)]="name" maxlength="100" placeholder="Kitchen door" aria-label="Device name" />
+        <input matInput [(ngModel)]="name" maxlength="100" placeholder="Main entrance" aria-label="Device name" />
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -58,7 +58,7 @@ export class DeviceNameDialog {
   template: `
     <h2 mat-dialog-title>Read {{ data.device }}'s attendance again</h2>
     <mat-dialog-content>
-      <p class="muted">Every punch it holds from one day to another, sent again. What the till has already is kept once; what it missed comes in.</p>
+      <p class="muted">Every punch it holds from one day to another, sent again. What the system has already is kept once; what it missed comes in.</p>
       <div class="row">
         <mat-form-field>
           <mat-label>From · من</mat-label>
@@ -91,18 +91,18 @@ export class ReadAttendanceDialog {
   protected to = this.data.to;
 }
 
-// The attendance devices (أجهزة البصمة): a ZKTeco K40 Pro pushes its punches to this till over the
-// restaurant's network. One that calls is listed as waiting, and refused, until a manager approves
+// The attendance devices (أجهزة البصمة): a ZKTeco K40 Pro pushes its punches to this system over the
+// office network. One that calls is listed as waiting, and refused, until a manager approves
 // it by name. A manager can leave an approved one a command, which it takes the next time it asks:
 // to list its users, for the Employees tab, or to send its attendance from a day again. Below, how
 // punches are read: the grace for arriving late, and how close two scans are to count as one. A
 // manager's to change.
 //
-// The device keeps its punches while the till is away, and sends them all when it is back: the
+// The device keeps its punches while the system is away, and sends them all when it is back: the
 // laptop needs the same address on the network each time (a reservation on the router), as the
 // device is given it once.
 //
-// Beside that, the till can reach the device itself, at its address on ZKTeco's own port (4370):
+// Beside that, the system can reach the device itself, at its address on ZKTeco's own port (4370):
 // to test that it answers, and to read its users and its whole log at once (Connection settings,
 // a manager's). The punches read are kept as ADMS's are, once each; a device read for the first
 // time is approved by it.
@@ -134,13 +134,13 @@ export class ReadAttendanceDialog {
         </div>
       </dl>
       @if (devicePort()) {
-        <p class="muted small">Port {{ devicePort() }} is the device’s own: it answers nothing but the device, and the till’s screens stay on this machine.</p>
+        <p class="muted small">Port {{ devicePort() }} is the device’s own: it answers nothing but the device, and the system’s screens stay on this machine.</p>
       } @else if (local) {
-        <p class="muted small">This screen is open on the till itself: give the device this machine’s address on the restaurant’s network, not “localhost”.</p>
+        <p class="muted small">This screen is open on the server itself: give the device this machine’s address on the office network, not “localhost”.</p>
       }
       <p class="muted small">It shows up below within a minute, waiting. Approve it, and its punches start coming in, the ones it already holds too.</p>
       <p class="muted small">
-        Reserve this machine’s address on the router, so it keeps it: the device holds its punches while the till is away and sends them all when it
+        Reserve this machine’s address on the router, so it keeps it: the device holds its punches while the system is away and sends them all when it
         can reach this address again.
       </p>
     </section>
@@ -149,7 +149,7 @@ export class ReadAttendanceDialog {
       <section class="link" aria-label="Connection settings">
         <h2>Connection settings <span class="inline-ar">إعدادات التوصيل</span></h2>
         <p class="muted small">
-          The till reaches the device at its own address, to test it answers and to read its users and its whole log now. Its punches keep coming
+          The system reaches the device at its own address, to test it answers and to read its users and its whole log now. Its punches keep coming
           over ADMS too; none is kept twice.
         </p>
         <div class="fields">
@@ -232,7 +232,7 @@ export class ReadAttendanceDialog {
                 }
                 @if (d.clockAheadMinutes !== null) {
                   <div class="small adms bad-text">
-                    <mat-icon inline>schedule</mat-icon> Its clock is {{ ahead(d.clockAheadMinutes) }} ahead: restart it to set its clock by the till's
+                    <mat-icon inline>schedule</mat-icon> Its clock is {{ ahead(d.clockAheadMinutes) }} ahead: restart it to set its clock by the system's
                   </div>
                 }
               </td>
@@ -294,7 +294,7 @@ export class ReadAttendanceDialog {
           <mat-label>Grace for arriving late · سماحية التأخير</mat-label>
           <input matInput type="number" min="0" max="120" [(ngModel)]="grace" [disabled]="!canApprove()" aria-label="Grace for arriving late" />
           <span matTextSuffix>&nbsp;min</span>
-          <mat-hint>Up to this late is on time; later counts from the shift’s start</mat-hint>
+          <mat-hint>Up to this late is on time; later counts from the work schedule’s start</mat-hint>
         </mat-form-field>
         <mat-form-field>
           <mat-label>Scans this close are one · البصمة المكررة</mat-label>
@@ -308,7 +308,7 @@ export class ReadAttendanceDialog {
       </div>
     </section>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .setup,
     .settings {
@@ -459,8 +459,8 @@ export class DevicesPage {
   protected grace = 0;
   protected doubleScan = 3;
 
-  // Where the device reaches this till: the device's own port and this machine's network address
-  // when the till has one; otherwise the address and port this screen is served from.
+  // Where the device reaches this system: the device's own port and this machine's network address
+  // when the system has one; otherwise the address and port this screen is served from.
   protected readonly local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
   protected readonly devicePort = signal<number | null>(null);
   private readonly addresses = signal<string[]>([]);
@@ -469,7 +469,7 @@ export class DevicesPage {
   );
   protected readonly port = computed(() => String(this.devicePort() ?? (location.port || (location.protocol === 'https:' ? '443' : '80'))));
 
-  // Where the till reaches the device: as last used here, else the address a device last called
+  // Where the system reaches the device: as last used here, else the address a device last called
   // from, on ZKTeco's port, with no comm key unless one is set on it.
   private readonly link = savedDeviceLink();
   protected deviceAddress = this.link?.address ?? '';
@@ -532,11 +532,11 @@ export class DevicesPage {
       const text =
         `${r.deviceName}: ${count(r.users, 'user')} and ${count(r.punches, 'punch', 'punches')} read, ` +
         `${r.newPunches === 0 ? 'none of them new' : `${r.newPunches} new`}.` +
-        (r.newDevice ? ' New to the till: approved, and listed below.' : '') +
-        (r.usersNotOnTheTill
-          ? ` ${r.usersNotOnTheTill} of its users ${r.usersNotOnTheTill === 1 ? 'is' : 'are'} not linked to anyone on the till yet.`
+        (r.newDevice ? ' New to the system: approved, and listed below.' : '') +
+        (r.usersNotInTheSystem
+          ? ` ${r.usersNotInTheSystem} of its users ${r.usersNotInTheSystem === 1 ? 'is' : 'are'} not linked to anyone in the system yet.`
           : '');
-      this.linked.set({ ok: true, text, unlinked: r.usersNotOnTheTill });
+      this.linked.set({ ok: true, text, unlinked: r.usersNotInTheSystem });
       this.notify.info(`Synced ${r.deviceName}: ${r.newPunches} new ${r.newPunches === 1 ? 'punch' : 'punches'}.`);
       await this.load(false);
     } catch (error) {

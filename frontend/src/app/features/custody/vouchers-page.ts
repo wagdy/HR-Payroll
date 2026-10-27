@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -8,11 +8,10 @@ import { firstValueFrom } from 'rxjs';
 import { AssetVoucher, CustodyApi, reasonLabels } from '../../core/custody/custody.api';
 import { errorMessage } from '../../core/http/error-message';
 import { MoneyPipe } from '../../core/ui/money.pipe';
-import { BusinessDay, isoDay } from '../costing/financials';
+import { BusinessDay, isoDay } from '../../core/ui/business-day';
 
-// The custody vouchers (الأذونات) of a run of business days, the latest first: into whose
-// custody (إذن دخول), or out of it and why (إذن خروج). A breakage routed to Costing → Waste says
-// so. The last 30 days to start with.
+// The custody vouchers (الأذونات) of a run of workdays, the latest first: into whose custody
+// (إذن دخول), or out of it and why (إذن خروج). The last 30 days to start with.
 @Component({
   selector: 'app-custody-vouchers-page',
   imports: [DatePipe, FormsModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, MoneyPipe],
@@ -27,7 +26,7 @@ import { BusinessDay, isoDay } from '../costing/financials';
         <input matInput type="date" [ngModel]="to()" (ngModelChange)="pick('to', $event)" [min]="from()" aria-label="To" />
       </mat-form-field>
       <span class="spacer"></span>
-      <span class="muted">{{ vouchers().length }} {{ vouchers().length === 1 ? 'voucher' : 'vouchers' }} · {{ inWaste() }} in Waste</span>
+      <span class="muted">{{ vouchers().length }} {{ vouchers().length === 1 ? 'voucher' : 'vouchers' }}</span>
     </div>
     @if (loading()) {
       <mat-progress-bar mode="indeterminate" />
@@ -50,16 +49,13 @@ import { BusinessDay, isoDay } from '../costing/financials';
           </thead>
           <tbody>
             @for (v of vouchers(); track v.id) {
-              <tr [class.waste]="v.routedToWaste">
+              <tr>
                 <td class="nowrap">{{ v.date | date: 'EEE d MMM' }}</td>
                 <td><strong>{{ v.assetName }}</strong></td>
                 <td>
                   <span class="type" [class]="v.type">{{ v.type === 'CheckIn' ? 'In · إذن دخول' : 'Out · إذن خروج' }}</span>
                   @if (v.reason) {
                     <span class="muted"> {{ reasonLabels[v.reason].en }} · {{ reasonLabels[v.reason].ar }}</span>
-                  }
-                  @if (v.routedToWaste) {
-                    <span class="badge">In Waste · في الهالك</span>
                   }
                   @if (v.notes) {
                     <div class="muted small">{{ v.notes }}</div>
@@ -78,7 +74,7 @@ import { BusinessDay, isoDay } from '../costing/financials';
       </div>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .day {
       width: 170px;
@@ -94,22 +90,11 @@ import { BusinessDay, isoDay } from '../costing/financials';
       padding: 1px 8px;
       border-radius: 999px;
       font: var(--mat-sys-label-small);
-      background: color-mix(in srgb, var(--till-ok, #2e7d32) 16%, transparent);
+      background: color-mix(in srgb, var(--app-ok, #2e7d32) 16%, transparent);
 
       &.CheckOut {
         background: var(--mat-sys-surface-container-high);
       }
-    }
-    .badge {
-      display: inline-block;
-      margin-left: 6px;
-      padding: 0 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: color-mix(in srgb, var(--till-warn) 30%, transparent);
-    }
-    tr.waste td {
-      background: color-mix(in srgb, var(--till-warn) 7%, transparent);
     }
   `,
 })
@@ -123,7 +108,6 @@ export class VouchersPage {
   protected readonly vouchers = signal<AssetVoucher[]>([]);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly inWaste = computed(() => this.vouchers().filter((v) => v.routedToWaste).length);
 
   constructor() {
     void (async () => {

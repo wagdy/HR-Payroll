@@ -1,6 +1,6 @@
 import { AttendanceDevice } from './hr.api';
 
-// Where the till reaches an attendance device on its own port (ZKTeco's, 4370): its address,
+// Where the system reaches an attendance device on its own port (ZKTeco's, 4370): its address,
 // port and comm key, as last used in this browser. Remembered when a test or a sync reached it,
 // so the Devices tab opens on them and the Employees tab's Sync reads the same device.
 export interface DeviceLink {
@@ -11,7 +11,7 @@ export interface DeviceLink {
 
 export const ZkPort = 4370;
 
-const Key = 'otantik.hr.device-link';
+const Key = 'hr-payroll.device-link';
 
 export function isIPv4(address: string): boolean {
   const parts = address.trim().split('.');
@@ -23,7 +23,7 @@ export function aheadBy(minutes: number): string {
   return minutes >= 90 ? `about ${Math.round(minutes / 60)} hours` : minutes >= 50 ? 'about an hour' : `${minutes} minutes`;
 }
 
-// The address a device last called from, when it is one the till can reach it at.
+// The address a device last called from, when it is one the system can reach it at.
 export function addressOf(device: AttendanceDevice): string | null {
   const address = device.lastAddress?.replace(/^::ffff:/, '') ?? '';
   return isIPv4(address) ? address : null;

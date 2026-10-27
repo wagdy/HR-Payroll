@@ -4,7 +4,6 @@ import { routes } from '../../app.routes';
 import { AuthService } from '../../core/auth/auth.service';
 import { Permissions } from '../../core/auth/permissions';
 import { signal } from '@angular/core';
-import { FinancialsShell } from '../costing/financials-shell';
 import { HrShell } from './hr-shell';
 import { CorrectionsCount } from './corrections-count';
 import { PendingLeaves } from './pending-leaves';
@@ -29,9 +28,9 @@ const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 describe('the HR navigation', () => {
   it('gives HR & Payroll a section of its own, each tab guarded by its own, and the same tabs in the portal', () => {
     const shell = routes.find((r) => r.path === '' && r.children)!;
-    const till = shell.children!.find((r) => r.path === 'hr')!;
-    expect(till.canActivate).toEqual([hrGuard]);
-    expect(till.children!.map((r) => [r.path, typeof r.redirectTo === 'function' ? 'first held' : r.loadComponent ? 'page' : undefined, r.canActivate?.length ?? 0])).toEqual([
+    const system = shell.children!.find((r) => r.path === 'hr')!;
+    expect(system.canActivate).toEqual([hrGuard]);
+    expect(system.children!.map((r) => [r.path, typeof r.redirectTo === 'function' ? 'first held' : r.loadComponent ? 'page' : undefined, r.canActivate?.length ?? 0])).toEqual([
       ['', 'first held', 0],
       ['now', 'page', 1],
       ['employees', 'page', 1],
@@ -47,18 +46,29 @@ describe('the HR navigation', () => {
       ['devices', 'page', 1],
       ['permissions', 'page', 1],
     ]);
-    // The portal's /hr, before the till's: only while an employee is the one signed in, around the same tabs.
+    // The portal's /hr, before the system's: only while an employee is the one signed in, around the same tabs.
     const portal = routes.find((r) => r.path === 'hr')!;
     expect(routes.indexOf(portal)).toBeLessThan(routes.indexOf(shell));
     expect(portal.canMatch).toEqual([portalHrMatch]);
-    expect(portal.children![0].children).toBe(till.children);
+    expect(portal.children![0].children).toBe(system.children);
     // Leaves & Holidays: the requests first, and the public holidays' old address kept.
-    const leaves = till.children!.find((r) => r.path === 'leaves')!;
+    const leaves = system.children!.find((r) => r.path === 'leaves')!;
     expect(leaves.children!.map((r) => r.path)).toEqual(['', 'requests', 'balances', 'types', 'holidays']);
     expect(leaves.children![0].redirectTo).toBe('requests');
-    expect(till.children!.find((r) => r.path === 'holidays')!.redirectTo).toBe('leaves/holidays');
-    // Advances in Financials are HR's too: guarded the same way.
-    expect(find(find(routes, 'financials')!.children, 'advances')!.canActivate?.length).toBe(1);
+    expect(system.children!.find((r) => r.path === 'holidays')!.redirectTo).toBe('leaves/holidays');
+  });
+
+  it('gives the system Custody, a manager’s Approvals and Users, and each user their account', () => {
+    const shell = routes.find((r) => r.path === '' && r.children)!;
+    expect(shell.children!.map((r) => [r.path, r.canActivate?.length ?? 0])).toEqual([
+      ['', 0],
+      ['hr', 1],
+      ['custody', 1],
+      ['approvals', 1],
+      ['users', 1],
+      ['account', 0],
+    ]);
+    expect(shell.children!.find((r) => r.path === 'custody')!.children!.map((r) => r.path)).toEqual(['', 'categories', 'assets', 'vouchers']);
   });
 
   async function shellOf(hrTabs: string[], manager: boolean) {
@@ -109,21 +119,5 @@ describe('the HR navigation', () => {
   it('shows an accountant only the tabs a manager ticked for them, and no Permissions', async () => {
     const { el } = await shellOf(['Payroll', 'Advances'], false);
     expect([...el.querySelectorAll('nav a')].map((a) => a.getAttribute('href'))).toEqual(['/payroll', '/advances']);
-  });
-
-  it('shows the Advances tab in Financials only to whoever sees HR', async () => {
-    async function tabs(hr: boolean): Promise<string[]> {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({
-        providers: [provideRouter([]), { provide: AuthService, useValue: { employeeActing: () => false, me: () => null, can: (p: string) => hr || p !== Permissions.HrView } }],
-      });
-      const fixture = TestBed.createComponent(FinancialsShell);
-      await fixture.whenStable();
-      fixture.detectChanges();
-      return [...(fixture.nativeElement as HTMLElement).querySelectorAll('nav a')].map((a) => a.getAttribute('href')!);
-    }
-
-    expect(await tabs(true)).toContain('/advances');
-    expect(await tabs(false)).not.toContain('/advances');
   });
 });

@@ -8,15 +8,15 @@ import { PortalAuth } from '../portal/portal-auth';
 // The APIs of the tabs a manager gives: HR & Payroll's, its leaves and performance, and Custody's.
 const employeeApis = ['/api/hr', '/api/leaves', '/api/performance', '/api/custody'];
 
-// The till token on every API call. A 401 on anything but the sign-in itself means the API no
-// longer accepts it (the shift ended, or the account changed in the delivery system), so the
-// till goes back to the sign-in screen.
+// The user's token on every API call. A 401 on anything but the sign-in itself means the API no
+// longer accepts it (it ran out, or the account changed), so the app goes back to the sign-in
+// screen.
 //
-// The employee portal's calls are apart: they carry the employee's token and never the till's
-// (on a till where both are signed in, neither reaches the other's API), and a 401 there signs
-// the employee out of the portal, not the till. So do the calls of the tabs a manager gives
-// (employeeApis) while an employee is the one acting (no one of the till signed in): the tabs a
-// manager gave them, in the portal.
+// The employee portal's calls are apart: they carry the employee's token and never the user's
+// (on a browser where both are signed in, neither reaches the other's API), and a 401 there signs
+// the employee out of the portal, not the user. So do the calls of the tabs a manager gives
+// (employeeApis) while an employee is the one acting (no user signed in): the tabs a manager gave
+// them, in the portal.
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthService);
   const portalCall = request.url.startsWith('/api/portal');
@@ -54,7 +54,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   );
 };
 
-// Notes whether the till server answered at all, which the banner and the buttons go by.
+// Notes whether the server answered at all, which the banner goes by.
 export const reachabilityInterceptor: HttpInterceptorFn = (request, next) => {
   const connectivity = inject(ConnectivityService);
 

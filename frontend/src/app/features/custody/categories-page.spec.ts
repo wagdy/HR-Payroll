@@ -4,8 +4,8 @@ import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 import { AssetCategory, CustodyApi, AssetVoucher } from '../../core/custody/custody.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
-import { BusinessDay } from '../costing/financials';
+import { Approvals } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
 import { CategoriesPage, CategoryDialog } from './categories-page';
 import { VouchersPage } from './vouchers-page';
 import { HrAccess } from '../../core/hr/hr-access';
@@ -18,7 +18,7 @@ const cell = (el: Element): string =>
     .filter(Boolean)
     .join(' ');
 
-const tableware: AssetCategory = { id: 'tableware', name: 'Tableware', isConsumable: true, assets: 2, inCustody: 1 };
+const technology: AssetCategory = { id: 'technology', name: 'Technology', isConsumable: true, assets: 2, inCustody: 1 };
 const devices: AssetCategory = { id: 'devices', name: 'Devices', isConsumable: false, assets: 0, inCustody: 0 };
 
 describe('the custody categories', () => {
@@ -46,8 +46,8 @@ describe('the custody categories', () => {
   }
 
   beforeEach(() => {
-    categories.mockReset().mockReturnValue(of([devices, tableware]));
-    saveCategory.mockReset().mockReturnValue(of(tableware));
+    categories.mockReset().mockReturnValue(of([devices, technology]));
+    saveCategory.mockReset().mockReturnValue(of(technology));
     deleteCategory.mockReset().mockReturnValue(of(undefined));
     open.mockReset();
     notify.info.mockReset();
@@ -59,7 +59,7 @@ describe('the custody categories', () => {
     const { el, page } = await render();
     expect([...el.querySelectorAll('tbody tr')].map((r) => [...r.querySelectorAll('td')].slice(0, 4).map(cell))).toEqual([
       ['Devices', 'Fixed asset أصل ثابت', '0', '0'],
-      ['Tableware', 'Consumable مستهلك', '2', '1'],
+      ['Technology', 'Consumable مستهلك', '2', '1'],
     ]);
 
     open.mockReturnValue({ afterClosed: () => of({ name: 'Uniforms', isConsumable: false }) });
@@ -68,10 +68,10 @@ describe('the custody categories', () => {
     expect(saveCategory).toHaveBeenCalledWith(expect.any(String), 'Uniforms', false);
     expect(notify.info).toHaveBeenLastCalledWith('Uniforms added.');
 
-    open.mockReturnValue({ afterClosed: () => of({ name: 'Tableware', isConsumable: false }) });
-    await page['edit'](tableware);
-    expect(open.mock.lastCall![1].data).toEqual({ category: tableware });
-    expect(saveCategory).toHaveBeenLastCalledWith('tableware', 'Tableware', false);
+    open.mockReturnValue({ afterClosed: () => of({ name: 'Technology', isConsumable: false }) });
+    await page['edit'](technology);
+    expect(open.mock.lastCall![1].data).toEqual({ category: technology });
+    expect(saveCategory).toHaveBeenLastCalledWith('technology', 'Technology', false);
 
     await page['remove'](devices);
     expect(deleteCategory).toHaveBeenCalledWith('devices');
@@ -89,14 +89,13 @@ describe('the custody vouchers', () => {
 
   function voucher(id: string, extra: Partial<AssetVoucher> = {}): AssetVoucher {
     return {
-      id, assetItemId: 'plates', assetName: 'Dinner plates', type: 'CheckOut', date: '2026-10-24', employeeId: 'hassan', employeeName: 'Hassan', quantity: 3,
-      reason: 'Breakage', notes: 'Dropped a tray', unitCost: 35, cost: 105, recordedBy: 'Omar', recordedAtUtc: '2026-10-24T12:00:00Z', wasteEntryId: 'w1',
-      routedToWaste: true, ...extra,
+      id, assetItemId: 'plates', assetName: 'Desk lamps', type: 'CheckOut', date: '2026-10-24', employeeId: 'hassan', employeeName: 'Hassan', quantity: 3,
+      reason: 'Breakage', notes: 'Dropped a tray', unitCost: 35, cost: 105, recordedBy: 'Omar', recordedAtUtc: '2026-10-24T12:00:00Z', ...extra,
     };
   }
 
-  it('lists the last 30 days’ vouchers, saying which breakage went to Waste, and reads the days chosen', async () => {
-    vouchers.mockReturnValue(of([voucher('v2'), voucher('v1', { type: 'CheckIn', reason: null, quantity: 40, cost: 1_400, notes: null, wasteEntryId: null, routedToWaste: false })]));
+  it('lists the last 30 days’ vouchers, and reads the days chosen', async () => {
+    vouchers.mockReturnValue(of([voucher('v2'), voucher('v1', { type: 'CheckIn', reason: null, quantity: 40, cost: 1_400, notes: null })]));
     TestBed.configureTestingModule({
       providers: [
         { provide: CustodyApi, useValue: { vouchers } },
@@ -115,11 +114,10 @@ describe('the custody vouchers', () => {
     expect(vouchers).toHaveBeenCalledWith('2026-09-26', '2026-10-25');
     const rows = [...el.querySelectorAll('tbody tr')];
     expect(rows.map((r) => [...r.querySelectorAll('td')].slice(1, 6).map(cell))).toEqual([
-      ['Dinner plates', 'Out · إذن خروج Broken · كسر In Waste · في الهالك Dropped a tray', 'Hassan', '3', 'L.E 105.00'],
-      ['Dinner plates', 'In · إذن دخول', 'Hassan', '40', 'L.E 1,400.00'],
+      ['Desk lamps', 'Out · إذن خروج Broken · كسر Dropped a tray', 'Hassan', '3', '105.00'],
+      ['Desk lamps', 'In · إذن دخول', 'Hassan', '40', '1,400.00'],
     ]);
-    expect(rows[0].classList).toContain('waste');
-    expect(text(el.querySelector('.toolbar .muted')!)).toBe('2 vouchers · 1 in Waste');
+    expect(text(el.querySelector('.toolbar .muted')!)).toBe('2 vouchers');
 
     page['pick']('from', '2026-10-01');
     expect(vouchers).toHaveBeenLastCalledWith('2026-10-01', '2026-10-25');

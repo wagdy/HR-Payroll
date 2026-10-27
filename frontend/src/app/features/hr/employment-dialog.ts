@@ -5,7 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { firstValueFrom } from 'rxjs';
-import { ApprovalResult } from '../../core/costing/costing.api';
+import { ApprovalResult } from '../../core/approvals/approvals.api';
 import { errorMessage } from '../../core/http/error-message';
 import { Employee, HrApi } from '../../core/hr/hr.api';
 
@@ -77,7 +77,7 @@ export interface EmploymentDialogData {
     .ask {
       padding: 8px 10px;
       border-radius: 8px;
-      background: color-mix(in srgb, var(--till-warn) 14%, transparent);
+      background: color-mix(in srgb, var(--app-warn) 14%, transparent);
     }
     .error {
       color: var(--mat-sys-error);

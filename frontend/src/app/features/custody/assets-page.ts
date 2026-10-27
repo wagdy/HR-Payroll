@@ -17,8 +17,8 @@ import { Employee, HrApi } from '../../core/hr/hr.api';
 import { errorMessage } from '../../core/http/error-message';
 import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals, pendingLabel } from '../costing/approvals';
-import { BusinessDay } from '../costing/financials';
+import { Approvals, pendingLabel } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
 import {
   AssetDialog,
   AssetDialogData,
@@ -31,29 +31,15 @@ import {
   wasAsked,
 } from './custody-dialogs';
 
-const WithFinancialKey = 'otantik.custody.with-financial';
-
-function readWithFinancial(): boolean {
-  try {
-    return localStorage.getItem(WithFinancialKey) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 // The assets (الأصول): what there is of each, a piece's cost and the whole's, whose custody it is
-// in or where it is, and its vouchers. Link with Financials (ربط بالمالية) adds those bought on
-// purchase invoices to the ones entered in HR, and is remembered in this browser. What is gone
-// (all broken or discarded) is shown when asked. Whoever manages HR adds, checks in and out, an
-// accountant's going to a manager, its row locked until then.
+// in or where it is, and its vouchers. What is gone (all broken or discarded) is shown when
+// asked. Whoever manages HR adds, checks in and out, an accountant's going to a manager, its row
+// locked until then.
 @Component({
   selector: 'app-assets-page',
   imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatProgressBarModule, MatSelectModule, MatSlideToggleModule, MatTooltipModule, MoneyPipe],
   template: `
     <div class="toolbar">
-      <mat-slide-toggle [ngModel]="withFinancial()" (ngModelChange)="link($event)" aria-label="Link with Financials">
-        Link with Financials · ربط بالمالية
-      </mat-slide-toggle>
       <mat-form-field subscriptSizing="dynamic" class="filter">
         <mat-label>Category · الفئة</mat-label>
         <mat-select [ngModel]="category()" (ngModelChange)="category.set($event)" aria-label="Category">
@@ -70,13 +56,6 @@ function readWithFinancial(): boolean {
         <button mat-flat-button (click)="add()"><mat-icon>add</mat-icon> Add an asset <span class="inline-ar">إضافة أصل</span></button>
       }
     </div>
-    <p class="muted small">
-      @if (withFinancial()) {
-        Entered in HR, and bought on purchase invoices (of expenses marked as assets): those are in the store until handed out.
-      } @else {
-        Entered in HR. Turn on Link with Financials to add those bought on purchase invoices.
-      }
-    </p>
     @if (loading()) {
       <mat-progress-bar mode="indeterminate" />
     }
@@ -103,9 +82,6 @@ function readWithFinancial(): boolean {
               <tr [class.gone]="gone(a)" [class.pending-deletion]="!!asked">
                 <td>
                   <strong>{{ a.name }}</strong>
-                  @if (a.origin === 'FinancialPurchase') {
-                    <span class="origin" matTooltip="Bought on a posted purchase invoice">Bought · مشتريات</span>
-                  }
                   <div class="muted small">
                     {{ a.categoryName ?? 'No category' }}@if (a.isConsumable) { · consumable }@if (a.notes) { · {{ a.notes }} }
                   </div>
@@ -155,7 +131,7 @@ function readWithFinancial(): boolean {
       </div>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .filter {
       min-width: 190px;
@@ -173,14 +149,6 @@ function readWithFinancial(): boolean {
     tr.gone td {
       color: var(--mat-sys-on-surface-variant);
     }
-    .origin {
-      display: inline-block;
-      margin-left: 6px;
-      padding: 0 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: color-mix(in srgb, var(--mat-sys-tertiary) 16%, transparent);
-    }
     .status {
       display: inline-block;
       padding: 1px 8px;
@@ -189,12 +157,12 @@ function readWithFinancial(): boolean {
       background: var(--mat-sys-surface-container-high);
 
       &.InCustody {
-        background: color-mix(in srgb, var(--till-ok, #2e7d32) 16%, transparent);
+        background: color-mix(in srgb, var(--app-ok, #2e7d32) 16%, transparent);
       }
       &.Maintenance {
-        background: color-mix(in srgb, var(--till-warn) 22%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 22%, transparent);
       }
-      &.BrokenWaste,
+      &.Broken,
       &.Discarded {
         background: color-mix(in srgb, var(--mat-sys-error) 12%, transparent);
       }
@@ -217,7 +185,6 @@ export class AssetsPage {
 
   protected readonly assets = signal<AssetItem[]>([]);
   protected readonly categories = signal<AssetCategory[]>([]);
-  protected readonly withFinancial = signal(readWithFinancial());
   protected readonly category = signal('');
   protected readonly showGone = signal(false);
   protected readonly loading = signal(false);
@@ -232,16 +199,6 @@ export class AssetsPage {
   constructor() {
     void this.load();
     void this.approvals.refresh();
-  }
-
-  protected link(on: boolean): void {
-    this.withFinancial.set(on);
-    try {
-      localStorage.setItem(WithFinancialKey, String(on));
-    } catch {
-      // Only remembered when the browser lets it be.
-    }
-    void this.load();
   }
 
   protected async add(): Promise<void> {
@@ -287,7 +244,7 @@ export class AssetsPage {
     if (wasAsked(result)) {
       await this.approvals.requested(result);
     } else {
-      this.notify.info(result.voucher?.routedToWaste ? `${done} Its breakage is in Costing → Waste.` : done);
+      this.notify.info(done);
     }
     await this.load();
   }
@@ -296,7 +253,7 @@ export class AssetsPage {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const [assets, categories] = await Promise.all([firstValueFrom(this.api.assets(this.withFinancial())), firstValueFrom(this.api.categories())]);
+      const [assets, categories] = await Promise.all([firstValueFrom(this.api.assets()), firstValueFrom(this.api.categories())]);
       this.assets.set(assets);
       this.categories.set(categories);
     } catch (error) {

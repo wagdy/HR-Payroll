@@ -35,7 +35,7 @@ public class CustodyApiTests
         var id = Guid.NewGuid();
         await Json(await manager.PutAsJsonAsync($"/api/hr/employees/{id}", new
         {
-            requestId = Guid.NewGuid(), name, jobTitle = "Chef", monthlySalary = 5_400, shiftStartsAt = "10:00:00", daysOff = Array.Empty<string>(),
+            requestId = Guid.NewGuid(), name, jobTitle = "Checker", monthlySalary = 5_400, shiftStartsAt = "10:00:00", daysOff = Array.Empty<string>(),
             hiredOn = Iso(hiredOn), mobileNumber = mobile,
         }, Cancel));
         return id;
@@ -68,30 +68,30 @@ public class CustodyApiTests
 
         // Categories: a manager's; seen by whoever sees HR.
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync("/api/custody/categories", Cancel)).StatusCode);
-        var (tableware, devices, uniforms) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var (technology, devices, uniforms) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         Assert.Equal(HttpStatusCode.Forbidden,
-            (await accountant.PutAsJsonAsync($"/api/custody/categories/{tableware}", new { name = "Tableware", isConsumable = true }, Cancel)).StatusCode);
-        await Json(await manager.PutAsJsonAsync($"/api/custody/categories/{tableware}", new { name = "Tableware", isConsumable = true }, Cancel));
+            (await accountant.PutAsJsonAsync($"/api/custody/categories/{technology}", new { name = "Technology", isConsumable = true }, Cancel)).StatusCode);
+        await Json(await manager.PutAsJsonAsync($"/api/custody/categories/{technology}", new { name = "Technology", isConsumable = true }, Cancel));
         await Json(await manager.PutAsJsonAsync($"/api/custody/categories/{devices}", new { name = "Devices", isConsumable = false }, Cancel));
         await Json(await manager.PutAsJsonAsync($"/api/custody/categories/{uniforms}", new { name = "Uniforms", isConsumable = false }, Cancel));
-        Assert.Contains("There is a Tableware category already",
-            await Problem(await manager.PutAsJsonAsync($"/api/custody/categories/{Guid.NewGuid()}", new { name = " tableware ", isConsumable = false }, Cancel)));
+        Assert.Contains("There is a Technology category already",
+            await Problem(await manager.PutAsJsonAsync($"/api/custody/categories/{Guid.NewGuid()}", new { name = " technology ", isConsumable = false }, Cancel)));
 
         // 40 plates entered in HR, at 35 each; a manager's at once.
         var plates = Guid.NewGuid();
-        var made = await Json(await manager.PutAsJsonAsync($"/api/custody/assets/{plates}", Asset("Dinner plates", tableware, 35, 40), Cancel));
+        var made = await Json(await manager.PutAsJsonAsync($"/api/custody/assets/{plates}", Asset("Desk lamps", technology, 35, 40), Cancel));
         var asset = made.GetProperty("asset");
-        Assert.Equal(("Applied", "Dinner plates", 40, 1_400m, "InStore", true),
+        Assert.Equal(("Applied", "Desk lamps", 40, 1_400m, "InStore", true),
             (made.GetProperty("outcome").GetString(), asset.GetProperty("name").GetString(), asset.GetProperty("quantity").GetInt32(),
                 asset.GetProperty("totalCost").GetDecimal(), asset.GetProperty("status").GetString(), asset.GetProperty("isConsumable").GetBoolean()));
         // An accountant's waits for a manager, and is not there until approved.
-        var fryer = Guid.NewGuid();
-        var askedFryer = await Json(await accountant.PutAsJsonAsync($"/api/custody/assets/{fryer}", Asset("Fryer", devices, 9_000, 1), Cancel));
-        Assert.Equal(("Requested", "New asset · Fryer × 1 · 9,000.00 a piece"),
+        var forklift = Guid.NewGuid();
+        var askedFryer = await Json(await accountant.PutAsJsonAsync($"/api/custody/assets/{forklift}", Asset("Forklift", devices, 9_000, 1), Cancel));
+        Assert.Equal(("Requested", "New asset · Forklift × 1 · 9,000.00 a piece"),
             (askedFryer.GetProperty("outcome").GetString(), askedFryer.GetProperty("request").GetProperty("summary").GetString()));
-        Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"/api/custody/assets/{fryer}", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"/api/custody/assets/{forklift}", Cancel)).StatusCode);
         await ApproveAsync(manager, askedFryer);
-        Assert.Equal("Fryer", (await AssetAsync(manager, fryer)).GetProperty("name").GetString());
+        Assert.Equal("Forklift", (await AssetAsync(manager, forklift)).GetProperty("name").GetString());
 
         // Into Hassan's custody, all of it; on his profile since today.
         var handed = await Json(await manager.PostAsJsonAsync($"/api/custody/assets/{plates}/check-in", In(hassan), Cancel));
@@ -99,10 +99,10 @@ public class CustodyApiTests
             handed.GetProperty("voucher").GetProperty("employeeName").GetString()));
         Assert.Equal(("InCustody", "Hassan"), (handed.GetProperty("asset").GetProperty("status").GetString(), handed.GetProperty("asset").GetProperty("employeeName").GetString()));
         var custody = (await Json(await accountant.GetAsync($"/api/hr/employees/{hassan}/custody", Cancel))).EnumerateArray().Single();
-        Assert.Equal(("Dinner plates", Iso(today)), (custody.GetProperty("asset").GetProperty("name").GetString(), custody.GetProperty("since").GetString()));
+        Assert.Equal(("Desk lamps", Iso(today)), (custody.GetProperty("asset").GetProperty("name").GetString(), custody.GetProperty("since").GetString()));
         Assert.Contains("in their custody already", await Problem(await manager.PostAsJsonAsync($"/api/custody/assets/{plates}/check-in", In(hassan), Cancel)));
         Assert.Contains("dated today or before",
-            await Problem(await manager.PostAsJsonAsync($"/api/custody/assets/{fryer}/check-in", In(hassan, today.AddDays(1)), Cancel)));
+            await Problem(await manager.PostAsJsonAsync($"/api/custody/assets/{forklift}/check-in", In(hassan, today.AddDays(1)), Cancel)));
 
         // Three broken: out of his custody, at 105, nothing else made. Sent twice, made once.
         var brokenId = Guid.NewGuid();
@@ -115,13 +115,13 @@ public class CustodyApiTests
         Assert.Equal(37, (await AssetAsync(manager, plates)).GetProperty("quantity").GetInt32());
 
         // All of one broken: its status says so, none left.
-        await Json(await manager.PostAsJsonAsync($"/api/custody/assets/{fryer}/check-in", In(hassan), Cancel));
-        var fryerBroken = await Json(await manager.PostAsJsonAsync($"/api/custody/assets/{fryer}/check-out", Out("Breakage", 1), Cancel));
+        await Json(await manager.PostAsJsonAsync($"/api/custody/assets/{forklift}/check-in", In(hassan), Cancel));
+        var fryerBroken = await Json(await manager.PostAsJsonAsync($"/api/custody/assets/{forklift}/check-out", Out("Breakage", 1), Cancel));
         Assert.Equal(("Broken", 0), (fryerBroken.GetProperty("asset").GetProperty("status").GetString(), fryerBroken.GetProperty("asset").GetProperty("quantity").GetInt32()));
 
         // An accountant's check-out waits, and holds the asset until decided.
         var lost = await Json(await accountant.PostAsJsonAsync($"/api/custody/assets/{plates}/check-out", Out("Lost", 1), Cancel));
-        Assert.Equal("Out of Hassan's custody, lost · Dinner plates × 1", lost.GetProperty("request").GetProperty("summary").GetString());
+        Assert.Equal("Out of Hassan's custody, lost · Desk lamps × 1", lost.GetProperty("request").GetProperty("summary").GetString());
         Assert.Contains("can be changed once a manager has decided",
             await Problem(await manager.PostAsJsonAsync($"/api/custody/assets/{plates}/check-out", Out("Returned", 37), Cancel)));
         await ApproveAsync(manager, lost);
@@ -136,24 +136,24 @@ public class CustodyApiTests
 
         // How many there are changes by vouchers alone; the rest is changed as any record.
         Assert.Contains("changes by vouchers: there are 36",
-            await Problem(await manager.PutAsJsonAsync($"/api/custody/assets/{plates}", Asset("Dinner plates", tableware, 35, 50), Cancel)));
-        var renamed = await Json(await manager.PutAsJsonAsync($"/api/custody/assets/{plates}", Asset("Dinner plates, white", tableware, 36, 36), Cancel));
-        Assert.Equal(("Dinner plates, white", 36m), (renamed.GetProperty("asset").GetProperty("name").GetString(), renamed.GetProperty("asset").GetProperty("unitCost").GetDecimal()));
+            await Problem(await manager.PutAsJsonAsync($"/api/custody/assets/{plates}", Asset("Desk lamps", technology, 35, 50), Cancel)));
+        var renamed = await Json(await manager.PutAsJsonAsync($"/api/custody/assets/{plates}", Asset("Desk lamps, white", technology, 36, 36), Cancel));
+        Assert.Equal(("Desk lamps, white", 36m), (renamed.GetProperty("asset").GetProperty("name").GetString(), renamed.GetProperty("asset").GetProperty("unitCost").GetDecimal()));
 
         // The vouchers, the latest first; the asset's own.
         var vouchers = (await Json(await accountant.GetAsync("/api/custody/vouchers", Cancel))).EnumerateArray().ToList();
         Assert.Equal(6, vouchers.Count);
-        Assert.Equal(("CheckOut", "Returned", "Dinner plates, white"),
+        Assert.Equal(("CheckOut", "Returned", "Desk lamps, white"),
             (vouchers[0].GetProperty("type").GetString(), vouchers[0].GetProperty("reason").GetString(), vouchers[0].GetProperty("assetName").GetString()));
         var detail = await Json(await manager.GetAsync($"/api/custody/assets/{plates}", Cancel));
         Assert.Equal(["Returned", "Lost", "Breakage", null], detail.GetProperty("vouchers").EnumerateArray().Select(v => v.GetProperty("reason").GetString()));
 
         // A category with assets in it stays; an empty one goes.
-        Assert.Contains("Assets are in Tableware", await Problem(await manager.DeleteAsync($"/api/custody/categories/{tableware}", Cancel)));
+        Assert.Contains("Assets are in Technology", await Problem(await manager.DeleteAsync($"/api/custody/categories/{technology}", Cancel)));
         Assert.Equal(HttpStatusCode.NoContent, (await manager.DeleteAsync($"/api/custody/categories/{uniforms}", Cancel)).StatusCode);
         var categories = (await Json(await manager.GetAsync("/api/custody/categories", Cancel))).EnumerateArray()
             .ToDictionary(c => c.GetProperty("name").GetString()!, c => (c.GetProperty("assets").GetInt32(), c.GetProperty("isConsumable").GetBoolean()));
-        Assert.Equal(new Dictionary<string, (int, bool)> { ["Devices"] = (0, false), ["Tableware"] = (1, true) }, categories);
+        Assert.Equal(new Dictionary<string, (int, bool)> { ["Devices"] = (0, false), ["Technology"] = (1, true) }, categories);
     }
 
     [Fact]
@@ -199,22 +199,22 @@ public class CustodyApiTests
         Assert.Empty((await Json(await phone.GetAsync("/api/portal/custody", Cancel))).EnumerateArray());
         // Their custody: what each thing is and how many, those of one name and category handed
         // over apart on one line, and nothing of what any of it cost.
-        var tableware = Guid.NewGuid();
-        await Json(await manager.PutAsJsonAsync($"/api/custody/categories/{tableware}", new { name = "Tableware", isConsumable = true }, Cancel));
+        var technology = Guid.NewGuid();
+        await Json(await manager.PutAsJsonAsync($"/api/custody/categories/{technology}", new { name = "Technology", isConsumable = true }, Cancel));
         async Task HandOverAsync(string name, Guid? category, decimal cost, int quantity, Guid to)
         {
             var asset = Guid.NewGuid();
             await Json(await manager.PutAsJsonAsync($"/api/custody/assets/{asset}", Asset(name, category, cost, quantity), Cancel));
             await Json(await manager.PostAsJsonAsync($"/api/custody/assets/{asset}/check-in", In(to), Cancel));
         }
-        await HandOverAsync("Dinner plates", tableware, 35, 10, hassan);
-        await HandOverAsync("dinner plates", tableware, 40, 5, hassan);
-        await HandOverAsync("Dinner plates", null, 35, 2, hassan);
-        await HandOverAsync("Knife set", null, 1_250, 1, hassan);
-        await HandOverAsync("Dinner plates", tableware, 35, 7, mona);
+        await HandOverAsync("Desk lamps", technology, 35, 10, hassan);
+        await HandOverAsync("desk lamps", technology, 40, 5, hassan);
+        await HandOverAsync("Desk lamps", null, 35, 2, hassan);
+        await HandOverAsync("Keyboard set", null, 1_250, 1, hassan);
+        await HandOverAsync("Desk lamps", technology, 35, 7, mona);
         var custody = await (await phone.GetAsync("/api/portal/custody", Cancel)).Content.ReadAsStringAsync(Cancel);
         var lines = JsonDocument.Parse(custody).RootElement.EnumerateArray().ToList();
-        (string?, string?, int)[] expected = [("Dinner plates", null, 2), ("Dinner plates", "Tableware", 15), ("Knife set", null, 1)];
+        (string?, string?, int)[] expected = [("Desk lamps", null, 2), ("Desk lamps", "Technology", 15), ("Keyboard set", null, 1)];
         Assert.Equal(expected, lines.Select(c => (c.GetProperty("name").GetString(), c.GetProperty("category").GetString(), c.GetProperty("quantity").GetInt32())));
         Assert.All(lines, c => Assert.Equal(["name", "category", "quantity"], c.EnumerateObject().Select(p => p.Name)));
         Assert.DoesNotContain("cost", custody, StringComparison.OrdinalIgnoreCase);
@@ -231,7 +231,7 @@ public class CustodyApiTests
         Assert.Equal("image/jpeg", photo.Content.Headers.ContentType?.MediaType);
         Assert.Equal(jpeg, await photo.Content.ReadAsByteArrayAsync(Cancel));
 
-        // Nothing of the till: its token holds no till role.
+        // Nothing of the system: its token holds no user role.
         foreach (var path in new[] { "/api/hr/employees", "/api/auth/me", "/api/custody/assets", "/api/hr/today", $"/api/hr/employees/{mona}" })
             Assert.Equal(HttpStatusCode.Forbidden, (await phone.GetAsync(path, Cancel)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await phone.PutAsJsonAsync($"/api/hr/employees/{hassan}/pin", new { pin = "1111" }, Cancel)).StatusCode);

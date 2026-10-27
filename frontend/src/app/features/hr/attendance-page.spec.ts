@@ -4,8 +4,8 @@ import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 import { AttendanceDay, AttendanceDayReport, Employee, HrApi, Punch, Timesheet, clock, duration } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
-import { BusinessDay } from '../costing/financials';
+import { Approvals } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { AddPunchDialog, IgnorePunchDialog, MarkDayData, MarkDayDialog, PenaltyDialog, ResolveDayDialog } from './attendance-dialogs';
 import { AttendancePage } from './attendance-page';
@@ -16,7 +16,7 @@ const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 
 function employee(id: string, name: string, shift = '16:00:00'): Employee {
   return {
-    id, name, jobTitle: 'Chef', monthlySalary: 5_400, shiftStartsAt: shift, shiftEndsAt: '01:00:00', daysOff: ['Friday'], deviceUserId: '7',
+    id, name, jobTitle: 'Checker', monthlySalary: 5_400, shiftStartsAt: shift, shiftEndsAt: '01:00:00', daysOff: ['Friday'], deviceUserId: '7',
     hiredOn: '2026-09-01', leftOn: null, isActive: true, dailyRate: 180, hourlyRate: 20, nationalId: null, mobileNumber: null, idPhoto: null, employmentType: 'Monthly', dailyWage: 0, departmentId: 'general', jobRoleId: null,
   };
 }
@@ -48,7 +48,7 @@ const report: AttendanceDayReport = {
   policy: { graceMinutes: 0, doubleScanMinutes: 3 },
   totals: { present: 1, late: 1, absent: 1, missingPunch: 0, offOrOnLeave: 0, overtimeMinutes: 20, forgotToCheckOut: 0 },
   employees: [
-    { employee: hassan, day: day('2026-09-21', { penaltyHours: 2, penaltyReason: 'Left the walk-in open', penaltySetBy: 'Omar' }) },
+    { employee: hassan, day: day('2026-09-21', { penaltyHours: 2, penaltyReason: 'Left the store room open', penaltySetBy: 'Omar' }) },
     { employee: mona, day: day('2026-09-21', { status: 'Absent', firstIn: null, lastOut: null, workedMinutes: 0, lateMinutes: 0, overtimeMinutes: 0, punches: [] }) },
   ],
   unassigned: [punch('u1', '2026-09-21T11:00:00', { employeeId: null, deviceUserId: '99' })],
@@ -133,9 +133,9 @@ describe('the attendance', () => {
     const rows = [...el.querySelectorAll('tbody tr')];
     expect(cells(rows[0])).toEqual(['16:00–01:00 +1', '16:12', '01:20 +1', '9h 08m', '12m', '—', '—', '20m']);
     expect(rows[1].classList).toContain('status-Absent');
-    expect(text(rows[0].querySelector('.bad-text')!)).toBe('Penalty 2h: Left the walk-in open');
+    expect(text(rows[0].querySelector('.bad-text')!)).toBe('Penalty 2h: Left the store room open');
     expect(text(el.querySelector('.unassigned')!)).toContain('no. 99 at 11:00');
-    expect(text(el.querySelector('.note')!)).toContain("Late counts from the shift's start: no grace is set");
+    expect(text(el.querySelector('.note')!)).toContain("Late counts from the work schedule's start: no grace is set");
   });
 
   it('marks who forgot to check out on the day’s review, and shows only them when asked', async () => {
@@ -207,7 +207,7 @@ describe('the attendance', () => {
     open.mockReturnValue({ afterClosed: () => of({ employeeId: 'hassan', date: '2026-09-21', hours: null, reason: null }) });
     await page['penalty'](page['rows']()[0]);
     expect(open.mock.lastCall![0]).toBe(PenaltyDialog);
-    expect(open.mock.lastCall![1].data).toEqual({ employee: hassan, date: '2026-09-21', hours: 2, reason: 'Left the walk-in open' });
+    expect(open.mock.lastCall![1].data).toEqual({ employee: hassan, date: '2026-09-21', hours: 2, reason: 'Left the store room open' });
     expect(setPenalty).toHaveBeenCalledWith('hassan', '2026-09-21', null, null);
     expect(notify.info).toHaveBeenCalledWith('Penalty taken off.');
 
@@ -305,6 +305,6 @@ describe('the attendance', () => {
     expect([...el.querySelectorAll('tbody tr td:first-child strong')].map(text)).toEqual(['Mon 21 Sept', 'Fri 25 Sept']);
     expect(text(el.querySelectorAll('tbody tr')[1].querySelector('td .muted')!)).toBe('Weekly day off · راحة أسبوعية');
     expect([...el.querySelectorAll('.totals .chip')].map(text)[0]).toBe('1 days worked · أيام العمل');
-    expect(text(el.querySelector('.note')!)).toContain("Late counts from the shift's start, once past 10 minutes’ grace");
+    expect(text(el.querySelector('.note')!)).toContain("Late counts from the work schedule's start, once past 10 minutes’ grace");
   });
 });

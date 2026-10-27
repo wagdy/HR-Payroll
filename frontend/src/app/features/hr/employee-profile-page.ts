@@ -12,16 +12,16 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable, firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { Permissions } from '../../core/auth/permissions';
-import { ApprovalResult, isRequested } from '../../core/costing/costing.api';
+import { ApprovalResult, isRequested } from '../../core/approvals/approvals.api';
 import { CustodyApi, CustodyItem } from '../../core/custody/custody.api';
 import { errorMessage } from '../../core/http/error-message';
 import { Department, Employee, HrApi, weekDays } from '../../core/hr/hr.api';
 import { HrAccess } from '../../core/hr/hr-access';
 import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals, pendingLabel } from '../costing/approvals';
-import { BusinessDay } from '../costing/financials';
-import { PaperPreview } from '../costing/invoice-paper';
+import { Approvals, pendingLabel } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
+import { PaperPreview } from '../../core/ui/paper-preview';
 import { EmployeeDialog, EmployeeDialogData, idDigits } from './employee-dialog';
 import { EmploymentDialog, EmploymentDialogData } from './employment-dialog';
 import { PayslipPage } from './payslip-page';
@@ -70,7 +70,7 @@ export class IdCardDialog {
   template: `
     <h2 mat-dialog-title>Take off {{ data.name }}’s ID card? <span class="inline-ar">حذف صورة البطاقة</span></h2>
     <mat-dialog-content>
-      <p>The photo is deleted from the till, and not kept anywhere else. To put a better one in its place, upload it instead: it replaces this one.</p>
+      <p>The photo is deleted from the system, and not kept anywhere else. To put a better one in its place, upload it instead: it replaces this one.</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Cancel</button>
@@ -258,7 +258,7 @@ export class PinDialog {
                   </dd>
                 </div>
                 <div>
-                  <dt>Shift<span class="ar">الوردية</span></dt>
+                  <dt>Work schedule<span class="ar">الدوام</span></dt>
                   <dd>
                     @if (e.shiftStartsAt && e.shiftEndsAt) {
                       {{ e.shiftStartsAt.slice(0, 5) }}–{{ e.shiftEndsAt.slice(0, 5) }}
@@ -333,7 +333,7 @@ export class PinDialog {
                 <p class="muted">No PIN yet: they cannot sign in to the portal.</p>
               }
               @if (portalAddress(); as address) {
-                <p class="muted small">On the restaurant's Wi-Fi: <span class="digits">{{ address }}</span></p>
+                <p class="muted small">On the office Wi-Fi: <span class="digits">{{ address }}</span></p>
               }
               @if (canSetPin() && e.isActive && e.mobileNumber) {
                 <div class="card-actions">
@@ -366,7 +366,7 @@ export class PinDialog {
       </div>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .profile-head {
       display: flex;
@@ -403,7 +403,7 @@ export class PinDialog {
       background: var(--mat-sys-surface-container-high);
 
       &.active {
-        background: color-mix(in srgb, var(--till-ok, #2e7d32) 16%, transparent);
+        background: color-mix(in srgb, var(--app-ok, #2e7d32) 16%, transparent);
       }
     }
     .waiting {
@@ -496,7 +496,7 @@ export class PinDialog {
       gap: 8px;
       margin-top: 8px;
     }
-    /* Clear of the till's bar when scrolled to. */
+    /* Clear of the system's bar when scrolled to. */
     #performance {
       scroll-margin-top: 72px;
     }
@@ -583,7 +583,7 @@ export class EmployeeProfilePage {
     return words.length > 1 ? words[0][0] + words[1][0] : (words[0]?.[0] ?? '?');
   });
 
-  // "Fri, Sat", in the restaurant's week order; "no day" when none.
+  // "Fri, Sat", in the company's week order; "no day" when none.
   protected readonly daysOff = computed(() => {
     const off = weekDays.filter((d) => this.employee()?.daysOff.includes(d.day)).map((d) => d.en);
     return off.length ? off.join(', ') : 'no day';
@@ -668,7 +668,7 @@ export class EmployeeProfilePage {
     }
   }
 
-  // Checked here first, so a file the till would refuse is said at once; the picker cleared, so
+  // Checked here first, so a file the system would refuse is said at once; the picker cleared, so
   // the same file can be chosen again.
   protected async upload(employee: Employee, picker: HTMLInputElement): Promise<void> {
     const file = picker.files?.[0];

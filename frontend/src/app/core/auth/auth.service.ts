@@ -1,24 +1,24 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, firstValueFrom } from 'rxjs';
-import { Me, SignInOption, SignInResponse } from '../api/models';
+import { firstValueFrom } from 'rxjs';
+import { Me, SignInResponse } from '../api/models';
 import { PortalAuth } from '../portal/portal-auth';
 import { Permission, Permissions } from './permissions';
 
-const TokenKey = 'otantik-till.token';
+const TokenKey = 'hr-payroll.token';
 
-// Who is at this till, and what they may do.
+// Who is signed in to the system, and what they may do.
 //
 // The role and permissions come from GET /api/auth/me and nowhere else: not from the sign-in
 // response, not from the token, not from anything stored in the browser. The stored token is
-// only a candidate until the API has said whose it is, so a role changed or revoked in the
-// delivery system takes effect here the next time /me is asked.
+// only a candidate until the API has said whose it is, so a role changed or a user deactivated
+// takes effect here the next time /me is asked.
 //
-// With no one of the till signed in and an employee signed in to the portal, the employee is the
-// one acting (employeeActing): in the HR tabs a manager gave them (/hr), they may do what an
-// accountant does there, see HR and change it, their changes asked of a manager, and nothing
-// else. Their token, not this one, then goes to /api/hr (authInterceptor).
+// With no user signed in and an employee signed in to the portal, the employee is the one acting
+// (employeeActing): in the HR tabs a manager gave them (/hr), they may do what an accountant does
+// there, see HR and change it, their changes asked of a manager, and nothing else. Their token,
+// not this one, then goes to /api/hr (authInterceptor).
 const ActingEmployee: ReadonlySet<Permission> = new Set([Permissions.HrView, Permissions.HrManage]);
 
 @Injectable({ providedIn: 'root' })
@@ -45,7 +45,7 @@ export class AuthService {
   }
 
   // At start-up: confirm a stored token with the API. A 401 means it is no good; anything else
-  // (the till server down) leaves it for the sign-in screen to try again.
+  // (the server down) leaves it for the sign-in screen to try again.
   async restore(): Promise<void> {
     if (this._token() === null) {
       return;
@@ -59,21 +59,22 @@ export class AuthService {
     }
   }
 
-  // The sign-in screen: active cashiers, managers and admins who have a PIN.
-  signInOptions(): Observable<SignInOption[]> {
-    return this.http.get<SignInOption[]>('/api/auth/staff');
-  }
-
-  async signIn(staffId: string, pin: string): Promise<Me> {
-    const response = await firstValueFrom(
-      this.http.post<SignInResponse>('/api/auth/sign-in', { staffId, pin }),
-    );
+  async signIn(email: string, password: string): Promise<Me> {
+    const response = await firstValueFrom(this.http.post<SignInResponse>('/api/auth/sign-in', { email, password }));
     this.store(response.token);
     return this.loadMe();
   }
 
-  // `expired` when the API has stopped accepting the token: the shift ran out, or the account
-  // was deactivated or given another role in the delivery system.
+  // Their own password changed: signed out everywhere else, and signed in again here with the
+  // token the answer brings.
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const response = await firstValueFrom(this.http.post<SignInResponse>('/api/auth/password', { currentPassword, newPassword }));
+    this.store(response.token);
+    await this.loadMe();
+  }
+
+  // `expired` when the API has stopped accepting the token: it ran out, the password was changed
+  // or reset, or the user was deactivated or given another role.
   signOut(reason?: 'expired'): void {
     this.clear();
     void this.router.navigate(['/sign-in'], { queryParams: reason ? { reason } : {} });

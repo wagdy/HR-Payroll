@@ -116,7 +116,7 @@ export class TabsDialog {
 }
 
 // Employee permissions (صلاحيات الموظفين), a manager's: the HR & Payroll tabs each works. An
-// employee works theirs in the portal, on their phone; an accountant, on the till, with every tab
+// employee works theirs in the portal, on their phone; an accountant, in the system, with every tab
 // until a manager ticks theirs. Each sees only their tabs, and what they change goes to a manager.
 @Component({
   selector: 'app-permissions-page',
@@ -125,7 +125,7 @@ export class TabsDialog {
     <p class="note">
       Give each the tabs of HR &amp; Payroll, and Custody &amp; Assets, they work. An employee uses theirs in the portal on their phone, signing in
       with their mobile number and PIN, and does a tab’s work as a manager would, a change to someone’s record, an advance or an asset waiting for
-      a manager; an accountant uses theirs here on the till, as always. A manager has every tab.
+      a manager; an accountant uses theirs here in the system, as always. A manager has every tab.
     </p>
     <div class="toolbar">
       <mat-form-field subscriptSizing="dynamic" class="find">
@@ -218,7 +218,7 @@ export class TabsDialog {
               </tr>
             } @empty {
               @if (!loading()) {
-                <tr><td colspan="4" class="muted">{{ query() ? 'No accountant is called that.' : 'No accountant has a till account.' }}</td></tr>
+                <tr><td colspan="4" class="muted">{{ query() ? 'No accountant is called that.' : 'No accountant has an account yet.' }}</td></tr>
               }
             }
           </tbody>
@@ -226,7 +226,7 @@ export class TabsDialog {
       </div>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     h3 {
       margin: 20px 0 6px;

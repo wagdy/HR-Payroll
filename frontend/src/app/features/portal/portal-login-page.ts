@@ -10,7 +10,7 @@ import { errorMessage } from '../../core/http/error-message';
 import { PortalAuth } from '../../core/portal/portal-auth';
 
 // The employee portal's sign-in (بوابة الموظف): their mobile number and the PIN a manager gave
-// them. Apart from the till's: nothing of the till is here, and it opens nothing of the till.
+// them. Apart from the system's: nothing of the system is here, and it opens nothing of the system.
 @Component({
   selector: 'app-portal-login-page',
   imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressBarModule],

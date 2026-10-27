@@ -10,11 +10,11 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { firstValueFrom } from 'rxjs';
-import { ApprovalResult } from '../../core/costing/costing.api';
+import { ApprovalResult } from '../../core/approvals/approvals.api';
 import { errorMessage } from '../../core/http/error-message';
 import { Department, Employee, EmployeeInput, EmploymentType, HrApi, JobRole, WeekDay, weekDays } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { FormChecks, FormProblem } from '../costing/form-checks';
+import { FormChecks, FormProblem } from '../../core/ui/form-checks';
 
 export interface EmployeeDialogData {
   // The one changed; none for a new one.
@@ -28,7 +28,7 @@ export interface EmployeeDialogData {
 }
 
 // "٠١٠ ١٢٣٤-٥٦٧٨" as "01012345678": Arabic-Indic digits as ASCII ones, without the spaces, dashes
-// and dots written between them; as the till keeps a national ID or a mobile.
+// and dots written between them; as the system keeps a national ID or a mobile.
 export function idDigits(text: string, also = ''): string {
   return [...text.trim()]
     .map((c) => {
@@ -60,7 +60,7 @@ export function mobileProblem(text: string): string | null {
 
 // An employee added or changed: who they are (their full name as on their ID card, its number,
 // and their mobile) and their department, how they are paid (a monthly
-// salary, or a daily wage for each day worked), when their nine-hour shift starts (or flexible
+// salary, or a daily wage for each day worked), when their nine-hour work schedule starts (or flexible
 // hours, with none), their weekly days off, the day they started, and their number on the
 // attendance device. Saved here: a manager's at once, anyone else's sent for
 // approval. Closes with what was saved or asked, or nothing when cancelled.
@@ -123,7 +123,7 @@ export function mobileProblem(text: string): string | null {
             [matAutocomplete]="roleList"
             maxlength="100"
             aria-label="Role"
-            placeholder="Chef, waiter, cashier"
+            placeholder="Accountant, technician, driver"
             [errorStateMatcher]="checks.field('Role')"
           />
           <mat-autocomplete #roleList="matAutocomplete">
@@ -152,7 +152,6 @@ export function mobileProblem(text: string): string | null {
             <mat-label>Base salary · الراتب الأساسي</mat-label>
           }
           <input matInput type="number" min="0" step="any" [(ngModel)]="salary" aria-label="Base salary" [errorStateMatcher]="checks.field('Base salary')" />
-          <span matTextSuffix>&nbsp;L.E</span>
           @if (employmentType === 'Daily') {
             @if (salary !== null && salary > 0) {
               <mat-hint>A day worked: {{ salary / 9 | number: '1.2-2' }} an hour; nothing for a day not worked</mat-hint>
@@ -171,12 +170,12 @@ export function mobileProblem(text: string): string | null {
             <p class="muted small flexible">No start time: nothing is late for them, and hours past nine in a day are overtime.</p>
           } @else {
             <mat-form-field>
-              <mat-label>Shift starts · بداية الوردية</mat-label>
-              <input matInput type="time" [(ngModel)]="shiftStart" aria-label="Shift starts" [errorStateMatcher]="checks.field('Shift starts')" />
+              <mat-label>Work schedule starts · بداية الدوام</mat-label>
+              <input matInput type="time" [(ngModel)]="shiftStart" aria-label="Work schedule starts" [errorStateMatcher]="checks.field('Work schedule starts')" />
               @if (shiftEnd(); as end) {
                 <mat-hint>Nine hours: ends {{ end }}</mat-hint>
               }
-              <mat-error>{{ checks.message('Shift starts') }}</mat-error>
+              <mat-error>{{ checks.message('Work schedule starts') }}</mat-error>
             </mat-form-field>
           }
           <mat-checkbox [(ngModel)]="flexible">Flexible hours <span class="ar">ساعات مرنة</span></mat-checkbox>
@@ -282,7 +281,7 @@ export function mobileProblem(text: string): string | null {
     .ask {
       padding: 8px 10px;
       border-radius: 8px;
-      background: color-mix(in srgb, var(--till-warn) 14%, transparent);
+      background: color-mix(in srgb, var(--app-warn) 14%, transparent);
     }
     .error {
       color: var(--mat-sys-error);
@@ -390,7 +389,7 @@ export class EmployeeDialog {
       add('Base salary', this.employmentType === 'Daily' ? 'enter the daily wage' : 'enter the salary');
     }
     if (!this.flexible && !/^\d{2}:\d{2}$/.test(this.shiftStart ?? '')) {
-      add('Shift starts', 'enter when the shift starts');
+      add('Work schedule starts', 'enter when the work schedule starts');
     }
     if (!this.hiredOn) {
       add('Started on', 'enter the day they started');

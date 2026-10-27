@@ -272,7 +272,7 @@ public class HrAccessApiTests
         Assert.Equal(HttpStatusCode.Forbidden, (await phone.PostAsync($"/api/hr/payroll/{mona}/finalize?month={Iso(new DateOnly(today.Year, today.Month, 1))}", null, Cancel)).StatusCode);
 
         // An accountant, holding every tab, is as before: none of a manager's.
-        Assert.Equal(HttpStatusCode.Forbidden, (await accountant.PutAsJsonAsync($"/api/hr/departments/{Guid.NewGuid()}", new { name = "Grill" }, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await accountant.PutAsJsonAsync($"/api/hr/departments/{Guid.NewGuid()}", new { name = "Gear" }, Cancel)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await accountant.PutAsJsonAsync($"/api/hr/holidays/{Guid.NewGuid()}", new { name = "Eid", firstDay = Iso(today), lastDay = Iso(today) }, Cancel)).StatusCode);
     }
@@ -284,10 +284,10 @@ public class HrAccessApiTests
         var manager = await api.ManagerAsync();
         var accountant = await api.AccountantAsync(manager);
         var hassan = await HireAsync(manager, "Hassan", "01012345678");
-        var tableware = Guid.NewGuid();
-        await Json(await manager.PutAsJsonAsync($"/api/custody/categories/{tableware}", new { name = "Tableware", isConsumable = true }, Cancel));
+        var technology = Guid.NewGuid();
+        await Json(await manager.PutAsJsonAsync($"/api/custody/categories/{technology}", new { name = "Technology", isConsumable = true }, Cancel));
         var plates = Guid.NewGuid();
-        await Json(await manager.PutAsJsonAsync($"/api/custody/assets/{plates}", new { requestId = Guid.NewGuid(), name = "Dinner plates", categoryId = tableware, unitCost = 35, quantity = 40 }, Cancel));
+        await Json(await manager.PutAsJsonAsync($"/api/custody/assets/{plates}", new { requestId = Guid.NewGuid(), name = "Desk lamps", categoryId = technology, unitCost = 35, quantity = 40 }, Cancel));
 
         // Without the tab: nothing of it.
         await Json(await GiveAsync(manager, hassan, "Now"));
@@ -298,7 +298,7 @@ public class HrAccessApiTests
         (phone, _) = await PortalAsync(api, "01012345678");
         var listed = await (await phone.GetAsync("/api/custody/assets", Cancel)).Content.ReadAsStringAsync(Cancel);
         var asset = JsonDocument.Parse(listed).RootElement.EnumerateArray().Single();
-        Assert.Equal(("Dinner plates", 40), (asset.GetProperty("name").GetString(), asset.GetProperty("quantity").GetInt32()));
+        Assert.Equal(("Desk lamps", 40), (asset.GetProperty("name").GetString(), asset.GetProperty("quantity").GetInt32()));
         Assert.Equal((JsonValueKind.Null, JsonValueKind.Null), (asset.GetProperty("unitCost").ValueKind, asset.GetProperty("totalCost").ValueKind));
         // As a number: an id or a time may hold the digits.
         Assert.DoesNotContain(":1400", listed);
@@ -310,13 +310,13 @@ public class HrAccessApiTests
         await Json(await phone.PutAsJsonAsync($"/api/custody/categories/{Guid.NewGuid()}", new { name = "Uniforms", isConsumable = false }, Cancel));
         var renamed = await phone.PutAsJsonAsync($"/api/custody/assets/{plates}", new
         {
-            requestId = Guid.NewGuid(), name = "Dinner plates (white)", categoryId = tableware, unitCost = (decimal?)null, quantity = 40, requestReason = "Their colour",
+            requestId = Guid.NewGuid(), name = "Desk lamps (white)", categoryId = technology, unitCost = (decimal?)null, quantity = 40, requestReason = "Their colour",
         }, Cancel);
         Assert.Equal(HttpStatusCode.Accepted, renamed.StatusCode);
         var asked = (await Json(renamed)).GetProperty("request").GetProperty("id").GetGuid();
         await Json(await manager.PostAsJsonAsync($"/api/approval-requests/{asked}/approve", new { }, Cancel));
         var kept = (await Json(await manager.GetAsync($"/api/custody/assets/{plates}", Cancel))).GetProperty("asset");
-        Assert.Equal(("Dinner plates (white)", 35m), (kept.GetProperty("name").GetString(), kept.GetProperty("unitCost").GetDecimal()));
+        Assert.Equal(("Desk lamps (white)", 35m), (kept.GetProperty("name").GetString(), kept.GetProperty("unitCost").GetDecimal()));
 
         // An accountant has it until a manager ticks their tabs without it.
         Assert.Equal(HttpStatusCode.OK, (await accountant.GetAsync("/api/custody/assets", Cancel)).StatusCode);

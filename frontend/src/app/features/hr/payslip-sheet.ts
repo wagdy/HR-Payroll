@@ -3,14 +3,15 @@ import { Component, computed, input, output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { PayrollAdjustment, PayrollSlip, PayslipPenalty, adjustmentLabels, duration } from '../../core/hr/hr.api';
+import { PayrollAdjustment, PayrollSlip, PayslipPenalty, SalaryPayment, adjustmentLabels, duration } from '../../core/hr/hr.api';
 import { MoneyPipe } from '../../core/ui/money.pipe';
 
 // A payslip as it reads (قسيمة الراتب): the formula line by line, from the base salary to the net
-// payable, its unpaid leave and disciplinary penalties day by day; the days it was worked out from; what is paid of it; and the incentives, allowances,
-// advances and salary paid in it. Read-only, but for voiding an incentive (canVoid): the Payroll
-// tab's slip and the employee portal's alike. What is put inside it (the Payroll tab's buttons)
-// comes between the slip and its lists.
+// payable, its unpaid leave and disciplinary penalties day by day; the days it was worked out
+// from; what is paid of it; and the incentives, allowances, advances and salary paid in it.
+// Read-only, but for voiding an incentive or a salary payment (canVoid): the Payroll tab's slip
+// and the employee portal's alike. What is put inside it (the Payroll tab's buttons) comes
+// between the slip and its lists.
 @Component({
   selector: 'app-payslip-sheet',
   imports: [DatePipe, MatButtonModule, MatIconModule, MatTooltipModule, MoneyPipe],
@@ -53,14 +54,14 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
           </tr>
           <tr class="plus">
             <th>+ Days off worked <span class="ar">بدل أيام الراحة</span>
-              <div class="how">{{ f.daysOffWorked }} {{ f.daysOffWorked === 1 ? 'day' : 'days' }}: a day's pay for half a shift or more, the hours for less</div>
+              <div class="how">{{ f.daysOffWorked }} {{ f.daysOffWorked === 1 ? 'day' : 'days' }}: a day's pay for half a workday or more, the hours for less</div>
             </th>
             <td>{{ f.daysOffWorkedPay | money }}</td>
           </tr>
           @if (f.holidaysWorked) {
             <tr class="plus">
               <th>+ Holidays worked <span class="ar">بدل العطلات الرسمية</span>
-                <div class="how">{{ f.holidaysWorked }} {{ f.holidaysWorked === 1 ? 'holiday' : 'holidays' }}: a day's pay for half a shift or more, the hours for less</div>
+                <div class="how">{{ f.holidaysWorked }} {{ f.holidaysWorked === 1 ? 'holiday' : 'holidays' }}: a day's pay for half a workday or more, the hours for less</div>
               </th>
               <td>{{ f.holidaysWorkedPay | money }}</td>
             </tr>
@@ -191,8 +192,8 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
       <div>
         <h3>Advances <span class="inline-ar">السلفيات</span></h3>
         @for (a of s.advances; track a.id) {
-          <div class="line" [class.voided]="!!a.voidedAtUtc">
-            <span>{{ a.date | date: 'd MMM' }}<span class="muted"> · {{ a.outsideTill ? 'outside the till' : a.fromTakingsOf ? 'from the takings of ' + (a.fromTakingsOf | date: 'd MMM') : 'from the safe' }}</span></span>
+          <div class="line">
+            <span>{{ a.date | date: 'd MMM' }}<span class="muted"> · {{ a.isShare ? 'their share of advances handed out' : 'advance' }}{{ a.notes ? ' · ' + a.notes : '' }}</span></span>
             <span class="amount">{{ a.amount | money }}</span>
           </div>
         } @empty {
@@ -204,15 +205,20 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
           <h3>Salary paid <span class="inline-ar">الراتب المصروف</span></h3>
           @for (p of s.salaries; track p.id) {
             <div class="line" [class.voided]="!!p.voidedAtUtc">
-              <span>{{ p.date | date: 'd MMM' }}<span class="muted"> · {{ p.fromTakingsOf ? 'from the takings of ' + (p.fromTakingsOf | date: 'd MMM') : 'from the safe' }}</span></span>
+              <span>{{ p.date | date: 'd MMM' }}<span class="muted"> · by {{ p.recordedBy }}{{ p.notes ? ' · ' + p.notes : '' }}{{ p.voidedAtUtc ? ' · voided by ' + p.voidedBy : '' }}</span></span>
               <span class="amount">{{ p.amount | money }}</span>
+              @if (canVoid() && !p.voidedAtUtc) {
+                <button mat-icon-button class="no-print" (click)="voidPayment.emit(p)" matTooltip="Void" [attr.aria-label]="'Void the payment of ' + p.amount">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              }
             </div>
           }
         </div>
       }
     </section>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .slip {
       max-width: 640px;
@@ -301,7 +307,7 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
         font: var(--mat-sys-title-medium);
       }
       .warn {
-        color: var(--till-warn);
+        color: var(--app-warn);
       }
     }
     .paid {
@@ -366,6 +372,7 @@ export class PayslipSheet {
   readonly month = input.required<string>();
   readonly canVoid = input(false);
   readonly voidAdjustment = output<PayrollAdjustment>();
+  readonly voidPayment = output<SalaryPayment>();
 
   protected readonly labels = adjustmentLabels;
   protected readonly duration = duration;

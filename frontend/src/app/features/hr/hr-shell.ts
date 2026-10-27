@@ -38,7 +38,7 @@ import { PendingLeaves } from './pending-leaves';
       <div class="body"><router-outlet /></div>
     </mat-tab-nav-panel>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .head h1 {
       margin: 0 0 8px;
@@ -55,7 +55,7 @@ import { PendingLeaves } from './pending-leaves';
       font: var(--mat-sys-label-small);
       line-height: 20px;
       text-align: center;
-      background: var(--till-warn);
+      background: var(--app-warn);
       color: #000;
     }
     @media print {

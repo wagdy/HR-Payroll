@@ -1,29 +1,13 @@
 <mat-toolbar class="toolbar">
-  <button mat-button class="brand" (click)="openOrders()" aria-label="Otantik POS: open orders">
-    <mat-icon>point_of_sale</mat-icon>
-    <span class="brand-text">Otantik POS</span>
-  </button>
+  <a mat-button class="brand" routerLink="/hr" aria-label="HR & Payroll: home">
+    <mat-icon>groups</mat-icon>
+    <span class="brand-text">HR &amp; Payroll</span>
+  </a>
 
   <nav>
-    <a *appCan="Permissions.OrderViewOwn" mat-button routerLink="/orders" routerLinkActive="active" aria-label="Open orders" matTooltip="Open orders" [matTooltipDisabled]="!compactNav()" [routerLinkActiveOptions]="{ exact: true }">
-      <mat-icon>receipt_long</mat-icon>
-      <span class="nav-text">Open orders</span>
-    </a>
-    <a *appCan="Permissions.OrderViewAll" mat-button routerLink="/reports" routerLinkActive="active" aria-label="Reports" matTooltip="Reports" [matTooltipDisabled]="!compactNav()">
-      <mat-icon>bar_chart</mat-icon>
-      <span class="nav-text">Reports</span>
-    </a>
-    <a *appCan="Permissions.StaffManage" mat-button routerLink="/staff" routerLinkActive="active" aria-label="Staff" matTooltip="Staff" [matTooltipDisabled]="!compactNav()">
-      <mat-icon>badge</mat-icon>
-      <span class="nav-text">Staff</span>
-    </a>
-    <a *appCan="Permissions.CostingView" mat-button routerLink="/costing" routerLinkActive="active" aria-label="Costing" matTooltip="Costing" [matTooltipDisabled]="!compactNav()">
-      <mat-icon>calculate</mat-icon>
-      <span class="nav-text">Costing</span>
-    </a>
     @if (hr.any()) {
       <a mat-button routerLink="/hr" routerLinkActive="active" aria-label="HR & Payroll" matTooltip="HR & Payroll · الموارد البشرية والرواتب" [matTooltipDisabled]="!compactNav()">
-        <mat-icon>groups</mat-icon>
+        <mat-icon>badge</mat-icon>
         <span class="nav-text">HR &amp; Payroll</span>
       </a>
     }
@@ -33,42 +17,29 @@
         <span class="nav-text">Custody</span>
       </a>
     }
+    <a *appCan="Permissions.ApprovalDecide" mat-button routerLink="/approvals" routerLinkActive="active" aria-label="Approvals" matTooltip="Approvals · الموافقات" [matTooltipDisabled]="!compactNav()">
+      <mat-icon>fact_check</mat-icon>
+      <span class="nav-text">Approvals</span>
+      @if (approvals.pending().length) {
+        <span class="count" [attr.aria-label]="approvals.pending().length + ' waiting'">{{ approvals.pending().length }}</span>
+      }
+    </a>
+    <a *appCan="Permissions.UsersManage" mat-button routerLink="/users" routerLinkActive="active" aria-label="Users" matTooltip="Users · المستخدمون" [matTooltipDisabled]="!compactNav()">
+      <mat-icon>manage_accounts</mat-icon>
+      <span class="nav-text">Users</span>
+    </a>
   </nav>
 
   <span class="spacer"></span>
 
   <span class="links" role="status" aria-live="polite">
-    <span
-      class="link"
-      [class.down]="!connectivity.nodeOnline()"
-      [matTooltip]="connectivity.nodeOnline() ? 'This device is connected to the till server.' : 'Reconnecting to the till server…'"
-    >
-      <mat-icon>{{ connectivity.nodeOnline() ? 'lan' : 'portable_wifi_off' }}</mat-icon>
-      <span class="link-text">{{ connectivity.nodeOnline() ? 'Till server' : 'Reconnecting…' }}</span>
-    </span>
-    <span
-      class="link"
-      [class.down]="!connectivity.cloudOnline()"
-      [class.unset]="connectivity.cloudNotConfigured()"
-      [matTooltip]="cloudLabel()"
-    >
-      <mat-icon>{{ connectivity.cloudOnline() ? 'cloud_done' : 'cloud_off' }}</mat-icon>
-      <span class="link-text">Cloud</span>
-    </span>
-    <!-- Only while a printer is holding tickets: the kitchen would otherwise find out first. -->
-    @for (printer of connectivity.printers(); track printer.printer) {
-      <span class="link down" [matTooltip]="printerHint(printer)">
-        <mat-icon>print_disabled</mat-icon>
-        <span class="link-text">{{ printer.printer }} printer: {{ printer.waiting }} waiting</span>
+    @if (!connectivity.online()) {
+      <span class="link down" matTooltip="Reconnecting to the server…">
+        <mat-icon>cloud_off</mat-icon>
+        <span class="link-text">Reconnecting…</span>
       </span>
     }
   </span>
-
-  @if (orderTakingOnly()) {
-    <span class="badge" matTooltip="Payments, receipts, points and voids are done by a cashier or manager.">
-      Order taking only
-    </span>
-  }
 
   <button mat-button [matMenuTriggerFor]="userMenu" class="user">
     <mat-icon>account_circle</mat-icon>
@@ -80,9 +51,13 @@
     <div mat-menu-item disabled>
       <span class="who">
         <span>{{ auth.me()?.fullName }}</span>
-        <small>{{ roleLabel() }}</small>
+        <small>{{ auth.me()?.role }} · {{ auth.me()?.email }}</small>
       </span>
     </div>
+    <a mat-menu-item routerLink="/account">
+      <mat-icon>key</mat-icon>
+      Account &amp; password
+    </a>
     <button mat-menu-item (click)="signOut()">
       <mat-icon>logout</mat-icon>
       Sign out
@@ -90,16 +65,10 @@
   </mat-menu>
 </mat-toolbar>
 
-@if (!connectivity.nodeOnline()) {
+@if (!connectivity.online()) {
   <div class="banner danger" role="alert">
-    <mat-icon>portable_wifi_off</mat-icon>
-    The till server cannot be reached. What is on screen stays; changes wait until it reconnects.
-  </div>
-} @else if (connectivity.cloud()?.state === 'Offline') {
-  <div class="banner warn" role="status">
     <mat-icon>cloud_off</mat-icon>
-    The delivery system is offline. Customer lookup and loyalty points are paused; taking orders, the kitchen,
-    cash and card payments and receipts carry on as normal.
+    The server cannot be reached. What is on screen stays; changes wait until it reconnects.
   </div>
 }
 

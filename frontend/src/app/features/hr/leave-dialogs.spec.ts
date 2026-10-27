@@ -31,7 +31,7 @@ async function open<T>(component: Type<T>, data: unknown) {
   return { el, dialog, refresh, close };
 }
 
-const hassan = { id: 'hassan', name: 'Hassan', jobTitle: 'Chef', isActive: true } as Employee;
+const hassan = { id: 'hassan', name: 'Hassan', jobTitle: 'Checker', isActive: true } as Employee;
 const mona = { id: 'mona', name: 'Mona', jobTitle: 'Cashier', isActive: true } as Employee;
 const types = [
   { id: 'annual', name: 'Annual (اعتيادي)', isPaid: true },
@@ -94,7 +94,7 @@ describe('asking for leave', () => {
     expect(close).toHaveBeenCalledWith(expect.objectContaining({ status: 'Pending', days: 3 }));
   });
 
-  it('says when it is more than is left, when the dates hold no working day, and the till’s refusal', async () => {
+  it('says when it is more than is left, when the dates hold no working day, and the system’s refusal', async () => {
     const data: LeaveRequestData = { employees: [hassan], types, countDays, balances, submit };
     const { el, dialog, refresh, close } = await open(LeaveRequestDialog, data);
     dialog['pickEmployee']('hassan');
@@ -150,7 +150,11 @@ describe('asking for leave', () => {
 describe('cancelling an approved leave', () => {
   const countDays = vi.fn();
 
-  beforeEach(() => countDays.mockReset().mockReturnValue(of({ days: 2, dates: ['2026-11-04', '2026-11-05'] })));
+  beforeEach(() => {
+
+    countDays.mockReset().mockReturnValue(of({ days: 2, dates: ['2026-11-04', '2026-11-05'] }));
+
+  });
 
   it('opens on the business day, counts the days given back, and cancels all of it from its first day', async () => {
     const data: CancelLeaveData = { request: request(), today: '2026-11-04', countDays };

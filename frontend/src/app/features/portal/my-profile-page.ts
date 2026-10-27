@@ -12,12 +12,12 @@ import { PayrollSlip, weekDays } from '../../core/hr/hr.api';
 import { errorMessage } from '../../core/http/error-message';
 import { PortalAuth } from '../../core/portal/portal-auth';
 import { EmployeeCustody, PortalApi, PortalProfile } from '../../core/portal/portal.api';
-import { PaperPreview } from '../costing/invoice-paper';
+import { PaperPreview } from '../../core/ui/paper-preview';
 import { PayslipSheet } from '../hr/payslip-sheet';
 import { MyLeaves } from './my-leaves';
 import { MyRecord } from './my-record';
 
-// An employee's own page in the portal (ملفي), and nothing of the till around it: who they are
+// An employee's own page in the portal (ملفي), and nothing of the system around it: who they are
 // (their details and ID card), their leaves (MyLeaves, where they ask for one), what is in their
 // custody, their record of evaluations and warnings (MyRecord), and their payslip (this month's as
 // it stands, or one before from the list). Read-only but for asking for leave.
@@ -68,7 +68,7 @@ import { MyRecord } from './my-record';
               <div><dt>Mobile<span class="ar">الموبايل</span></dt><dd class="digits">{{ p.mobileNumber ?? '—' }}</dd></div>
               <div><dt>Started on<span class="ar">تاريخ التعيين</span></dt><dd>{{ p.hiredOn | date: 'd MMM y' }}</dd></div>
               <div>
-                <dt>Shift<span class="ar">الوردية</span></dt>
+                <dt>Work schedule<span class="ar">الدوام</span></dt>
                 <dd>
                   {{ p.shiftStartsAt && p.shiftEndsAt ? p.shiftStartsAt.slice(0, 5) + '–' + p.shiftEndsAt.slice(0, 5) : 'Flexible hours' }}
                   <span class="muted"> · {{ daysOff() }}</span>

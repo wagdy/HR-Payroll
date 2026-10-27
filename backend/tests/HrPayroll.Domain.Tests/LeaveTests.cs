@@ -30,7 +30,7 @@ public class LeaveTests
         Assert.Equal(30, sick.DefaultDaysPerYear);
     }
 
-    private static Employee HiredOn(DateOnly day) => new(Hassan, "Hassan", "Chef", 5_400, new TimeOnly(10, 0), WeekDays.Friday, day);
+    private static Employee HiredOn(DateOnly day) => new(Hassan, "Hassan", "Checker", 5_400, new TimeOnly(10, 0), WeekDays.Friday, day);
 
     [Fact]
     public void A_balance_opens_at_the_types_days_and_is_taken_from_never_past_what_is_left()
@@ -92,7 +92,7 @@ public class LeaveTests
     public void A_leave_takes_only_the_days_they_would_work_while_employed()
     {
         // Off on Fridays and Saturdays, employed from Monday 2 November.
-        var hassan = new Employee(Hassan, "Hassan", "Chef", 5_400, new TimeOnly(10, 0), WeekDays.Friday | WeekDays.Saturday, Sunday.AddDays(1));
+        var hassan = new Employee(Hassan, "Hassan", "Checker", 5_400, new TimeOnly(10, 0), WeekDays.Friday | WeekDays.Saturday, Sunday.AddDays(1));
         var week = LeaveDays.Of(hassan, Sunday, Sunday.AddDays(6), []);
         Assert.Equal([Sunday.AddDays(1), Sunday.AddDays(2), Sunday.AddDays(3), Sunday.AddDays(4)], week);
 

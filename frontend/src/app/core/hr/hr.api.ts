@@ -1,15 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ApprovalResult } from '../costing/costing.api';
+import { ApprovalResult } from '../approvals/approvals.api';
 import { HrTab } from './hr-tabs';
 
-// HR & Payroll (الموارد البشرية والرواتب), as the till's API serves it (/api/hr). Times of day are
-// the restaurant's wall clock, sent and read without a zone: '2026-10-12T10:00:00', '10:00:00'.
+// HR & Payroll (الموارد البشرية والرواتب), as the API serves it (/api/hr). Times of day are
+// the company's wall clock, sent and read without a zone: '2026-10-12T10:00:00', '10:00:00'.
 
 export type WeekDay = 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
 
-// Saturday first, as the restaurant's week starts.
+// Saturday first, as the company's week starts.
 export const weekDays: { day: WeekDay; en: string; ar: string }[] = [
   { day: 'Saturday', en: 'Sat', ar: 'السبت' },
   { day: 'Sunday', en: 'Sun', ar: 'الأحد' },
@@ -35,7 +35,7 @@ export interface JobRole {
   dailyCost: number;
 }
 
-// A department of the restaurant (الأقسام), how many are in it (employed, and everyone including
+// A department of the company (الأقسام), how many are in it (employed, and everyone including
 // those who left), and its job roles. General is always there.
 export interface Department {
   id: string;
@@ -49,7 +49,7 @@ export interface Department {
   dailyCost: number;
 }
 
-// Someone on the payroll. A nine-hour shift from shiftStartsAt, or flexible hours with none. Paid
+// Someone on the payroll. A nine-hour work schedule from shiftStartsAt, or flexible hours with none. Paid
 // monthly (a day's pay the salary over 30) or daily (their wage a day worked); an hour's a day's
 // over 9.
 export interface Employee {
@@ -140,7 +140,7 @@ export const dayStatusLabels: Record<DayStatus, { en: string; ar: string }> = {
   UnpaidLeave: { en: 'Unpaid leave', ar: 'إجازة بدون راتب' },
 };
 
-// WorkingDay: a weekly day off worked in exchange for another, counted as a normal shift.
+// WorkingDay: a weekly day off worked in exchange for another, counted as a normal workday.
 // UnpaidLeave: an approved leave request's only, never set by hand.
 export type DayMarkKind = 'Leave' | 'DayOff' | 'WorkingDay' | 'UnpaidLeave';
 
@@ -186,7 +186,7 @@ export interface AttendanceDay {
   holidayName: string | null;
   // When the day ends, and the next one's punches start.
   dayEndsAt: string;
-  // A punch-in with no punch-out once the shift is over (نسي تسجيل الانصراف).
+  // A punch-in with no punch-out once the work schedule is over (نسي تسجيل الانصراف).
   forgotToCheckOut: boolean;
   // Penalties in money on the day, a disciplinary action's penalty deduction: taken off as they are.
   penaltyAmount?: number;
@@ -275,7 +275,7 @@ export interface DeviceCommand {
 }
 
 // Who is in now (حالة الموظفين الآن): each employee on their own day, their scans paired in order.
-// NotArrived before their shift (and its grace) starts or on flexible hours; Late once it has.
+// NotArrived before their work schedule (and its grace) starts or on flexible hours; Late once it has.
 export type PresenceState = 'In' | 'Left' | 'NotArrived' | 'Late' | 'Off';
 
 export interface Presence {
@@ -289,7 +289,7 @@ export interface Presence {
   holidayName: string | null;
 }
 
-// One employee's card as punches or a correction changed it, pushed by the till's hub
+// One employee's card as punches or a correction changed it, pushed by the server's hub
 // (EmployeeStatusChanged) to whoever sees HR: worked out at `at`.
 export interface EmployeeStatus {
   employeeId: string;
@@ -307,7 +307,7 @@ export interface PresenceReport {
   employees: Presence[];
 }
 
-// A ZKTeco device that has called the till: refused until a manager approves it by name. Its
+// A ZKTeco device that has called the system: refused until a manager approves it by name. Its
 // newest commands first.
 export interface AttendanceDevice {
   id: string;
@@ -320,33 +320,31 @@ export interface AttendanceDevice {
   lastSeenAtUtc: string;
   lastAddress: string | null;
   commands: DeviceCommand[];
-  // When it last called the till over ADMS; and whether that was in the last few minutes, so its
-  // punches come as they are made. Otherwise they come only when the till reads it (Sync).
+  // When it last called the system over ADMS; and whether that was in the last few minutes, so its
+  // punches come as they are made. Otherwise they come only when the system reads it (Sync).
   lastCalledInAtUtc: string | null;
   callingIn: boolean;
-  // Its last punch came stamped this far ahead of when it reached the till: its clock is fast.
+  // Its last punch came stamped this far ahead of when it reached the system: its clock is fast.
   clockAheadMinutes: number | null;
 }
 
-// HR's advances (السلفيات). Allocated: deducted from an employee's pay of payrollMonth, paid to
-// them (Direct) or their share of advances handed out with no one named (Share).
-// Outside: paid to them outside the till, recorded in HR only.
-export type AdvanceOrigin = 'Direct' | 'Share' | 'Outside';
+// HR's advances (السلفيات), records of HR's own. Allocated: deducted from an employee's pay of
+// payrollMonth, an advance to them (Direct) or their share of advances handed out with no one
+// named (Share).
+export type AdvanceOrigin = 'Direct' | 'Share';
 
 export interface AllocatedAdvance {
   id: string;
   origin: AdvanceOrigin;
-  // The safe entry the cash moved with; none outside the till.
-  sourceTransactionId: string | null;
+  // The advance it is, or for a share the lump sum it is a share of.
+  advanceId: string | null;
   employeeId: string;
   employee: string;
   amount: number;
   date: string;
   payrollMonth: string;
-  fromTakingsOf: string | null;
   notes: string | null;
   recordedBy: string;
-  outsideTill: boolean;
 }
 
 export interface AdvanceShare {
@@ -368,16 +366,14 @@ export interface PendingAdvance {
   amount: number;
   allocated: number;
   remaining: number;
-  fromTakingsOf: string | null;
   notes: string | null;
   recordedBy: string;
   shares: AdvanceShare[];
   fullyAllocated: boolean;
-  // Paid outside the till: no takings or safe.
-  outsideTill: boolean;
 }
 
-// An advance paid outside the till (the owner's own pocket), recorded in HR only.
+// An advance as HR records it: to an employee, deducted from their pay, or to no one yet (a lump
+// sum, given out a share each).
 export interface HrAdvance {
   id: string;
   amount: number;
@@ -429,7 +425,7 @@ export interface EmployeeImportResult {
   departmentsAdded: string[];
 }
 
-// The device reached by the till over its own port (ZKTeco's, 4370): whether it answered, and
+// The device reached by the system over its own port (ZKTeco's, 4370): whether it answered, and
 // what it says it is and holds.
 export interface DeviceProbe {
   reached: boolean;
@@ -447,12 +443,12 @@ export interface DeviceSyncResult {
   deviceName: string;
   newDevice: boolean;
   users: number;
-  usersNotOnTheTill: number;
+  usersNotInTheSystem: number;
   punches: number;
   newPunches: number;
 }
 
-// Someone enrolled on a device, as it listed them: who on the till has their number, if anyone,
+// Someone enrolled on a device, as it listed them: who in the system has their number, if anyone,
 // and how many of their punches wait for someone to.
 export interface DeviceUser {
   id: string;
@@ -476,7 +472,7 @@ export const adjustmentLabels: Record<AdjustmentKind, { en: string; ar: string }
 // Every figure of a month's slip. Net = base + incentives + leave allowances + days off worked +
 // holidays worked + overtime − advances − last month's shortfall − lateness − absence −
 // penalties. Days off and holidays worked earn their allowance by themselves: a day's pay from
-// half a shift, their hours before.
+// half a workday, their hours before.
 export interface PayrollFigures {
   monthlySalary: number;
   daysInMonth: number;
@@ -534,19 +530,37 @@ export interface PayrollAdjustment {
   voidedBy: string | null;
 }
 
-export interface PayrollCash {
+// An advance deducted in the month: their own, or their share of advances handed out with no one
+// named (isShare).
+export interface PayrollAdvance {
   id: string;
-  kind: 'EmployeeAdvance' | 'SalaryPayment';
   date: string;
   amount: number;
-  fromTakingsOf: string | null;
   notes: string | null;
   recordedBy: string;
   approvedBy: string | null;
+  isShare: boolean;
+}
+
+// What was paid of a finalized month's pay; a voided payment is shown, marked.
+export interface SalaryPayment {
+  id: string;
+  date: string;
+  amount: number;
+  notes: string | null;
+  recordedBy: string;
   voidedAtUtc: string | null;
   voidedBy: string | null;
-  // An advance paid outside the till, recorded in HR only (or a share of one).
-  outsideTill?: boolean;
+}
+
+// A payment made by the app: paymentId lets a retry find the one made.
+export interface SalaryPaymentInput {
+  paymentId: string;
+  employeeId: string;
+  month: string;
+  date: string;
+  amount: number;
+  notes: string | null;
 }
 
 export interface PayrollSlip {
@@ -561,8 +575,8 @@ export interface PayrollSlip {
   finalizedAtUtc: string | null;
   finalizedBy: string | null;
   adjustments: PayrollAdjustment[];
-  advances: PayrollCash[];
-  salaries: PayrollCash[];
+  advances: PayrollAdvance[];
+  salaries: SalaryPayment[];
   // What the penalties and unpaid leave deducted are, day by day.
   penalties?: PayslipPenalty[];
   unpaidLeaveDays?: string[];
@@ -704,7 +718,7 @@ export interface HrAccessList {
 export class HrApi {
   private readonly http = inject(HttpClient);
 
-  // The till's business day, for whoever works a tab (in the portal too).
+  // The company's workday, for whoever works a tab (in the portal too).
   today(): Observable<{ today: string }> {
     return this.http.get<{ today: string }>('/api/hr/today');
   }
@@ -878,13 +892,22 @@ export class HrApi {
     return this.http.post<PendingAdvance>(`/api/hr/advance-shares/${shareId}/take-back`, {});
   }
 
-  // An advance paid outside the till: a manager's recorded (200), anyone else's asked (202).
+  // An advance: a manager's recorded (200), anyone else's asked (202).
   recordHrAdvance(input: HrAdvanceInput): Observable<HrAdvance | ApprovalResult> {
     return this.http.post<HrAdvance | ApprovalResult>('/api/hr/advances', input);
   }
 
   voidHrAdvance(id: string): Observable<HrAdvance> {
     return this.http.post<HrAdvance>(`/api/hr/advances/${id}/void`, {});
+  }
+
+  // A finalized month's pay paid, in part or in full: never more than it still owes. A manager's.
+  recordSalaryPayment(input: SalaryPaymentInput): Observable<SalaryPayment> {
+    return this.http.post<SalaryPayment>('/api/hr/payroll/payments', input);
+  }
+
+  voidSalaryPayment(id: string): Observable<SalaryPayment> {
+    return this.http.post<SalaryPayment>(`/api/hr/payroll/payments/${id}/void`, {});
   }
 
   // Excel: the template to fill in, a filled-in one imported, everyone employed exported, and a
@@ -907,7 +930,7 @@ export class HrApi {
     return this.http.get('/api/hr/payroll/export', { params: { month }, responseType: 'blob' });
   }
 
-  // Where a device reaches this till: the device's own port when one is set (the till's screens
+  // Where a device reaches this system: the device's own port when one is set (the system's screens
   // then stay on its machine), and the machine's addresses on its networks.
   deviceConnection(): Observable<{ devicePort: number | null; portalPort?: number | null; addresses: string[] }> {
     return this.http.get<{ devicePort: number | null; portalPort?: number | null; addresses: string[] }>('/api/hr/devices/connection');
@@ -925,7 +948,7 @@ export class HrApi {
     return this.http.post<AttendanceDevice>(`/api/hr/devices/${id}/revoke`, {});
   }
 
-  // The till reaching the device at its address, beside ADMS: a test, or its users and whole log
+  // The system reaching the device at its address, beside ADMS: a test, or its users and whole log
   // read at once (the device approved if it was not). A manager's.
   testDevice(address: string, port: number, commKey: number): Observable<DeviceProbe> {
     return this.http.post<DeviceProbe>('/api/hr/devices/test', { address, port, commKey });
@@ -992,7 +1015,7 @@ export function duration(minutes: number): string {
   return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
 }
 
-// A day's shift as "16:00–01:00 +1", or "Flexible" for flexible hours.
+// A day's work schedule as "16:00–01:00 +1", or "Flexible" for flexible hours.
 export function shift(day: Pick<AttendanceDay, 'date' | 'shiftStartsAt' | 'shiftEndsAt'>): string {
   return day.shiftStartsAt && day.shiftEndsAt ? `${clock(day.shiftStartsAt)}–${clock(day.shiftEndsAt, day.date)}` : 'Flexible';
 }
@@ -1008,7 +1031,7 @@ export function minutesBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}Z`) - Date.parse(`${from}Z`)) / 60_000);
 }
 
-// A wall-clock time as the till sends it ('2026-10-19T16:12:05'), as "16:12"; a day after `day`
+// A wall-clock time as the system sends it ('2026-10-19T16:12:05'), as "16:12"; a day after `day`
 // as "01:20 +1". Read from the text, never through Date, so no time zone can move it.
 export function clock(time: string | null, day?: string): string {
   if (!time) {

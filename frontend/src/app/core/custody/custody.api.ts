@@ -1,14 +1,14 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ApprovalResult } from '../costing/costing.api';
+import { ApprovalResult } from '../approvals/approvals.api';
 
 // Custody & Assets (عهدة وأصول): the categories, the assets and whose custody each is in, and the
-// vouchers that move them. Seen by whoever sees HR; categories are a manager's; assets and
-// vouchers are whoever manages HR's, an accountant's asked of a manager.
+// vouchers that move them. Seen by whoever holds its tab; categories are a manager's; assets and
+// vouchers are whoever manages HR's, an accountant's asked of a manager. What breaks or is lost
+// only changes the asset's status and how many are left.
 
-export type AssetOrigin = 'HrManual' | 'FinancialPurchase';
-export type AssetStatus = 'InStore' | 'InCustody' | 'Maintenance' | 'BrokenWaste' | 'Discarded';
+export type AssetStatus = 'InStore' | 'InCustody' | 'Maintenance' | 'Broken' | 'Discarded';
 export type AssetTransactionType = 'CheckIn' | 'CheckOut';
 export type AssetMovementReason = 'Returned' | 'Maintenance' | 'Breakage' | 'Lost' | 'Discarded';
 
@@ -33,10 +33,7 @@ export interface AssetItem {
   totalCost: number | null;
   employeeId: string | null;
   employeeName: string | null;
-  origin: AssetOrigin;
   status: AssetStatus;
-  // The posted invoice it was bought on.
-  sourceInvoiceId: string | null;
   notes: string | null;
   createdBy: string;
   createdAtUtc: string;
@@ -57,9 +54,6 @@ export interface AssetVoucher {
   cost: number | null;
   recordedBy: string;
   recordedAtUtc: string;
-  // The breakage entry it made in Costing → Waste: a consumable's breakage.
-  wasteEntryId: string | null;
-  routedToWaste: boolean;
 }
 
 export interface AssetDetail {
@@ -71,23 +65,6 @@ export interface CustodyItem {
   asset: AssetItem;
   // When it came into their custody.
   since: string | null;
-}
-
-export interface BreakageEntry {
-  id: string;
-  businessDate: string;
-  assetItemId: string;
-  assetTransactionId: string;
-  description: string;
-  quantity: number;
-  unitCost: number | null;
-  cost: number;
-  employeeId: string | null;
-  employeeName: string | null;
-  notes: string | null;
-  recordedBy: string;
-  recordedAtUtc: string;
-  isVoided: boolean;
 }
 
 // What a manager's change answers: applied, with the asset and the voucher it made.
@@ -130,7 +107,7 @@ export const statusLabels: Record<AssetStatus, { en: string; ar: string }> = {
   InStore: { en: 'In the store', ar: 'بالمخزن' },
   InCustody: { en: 'In custody', ar: 'في العهدة' },
   Maintenance: { en: 'At maintenance', ar: 'في الصيانة' },
-  BrokenWaste: { en: 'Broken', ar: 'كسر هالك' },
+  Broken: { en: 'Broken', ar: 'كسر هالك' },
   Discarded: { en: 'Discarded', ar: 'مستبعد' },
 };
 
@@ -146,7 +123,7 @@ export const reasonLabels: Record<AssetMovementReason, { en: string; ar: string 
 export const takesAll = (reason: AssetMovementReason): boolean => reason === 'Returned' || reason === 'Maintenance';
 
 export function isGone(asset: AssetItem): boolean {
-  return asset.status === 'BrokenWaste' || asset.status === 'Discarded';
+  return asset.status === 'Broken' || asset.status === 'Discarded';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -165,9 +142,8 @@ export class CustodyApi {
     return this.http.delete<void>(`/api/custody/categories/${id}`);
   }
 
-  // Link with Financials on: those bought on purchase invoices too.
-  assets(withFinancial: boolean): Observable<AssetItem[]> {
-    return this.http.get<AssetItem[]>('/api/custody/assets', { params: { withFinancial } });
+  assets(): Observable<AssetItem[]> {
+    return this.http.get<AssetItem[]>('/api/custody/assets');
   }
 
   asset(id: string): Observable<AssetDetail> {
@@ -192,9 +168,5 @@ export class CustodyApi {
 
   employeeCustody(employeeId: string): Observable<CustodyItem[]> {
     return this.http.get<CustodyItem[]>(`/api/hr/employees/${employeeId}/custody`);
-  }
-
-  breakage(days = 30): Observable<BreakageEntry[]> {
-    return this.http.get<BreakageEntry[]>('/api/costing/breakage', { params: { days } });
   }
 }

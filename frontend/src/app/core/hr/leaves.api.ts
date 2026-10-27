@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-// Leaves (الإجازات), as the till's API serves them (/api/leaves): the types, everyone's balances a
+// Leaves (الإجازات), as the API serves them (/api/leaves): the types, everyone's balances a
 // year, and the requests a manager approves or rejects. Seen on HR's Leaves & Holidays tab;
 // approving, rejecting, cancelling, a balance's days and the types are a manager's alone.
 // Employees ask for their own in the portal (PortalApi).

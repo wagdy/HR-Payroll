@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "otantik-till": {
+    "hr-payroll": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -35,7 +35,7 @@
               "src/styles.scss"
             ],
             "outputPath": {
-              "base": "../backend/src/OtantikPos.Node.Api/wwwroot",
+              "base": "../backend/src/HrPayroll.Api/wwwroot",
               "browser": ""
             }
           },
@@ -67,16 +67,16 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "otantik-till:build:production"
+              "buildTarget": "hr-payroll:build:production"
             },
             "development": {
-              "buildTarget": "otantik-till:build:development"
+              "buildTarget": "hr-payroll:build:development"
             }
           },
           "defaultConfiguration": "development",
           "options": {
             "proxyConfig": "proxy.conf.json",
-            "port": 4210
+            "port": 4220
           }
         },
         "test": {

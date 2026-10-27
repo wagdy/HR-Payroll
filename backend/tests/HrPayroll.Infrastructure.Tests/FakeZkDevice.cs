@@ -6,7 +6,7 @@ using System.Text;
 
 namespace HrPayroll.Infrastructure.Tests;
 
-// A ZKTeco attendance device on its own port, as far as the till can tell: the protocol's frames,
+// A ZKTeco attendance device on its own port, as far as the system can tell: the protocol's frames,
 // a session, a comm key when one is set, and its user table and attendance log handed over
 // through its buffer in data frames of `FrameSize` bytes. `Modern` is the K40's records (72 bytes a
 // user, 40 a punch); otherwise the older 28 and 16.
@@ -169,7 +169,7 @@ public sealed class FakeZkDevice : IDisposable
             }
             catch (Exception ex) when (ex is IOException or SocketException or EndOfStreamException or ObjectDisposedException)
             {
-                // The till hung up.
+                // The system hung up.
             }
         }
     }
@@ -196,7 +196,7 @@ public sealed class FakeZkDevice : IDisposable
             var (index, number, name) = Users[i];
             var row = table.AsSpan(4 + i * size, size);
             BinaryPrimitives.WriteUInt16LittleEndian(row, (ushort)index);
-            // A password and a card the till never keeps.
+            // A password and a card the system never keeps.
             Encoding.ASCII.GetBytes("1234").CopyTo(row[3..]);
             if (Modern)
             {

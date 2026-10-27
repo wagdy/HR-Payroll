@@ -9,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { Observable, firstValueFrom } from 'rxjs';
-import { ApprovalResult } from '../../core/costing/costing.api';
+import { ApprovalResult } from '../../core/approvals/approvals.api';
 import {
   AssetCategory,
   AssetDetail,
@@ -62,9 +62,8 @@ export interface AssetDialogData {
   costHidden?: boolean;
 }
 
-// An asset added in HR, or changed: its name, category, a piece's cost and notes. How many there
-// are is said when it is added; vouchers change it after. One bought on an invoice costs what the
-// invoice says.
+// An asset added, or changed: its name, category, a piece's cost and notes. How many there are is
+// said when it is added; vouchers change it after.
 @Component({
   selector: 'app-asset-dialog',
   imports: [FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, MatSelectModule],
@@ -94,9 +93,8 @@ export interface AssetDialogData {
         @if (!(data.costHidden && data.asset)) {
           <mat-form-field>
             <mat-label>Cost a piece · تكلفة القطعة</mat-label>
-            <input matInput type="number" min="0" step="any" [(ngModel)]="unitCost" [disabled]="bought" aria-label="Cost a piece" />
-            <span matTextSuffix>&nbsp;L.E</span>
-            <mat-hint>{{ bought ? 'As its invoice says' : 'Leave empty when not known' }}</mat-hint>
+            <input matInput type="number" min="0" step="any" [(ngModel)]="unitCost" aria-label="Cost a piece" />
+            <mat-hint>Leave empty when not known</mat-hint>
           </mat-form-field>
         }
         <mat-form-field>
@@ -132,7 +130,7 @@ export interface AssetDialogData {
       <button mat-flat-button (click)="save()" [disabled]="!!problem() || saving()">{{ data.canApprove ? 'Save' : 'Send for approval' }}</button>
     </mat-dialog-actions>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .form {
       display: grid;
@@ -145,7 +143,7 @@ export interface AssetDialogData {
     .ask {
       padding: 8px 10px;
       border-radius: 8px;
-      background: color-mix(in srgb, var(--till-warn) 14%, transparent);
+      background: color-mix(in srgb, var(--app-warn) 14%, transparent);
     }
     @media (max-width: 600px) {
       .form {
@@ -165,7 +163,6 @@ export class AssetDialog extends SavingDialog {
   // Made once: a retry after a lost answer finds what was asked.
   private readonly requestId = crypto.randomUUID();
 
-  protected readonly bought = this.data.asset?.origin === 'FinancialPurchase';
   protected name = this.data.asset?.name ?? '';
   protected categoryId: string | null = this.data.asset?.categoryId ?? null;
   protected unitCost: number | null = this.data.asset?.unitCost ?? null;
@@ -247,7 +244,7 @@ export interface CheckInDialogData {
       <button mat-flat-button (click)="save()" [disabled]="!employeeId || !date || saving()">{{ data.canApprove ? 'Check in' : 'Send for approval' }}</button>
     </mat-dialog-actions>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .form {
       display: grid;
@@ -296,10 +293,10 @@ export interface CheckOutDialogData {
 }
 
 // إذن خروج, and why: handed back or to maintenance (all of it), or broken, lost or thrown away
-// (how many of it). A consumable's breakage goes to Costing → Waste at its cost.
+// (how many of it): those come off what there is, and with none left the asset is marked so.
 @Component({
   selector: 'app-check-out-dialog',
-  imports: [FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressBarModule, MatSelectModule, MoneyPipe],
+  imports: [FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressBarModule, MatSelectModule],
   template: `
     <h2 mat-dialog-title>Check out {{ data.asset.name }} <span class="inline-ar">إذن خروج</span></h2>
     <mat-dialog-content>
@@ -343,14 +340,10 @@ export interface CheckOutDialogData {
           </mat-form-field>
         }
       </div>
-      @if (why() === 'Breakage') {
-        @if (data.asset.isConsumable) {
-          <p class="waste">
-            <mat-icon>delete_sweep</mat-icon> Goes to Costing → Waste as breakage@if (data.asset.unitCost !== null) {, at {{ breakageCost() | money }}}.
-          </p>
-        } @else {
-          <p class="muted small">A fixed asset: broken, it is not the day's waste.</p>
-        }
+      @if (!all()) {
+        <p class="muted small">
+          They come off the {{ data.asset.quantity }} there are@if (Number(quantity()) >= data.asset.quantity) {: none is left, and it is marked {{ goneAs() }}}.
+        </p>
       }
       @if (saving()) {
         <mat-progress-bar mode="indeterminate" />
@@ -364,7 +357,7 @@ export interface CheckOutDialogData {
       <button mat-flat-button (click)="save()" [disabled]="!!problem() || saving()">{{ data.canApprove ? 'Check out' : 'Send for approval' }}</button>
     </mat-dialog-actions>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .form {
       display: grid;
@@ -373,14 +366,6 @@ export interface CheckOutDialogData {
     }
     .wide {
       grid-column: span 2;
-    }
-    .waste {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      background: color-mix(in srgb, var(--till-warn) 16%, transparent);
     }
     .small {
       font-size: 0.85em;
@@ -403,7 +388,9 @@ export class CheckOutDialog extends SavingDialog {
   protected readonly why = signal<AssetMovementReason>(this.data.asset.status === 'InCustody' ? 'Returned' : 'Breakage');
   protected readonly quantity = signal<number | null>(this.data.asset.quantity);
   protected readonly all = computed(() => takesAll(this.why()));
-  protected readonly breakageCost = computed(() => (this.data.asset.unitCost ?? 0) * (Number(this.quantity()) || 0));
+  protected readonly Number = Number;
+  // What it is marked once none is left: broken, or discarded (lost or thrown away).
+  protected readonly goneAs = computed(() => (this.why() === 'Breakage' ? 'Broken' : 'Discarded'));
   protected date = this.data.today;
   protected notes = '';
   protected reason = '';
@@ -454,9 +441,6 @@ export class CheckOutDialog extends SavingDialog {
       } @else if (detail(); as d) {
         <p class="muted">
           {{ d.asset.quantity }} now · {{ d.asset.employeeName ? 'with ' + d.asset.employeeName : statusLabels[d.asset.status].en }}
-          @if (d.asset.origin === 'FinancialPurchase') {
-            · bought on a purchase invoice
-          }
         </p>
         <table class="grid">
           <thead>
@@ -476,9 +460,6 @@ export class CheckOutDialog extends SavingDialog {
                   {{ v.type === 'CheckIn' ? 'In · دخول' : 'Out · خروج' }}
                   @if (v.reason) {
                     <span class="muted"> · {{ reasonLabels[v.reason].en }}</span>
-                  }
-                  @if (v.routedToWaste) {
-                    <span class="badge">In Waste · في الهالك</span>
                   }
                   @if (v.notes) {
                     <div class="muted small">{{ v.notes }}</div>
@@ -501,16 +482,8 @@ export class CheckOutDialog extends SavingDialog {
       <button mat-flat-button mat-dialog-close>Close</button>
     </mat-dialog-actions>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
-    .badge {
-      display: inline-block;
-      margin-left: 6px;
-      padding: 0 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: color-mix(in srgb, var(--till-warn) 30%, transparent);
-    }
     .small {
       font-size: 0.85em;
     }

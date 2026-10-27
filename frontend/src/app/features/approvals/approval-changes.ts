@@ -1,8 +1,8 @@
 import { Component, input } from '@angular/core';
-import { ApprovalChange } from '../../core/costing/costing.api';
+import { ApprovalChange } from '../../core/approvals/approvals.api';
 
-// What a request changes, line by line, as the manager reads it: "Quantity to produce: 10 kg →
-// 12 kg". Something new has only its value; something taken away is struck through.
+// What a request changes, line by line, as the manager reads it: "Pay: 4,000.00 a month →
+// 4,500.00 a month". Something new has only its value; something taken away is struck through.
 @Component({
   selector: 'app-approval-changes',
   template: `

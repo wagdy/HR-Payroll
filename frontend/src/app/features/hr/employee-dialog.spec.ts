@@ -10,15 +10,15 @@ import { EmploymentDialog, EmploymentDialogData } from './employment-dialog';
 const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 
 const hassan: Employee = {
-  id: 'hassan', name: 'Hassan', jobTitle: 'Chef', monthlySalary: 5_400, shiftStartsAt: '16:00:00', shiftEndsAt: '01:00:00', daysOff: ['Friday'],
+  id: 'hassan', name: 'Hassan', jobTitle: 'Checker', monthlySalary: 5_400, shiftStartsAt: '16:00:00', shiftEndsAt: '01:00:00', daysOff: ['Friday'],
   deviceUserId: '7', hiredOn: '2026-01-01', leftOn: null, isActive: true, dailyRate: 180, hourlyRate: 20, nationalId: null, mobileNumber: null, idPhoto: null, employmentType: 'Monthly', dailyWage: 0, departmentId: 'general', jobRoleId: null,
 };
 
 const departments: Department[] = [
   { id: 'general', name: 'General', isGeneral: true, employed: 1, everyone: 1, roles: [], monthlyCost: 0, dailyCost: 0 },
   {
-    id: 'kitchen', name: 'Kitchen', isGeneral: false, employed: 0, everyone: 0,
-    roles: [{ id: 'chef', departmentId: 'kitchen', name: 'Chef', employed: 1, monthlyCost: 0, dailyCost: 0 }, { id: 'helper', departmentId: 'kitchen', name: 'Kitchen helper', employed: 0, monthlyCost: 0, dailyCost: 0 }],
+    id: 'accounts', name: 'Key accounts', isGeneral: false, employed: 0, everyone: 0,
+    roles: [{ id: 'checker', departmentId: 'accounts', name: 'Checker', employed: 1, monthlyCost: 0, dailyCost: 0 }, { id: 'helper', departmentId: 'accounts', name: 'Key accounts helper', employed: 0, monthlyCost: 0, dailyCost: 0 }],
     monthlyCost: 0, dailyCost: 0,
   },
 ];
@@ -73,9 +73,9 @@ describe('the employee form', () => {
     expect(text(el.querySelector('.days .error')!)).toBe('Leave at least one working day');
   });
 
-  it('adds one with a nine-hour shift, its rates, and its days off, under a new id', async () => {
+  it('adds one with a nine-hour work schedule, its rates, and its days off, under a new id', async () => {
     const { el, page, refresh } = await render({ canApprove: true, today: '2026-10-20' });
-    Object.assign(page, { name: ' Mona ', jobTitle: 'Waiter', salary: 4_050, shiftStart: '16:30', daysOff: ['Friday'], deviceUserId: ' 12 ' });
+    Object.assign(page, { name: ' Mona ', jobTitle: 'Warehouse clerk', salary: 4_050, shiftStart: '16:30', daysOff: ['Friday'], deviceUserId: ' 12 ' });
     await refresh();
 
     expect([...el.querySelectorAll('mat-hint')].map(text)).toContain('Nine hours: ends 01:30 the next day');
@@ -84,7 +84,7 @@ describe('the employee form', () => {
 
     const [id, input] = saveEmployee.mock.lastCall! as [string, EmployeeInput];
     expect(input).toMatchObject({
-      name: 'Mona', jobTitle: 'Waiter', employmentType: 'Monthly', monthlySalary: 4_050, dailyWage: 0, departmentId: 'general', jobRoleId: null, shiftStartsAt: '16:30:00',
+      name: 'Mona', jobTitle: 'Warehouse clerk', employmentType: 'Monthly', monthlySalary: 4_050, dailyWage: 0, departmentId: 'general', jobRoleId: null, shiftStartsAt: '16:30:00',
       daysOff: ['Friday'], hiredOn: '2026-10-20', deviceUserId: '12', reason: null,
     });
     expect(id).not.toBe(input.requestId);
@@ -94,7 +94,7 @@ describe('the employee form', () => {
   it('takes their full name, national ID and mobile, in Arabic digits too, and says when one is not right', async () => {
     const { el, page, refresh } = await render({ canApprove: true, today: '2026-10-20' });
     expect([...el.querySelectorAll('mat-label')].map(text)).toEqual(expect.arrayContaining(['Full name · الاسم بالكامل', 'National ID · رقم البطاقة', 'Mobile · رقم الموبايل']));
-    Object.assign(page, { name: 'Mona Adel Hassan', jobTitle: 'Waiter', salary: 4_000, nationalId: '2900101', mobileNumber: 'call me' });
+    Object.assign(page, { name: 'Mona Adel Hassan', jobTitle: 'Warehouse clerk', salary: 4_000, nationalId: '2900101', mobileNumber: 'call me' });
 
     await page['save']();
     await refresh();
@@ -122,31 +122,31 @@ describe('the employee form', () => {
 
   it('takes a daily wage instead of a salary, and the department chosen', async () => {
     const { el, page, refresh } = await render({ canApprove: true, today: '2026-10-20' });
-    Object.assign(page, { name: 'Samir', jobTitle: 'Kitchen helper', employmentType: 'Daily', salary: 270, departmentId: 'kitchen' });
+    Object.assign(page, { name: 'Samir', jobTitle: 'Key accounts helper', employmentType: 'Daily', salary: 270, departmentId: 'accounts' });
     await refresh();
 
     expect([...el.querySelectorAll('mat-label')].map(text)).toContain('Daily wage · الأجر اليومي');
     expect([...el.querySelectorAll('mat-label')].map(text)).not.toContain('Base salary · الراتب الأساسي');
     expect([...el.querySelectorAll('mat-hint')].map(text)).toContain('A day worked: 30.00 an hour; nothing for a day not worked');
     await page['save']();
-    expect(saveEmployee.mock.lastCall![1]).toMatchObject({ employmentType: 'Daily', monthlySalary: 0, dailyWage: 270, departmentId: 'kitchen' });
+    expect(saveEmployee.mock.lastCall![1]).toMatchObject({ employmentType: 'Daily', monthlySalary: 0, dailyWage: 270, departmentId: 'accounts' });
   });
 
   it('takes one of the department’s roles, or a new one by its name', async () => {
     const { el, page, refresh } = await render({ canApprove: true, today: '2026-10-20' });
-    Object.assign(page, { name: 'Samir', jobTitle: ' kitchen HELPER ', salary: 4_000, departmentId: 'kitchen' });
+    Object.assign(page, { name: 'Samir', jobTitle: ' key accounts HELPER ', salary: 4_000, departmentId: 'accounts' });
     await refresh();
 
     expect([...el.querySelectorAll('mat-hint')].map(text)).toContain("One of the department's roles, or a new one");
     await page['save']();
-    expect(saveEmployee.mock.lastCall![1]).toMatchObject({ jobTitle: 'Kitchen helper', jobRoleId: 'helper', departmentId: 'kitchen' });
+    expect(saveEmployee.mock.lastCall![1]).toMatchObject({ jobTitle: 'Key accounts helper', jobRoleId: 'helper', departmentId: 'accounts' });
 
     page['jobTitle'] = 'Dishwasher';
     await refresh();
-    expect([...el.querySelectorAll('mat-hint')].map(text)).toContain('A new role in Kitchen');
+    expect([...el.querySelectorAll('mat-hint')].map(text)).toContain('A new role in Key accounts');
     expect(page['roles']()).toEqual([]);
     page['jobTitle'] = 'he';
-    expect(page['roles']().map((r: { name: string }) => r.name)).toEqual(['Chef', 'Kitchen helper']);
+    expect(page['roles']().map((r: { name: string }) => r.name)).toEqual(['Checker', 'Key accounts helper']);
   });
 
   it('needs a department that is there', async () => {
@@ -162,7 +162,7 @@ describe('the employee form', () => {
     const { el, page, refresh } = await render({ canApprove: true, today: '2026-10-20', fromDevice: { name: 'منى', deviceUserId: '12' } });
     expect([page['name'], page['deviceUserId'], page['flexible']]).toEqual(['منى', '12', false]);
 
-    Object.assign(page, { jobTitle: 'Waiter', salary: 4_050, flexible: true, shiftStart: '' });
+    Object.assign(page, { jobTitle: 'Warehouse clerk', salary: 4_050, flexible: true, shiftStart: '' });
     await refresh();
     expect(el.querySelector('input[type=time]')).toBeNull();
     expect(text(el.querySelector('.flexible')!)).toBe('No start time: nothing is late for them, and hours past nine in a day are overtime.');
@@ -188,10 +188,10 @@ describe('the employee form', () => {
     expect(saveEmployee.mock.lastCall![1]).toMatchObject({ monthlySalary: 6_000, shiftStartsAt: '16:00:00', daysOff: ['Friday'], deviceUserId: '7', reason: 'Promoted' });
   });
 
-  it('shows why the till refuses it, and stays open', async () => {
+  it('shows why the system refuses it, and stays open', async () => {
     saveEmployee.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 422, error: { errors: ['Hassan has number 7 on the attendance device already.'] } })));
     const { el, page, refresh } = await render({ canApprove: true, today: '2026-10-20' });
-    Object.assign(page, { name: 'Karim', jobTitle: 'Waiter', salary: 4_000, deviceUserId: '7' });
+    Object.assign(page, { name: 'Karim', jobTitle: 'Warehouse clerk', salary: 4_000, deviceUserId: '7' });
 
     await page['save']();
     await refresh();

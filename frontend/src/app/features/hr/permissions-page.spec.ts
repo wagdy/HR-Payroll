@@ -15,8 +15,8 @@ const cell = (el: Element): string =>
     .filter(Boolean)
     .join(' ');
 
-const hassan: EmployeeHrAccess = { id: 'hassan', name: 'Hassan', jobTitle: 'Supervisor', department: 'Kitchen', hasMobile: true, hasPin: true, tabs: ['Now', 'Attendance'] };
-const kemo: EmployeeHrAccess = { id: 'kemo', name: 'Kemo', jobTitle: 'Chef', department: 'Kitchen', hasMobile: false, hasPin: false, tabs: [] };
+const hassan: EmployeeHrAccess = { id: 'hassan', name: 'Hassan', jobTitle: 'Supervisor', department: 'Key accounts', hasMobile: true, hasPin: true, tabs: ['Now', 'Attendance'] };
+const kemo: EmployeeHrAccess = { id: 'kemo', name: 'Kemo', jobTitle: 'Checker', department: 'Key accounts', hasMobile: false, hasPin: false, tabs: [] };
 const mona: StaffHrAccess = { id: 'staff-accountant', name: 'Mona', role: 'Accountant', restricted: false, tabs: ['Now', 'Employees', 'Departments', 'Attendance', 'Corrections', 'Payroll', 'Advances', 'Holidays', 'Devices'], setBy: null, setAtUtc: null };
 
 describe('employee permissions', () => {
@@ -61,14 +61,14 @@ describe('employee permissions', () => {
   it('lists everyone employed with their tabs and whether they can sign in, and the accountants with every tab until ticked', async () => {
     const { rows, page, refresh } = await render();
     expect(rows('employees')).toEqual([
-      ['Hassan Supervisor · Kitchen', 'Now Attendance', 'Can sign in'],
-      ['Kemo Chef · Kitchen', 'None', 'No mobile number'],
+      ['Hassan Supervisor · Key accounts', 'Now Attendance', 'Can sign in'],
+      ['Kemo Checker · Key accounts', 'None', 'No mobile number'],
     ]);
     expect(rows('staff')).toEqual([['Mona', 'Every tab, until you tick theirs', '—']]);
 
     page['query'].set('kem');
     await refresh();
-    expect(rows('employees').map((r) => r[0])).toEqual(['Kemo Chef · Kitchen']);
+    expect(rows('employees').map((r) => r[0])).toEqual(['Kemo Checker · Key accounts']);
     expect(rows('staff')).toEqual([['No accountant is called that.']]);
   });
 

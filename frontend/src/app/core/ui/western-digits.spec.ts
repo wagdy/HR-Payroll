@@ -4,7 +4,7 @@ import { FormControl, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { WesternDigits, westernDigits } from './western-digits';
 
 // A price as ngModel, a quantity as a form control, a table number, a supplier's invoice number,
-// and a name: what the till's screens have.
+// and a name: what the system's screens have.
 @Component({
   imports: [FormsModule, ReactiveFormsModule],
   template: `
@@ -23,7 +23,7 @@ class Fields {
   readonly name = new FormControl('', { nonNullable: true });
 }
 
-describe('Arabic digits typed into the till', () => {
+describe('Arabic digits typed into the system', () => {
   it('are the Western digits, and the Arabic decimal mark a dot', () => {
     expect(westernDigits('٠١٢٣٤٥٦٧٨٩')).toBe('0123456789');
     expect(westernDigits('۰۱۲۳۴۵۶۷۸۹')).toBe('0123456789');

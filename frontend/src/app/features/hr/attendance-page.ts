@@ -29,7 +29,7 @@ import {
 } from '../../core/hr/hr.api';
 import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
-import { BusinessDay, isoDay } from '../costing/financials';
+import { BusinessDay, isoDay } from '../../core/ui/business-day';
 import {
   AddPunchData,
   AddPunchDialog,
@@ -58,7 +58,7 @@ interface Row {
 
 // Attendance (الحضور والانصراف): the day's review (مراجعة يوم: everyone's day, their in, out and
 // status, those who forgot to check out marked and shown alone when asked), or one employee's
-// month, as worked out from the device's punches against each one's nine-hour shift. Each day opens to show its punches. A
+// month, as worked out from the device's punches against each one's nine-hour work schedule. Each day opens to show its punches. A
 // manager puts a day right there: a punch the device missed, one that should not count, a day of
 // leave or off, a suspended day's punch-out, an administrative penalty. Punches under a number nobody has yet are listed under the day, waiting for the
 // number to be given to someone on the Employees tab.
@@ -140,13 +140,13 @@ interface Row {
           <thead>
             <tr>
               <th>{{ mode() === 'day' ? 'Employee' : 'Day' }}<span class="ar">{{ mode() === 'day' ? 'الموظف' : 'اليوم' }}</span></th>
-              <th>Shift<span class="ar">الوردية</span></th>
+              <th>Work schedule<span class="ar">الدوام</span></th>
               <th>In<span class="ar">حضور</span></th>
               <th>Out<span class="ar">انصراف</span></th>
               <th class="num">Worked<span class="ar">ساعات العمل</span></th>
               <th class="num">Late<span class="ar">تأخير</span></th>
               <th class="num">Left early<span class="ar">انصراف مبكر</span></th>
-              <th class="num">Away<span class="ar">غياب أثناء الوردية</span></th>
+              <th class="num">Away<span class="ar">غياب أثناء الدوام</span></th>
               <th class="num">Overtime<span class="ar">إضافي</span></th>
               <th>Status<span class="ar">الحالة</span></th>
               <th class="num"><span class="visually-hidden">Open</span></th>
@@ -260,16 +260,16 @@ interface Row {
 
     @if (policy(); as p) {
       <p class="note">
-        Each shift is nine hours. Late counts from the shift's start{{ p.graceMinutes ? ', once past ' + p.graceMinutes + ' minutes’ grace' : ': no grace is set' }};
-        overtime is time after the shift ends, beyond nine hours worked, so staying late to make up for being late isn't overtime;
-        scans within {{ p.doubleScanMinutes }} minutes of each other are one. A day ends six hours before the next shift starts, so a shift past
+        Each work schedule is nine hours. Late counts from the work schedule's start{{ p.graceMinutes ? ', once past ' + p.graceMinutes + ' minutes’ grace' : ': no grace is set' }};
+        overtime is time after the work schedule ends, beyond nine hours worked, so staying late to make up for being late isn't overtime;
+        scans within {{ p.doubleScanMinutes }} minutes of each other are one. A day ends six hours before the next work schedule starts, so a work schedule past
         midnight is one day. A punch-in left 18 hours without a punch-out is suspended until a manager enters it, here or on Corrections. A public
         holiday is everyone's paid day off; worked, it is measured as the day would have been, and earns a holiday allowance. Flexible hours
-        have no shift: nothing is late, hours past nine are overtime, and their day runs from 04:00 to 04:00.
+        have no work schedule: nothing is late, hours past nine are overtime, and their day runs from 04:00 to 04:00.
       </p>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     /* A phone (the portal's): the two views one under the other rather than off its edge. */
     @media (max-width: 600px) {
@@ -338,7 +338,7 @@ interface Row {
         background: color-mix(in srgb, var(--mat-sys-error) 14%, transparent);
       }
       &.warn {
-        background: color-mix(in srgb, var(--till-warn) 18%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 18%, transparent);
       }
       &.good {
         background: color-mix(in srgb, #2e7d32 14%, transparent);
@@ -362,7 +362,7 @@ interface Row {
         background: color-mix(in srgb, var(--mat-sys-tertiary) 16%, transparent);
       }
       &.Suspended {
-        background: color-mix(in srgb, var(--till-warn) 24%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 24%, transparent);
       }
       &.Absent {
         background: color-mix(in srgb, var(--mat-sys-error) 16%, transparent);
@@ -682,7 +682,7 @@ export class AttendancePage {
     }
   }
 
-  // Does it, says so, and reads the day or month again; a refusal is said as the till says it.
+  // Does it, says so, and reads the day or month again; a refusal is said as the API says it.
   private async act(call: () => Observable<unknown>, done: string): Promise<void> {
     try {
       await firstValueFrom(call());

@@ -2,9 +2,10 @@ using HrPayroll.Domain.Common;
 
 namespace HrPayroll.Domain.Employees;
 
-// A job role in a department (الوظيفة): sales' representative and team lead, operations' technician and
-// captain. An employee holds one of their department's roles, and is titled by its name. One name
-// to a department; a role is renamed for everyone holding it, and deleted once they hold another.
+// A job role in a department (الوظيفة): sales' representative and team lead, operations'
+// technician and supervisor. An employee holds one of their department's roles, and is titled by
+// its name. One name to a department; a role is renamed for everyone holding it, and deleted once
+// they hold another.
 public sealed class JobRole : AggregateRoot
 {
     public const int MaxNameLength = Employee.MaxJobTitleLength;

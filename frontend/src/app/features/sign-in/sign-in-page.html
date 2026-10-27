@@ -1,8 +1,8 @@
 <main class="sign-in">
   <mat-card class="panel" appearance="outlined">
     <header>
-      <mat-icon class="logo">point_of_sale</mat-icon>
-      <h1>Otantik POS</h1>
+      <mat-icon class="logo">groups</mat-icon>
+      <h1>HR &amp; Payroll</h1>
     </header>
 
     @if (reason() === 'expired') {
@@ -12,68 +12,35 @@
       </p>
     }
 
-    @if (selected(); as person) {
-      <section class="pin" aria-label="Enter your PIN">
-        <button mat-button class="who" (click)="back()">
-          <mat-icon>arrow_back</mat-icon>
-          {{ person.fullName }}
+    <form (ngSubmit)="submit()" aria-label="Sign in">
+      <mat-form-field class="field">
+        <mat-label>Email</mat-label>
+        <input matInput type="email" name="email" autocomplete="username" [(ngModel)]="email" [disabled]="busy()" required />
+      </mat-form-field>
+      <mat-form-field class="field">
+        <mat-label>Password</mat-label>
+        <input matInput [type]="showPassword() ? 'text' : 'password'" name="password" autocomplete="current-password" [(ngModel)]="password" [disabled]="busy()" required />
+        <button mat-icon-button matSuffix type="button" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Hide the password' : 'Show the password'">
+          <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
         </button>
+      </mat-form-field>
 
-        <div class="dots" aria-hidden="true">
-          @for (filled of dots(); track $index) {
-            <span class="dot" [class.filled]="filled"></span>
-          }
-        </div>
-        <p class="sr-only" aria-live="polite">{{ pin().length }} digits entered</p>
+      @if (error(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
 
-        @if (error(); as message) {
-          <p class="error" role="alert">{{ message }}</p>
-        }
+      <button mat-flat-button class="submit" type="submit" [disabled]="busy()">
+        <mat-icon>login</mat-icon>
+        Sign in
+      </button>
+      @if (busy()) {
+        <mat-progress-bar mode="indeterminate" />
+      }
+    </form>
 
-        <div class="keypad">
-          @for (digit of digits; track digit) {
-            <button mat-stroked-button (click)="press(digit)" [disabled]="busy()">{{ digit }}</button>
-          }
-          <button mat-stroked-button (click)="erase()" [disabled]="busy() || pin().length === 0" aria-label="Delete last digit">
-            <mat-icon>backspace</mat-icon>
-          </button>
-          <button mat-stroked-button (click)="press('0')" [disabled]="busy()">0</button>
-          <button mat-flat-button (click)="submit()" [disabled]="busy() || pin().length < 4" aria-label="Sign in">
-            <mat-icon>login</mat-icon>
-          </button>
-        </div>
-        @if (busy()) {
-          <mat-progress-bar mode="indeterminate" />
-        }
-      </section>
-    } @else {
-      <section aria-label="Who is on the till?">
-        <h2>Who's on the till?</h2>
-
-        @if (loadError(); as message) {
-          <p class="error" role="alert">{{ message }}</p>
-          <button mat-flat-button (click)="loadStaff()">
-            <mat-icon>refresh</mat-icon>
-            Try again
-          </button>
-        } @else if (staff() === null) {
-          <mat-progress-bar mode="indeterminate" />
-        } @else if (staff()!.length === 0) {
-          <p class="hint">
-            Nobody on this till has a PIN yet. A manager sets PINs once the staff list has arrived from the delivery
-            system; a new till signs in first with the bootstrap manager from its configuration.
-          </p>
-        } @else {
-          <div class="people">
-            @for (person of staff(); track person.id) {
-              <button mat-stroked-button class="person" (click)="choose(person)">
-                <span class="avatar" aria-hidden="true">{{ initials(person.fullName) }}</span>
-                <span class="name">{{ person.fullName }}</span>
-              </button>
-            }
-          </div>
-        }
-      </section>
-    }
+    <p class="hint">
+      An employee? <a routerLink="/portal">Sign in to your portal</a> with your mobile number and PIN.
+      <span class="inline-ar">بوابة الموظفين</span>
+    </p>
   </mat-card>
 </main>

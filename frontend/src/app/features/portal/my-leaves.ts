@@ -156,17 +156,17 @@ import { LeaveRequestData, LeaveRequestDialog } from '../hr/leave-dialogs';
       background: var(--mat-sys-surface-container-high);
 
       &.Pending {
-        background: color-mix(in srgb, var(--till-warn) 22%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 22%, transparent);
       }
       &.Approved {
-        background: color-mix(in srgb, var(--till-ok, #2e7d32) 18%, transparent);
+        background: color-mix(in srgb, var(--app-ok, #2e7d32) 18%, transparent);
       }
       &.Rejected {
         background: color-mix(in srgb, var(--mat-sys-error) 14%, transparent);
         color: var(--mat-sys-error);
       }
       &.CutShort {
-        background: color-mix(in srgb, var(--till-warn) 22%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 22%, transparent);
       }
     }
     .ar {

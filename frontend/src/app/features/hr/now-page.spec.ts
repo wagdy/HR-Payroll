@@ -12,7 +12,7 @@ const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 // Each element's text inside, as Angular drops the spaces between elements.
 const parts = (el: Element) => [...el.children].map(text);
 
-function employee(id: string, name: string, departmentId: string, jobTitle = 'Chef'): Employee {
+function employee(id: string, name: string, departmentId: string, jobTitle = 'Checker'): Employee {
   return {
     id, name, jobTitle, jobRoleId: null, employmentType: 'Monthly', monthlySalary: 5_400, dailyWage: 0, departmentId, shiftStartsAt: '16:00:00',
     shiftEndsAt: '01:00:00', daysOff: [], deviceUserId: null, hiredOn: '2026-01-01', leftOn: null, isActive: true, dailyRate: 180, hourlyRate: 20, nationalId: null, mobileNumber: null, idPhoto: null,
@@ -24,16 +24,16 @@ function presence(e: Employee, extra: Partial<Presence>): Presence {
 }
 
 const departments: Department[] = [
-  { id: 'kitchen', name: 'Kitchen', isGeneral: false, employed: 3, everyone: 3, roles: [], monthlyCost: 0, dailyCost: 0 },
-  { id: 'service', name: 'Service', isGeneral: false, employed: 2, everyone: 2, roles: [], monthlyCost: 0, dailyCost: 0 },
+  { id: 'accounts', name: 'Key accounts', isGeneral: false, employed: 3, everyone: 3, roles: [], monthlyCost: 0, dailyCost: 0 },
+  { id: 'sales', name: 'Sales', isGeneral: false, employed: 2, everyone: 2, roles: [], monthlyCost: 0, dailyCost: 0 },
 ];
 
 const everyone: Presence[] = [
-  presence(employee('hassan', 'Hassan', 'kitchen'), { state: 'In', since: '2026-10-21T16:03:00' }),
-  presence(employee('samir', 'Samir', 'kitchen', 'Helper'), { state: 'Left', since: '2026-10-22T01:10:00' }),
-  presence(employee('omar', 'Omar', 'kitchen'), { state: 'Late' }),
-  presence(employee('mona', 'Mona', 'service', 'Waiter'), { state: 'NotArrived', dueAt: null }),
-  presence(employee('ali', 'Ali', 'service', 'Captain'), { state: 'Off', dayStatus: 'Holiday', holidayName: 'Armed Forces Day' }),
+  presence(employee('hassan', 'Hassan', 'accounts'), { state: 'In', since: '2026-10-21T16:03:00' }),
+  presence(employee('samir', 'Samir', 'accounts', 'Helper'), { state: 'Left', since: '2026-10-22T01:10:00' }),
+  presence(employee('omar', 'Omar', 'accounts'), { state: 'Late' }),
+  presence(employee('mona', 'Mona', 'sales', 'Warehouse clerk'), { state: 'NotArrived', dueAt: null }),
+  presence(employee('ali', 'Ali', 'sales', 'Carpenter'), { state: 'Off', dayStatus: 'Holiday', holidayName: 'Armed Forces Day' }),
 ];
 
 const k40: AttendanceDevice = {
@@ -93,7 +93,7 @@ describe('who is in now', () => {
     const { el } = await render();
 
     const sections = [...el.querySelectorAll('section.department')];
-    expect(sections.map((s) => text(s.querySelector('h3')!))).toEqual(['Kitchen · 1 in of 3', 'Service · 0 in of 2']);
+    expect(sections.map((s) => text(s.querySelector('h3')!))).toEqual(['Key accounts · 1 in of 3', 'Sales · 0 in of 2']);
     const cards = (s: Element) => [...s.querySelectorAll('.card')].map((c) => [c.classList[1], ...parts(c.querySelector('.state')!)]);
     expect(cards(sections[0])).toEqual([
       ['in', 'Inموجود', 'since 16:03'],
@@ -141,7 +141,7 @@ describe('who is in now', () => {
     const { el } = await render();
 
     expect(text(el.querySelector('.quiet')!)).toBe(
-      'wifi_offK40 Pro (192.168.1.8) is not calling in over ADMS: punches reach the till only when someone presses Sync. ' +
+      'wifi_offK40 Pro (192.168.1.8) is not calling in over ADMS: punches reach the system only when someone presses Sync. ' +
         'On the device, set Cloud Server Setting to 192.168.1.57, port 5082. Attendance devices',
     );
     expect(el.querySelector('.quiet a')!.getAttribute('href')).toBe('/hr/devices');
@@ -157,7 +157,7 @@ describe('who is in now', () => {
 
     expect(text(el.querySelector('.quiet')!)).toBe(
       "scheduleK40 Pro (192.168.1.8)'s clock is about 5 hours ahead: its punches are stamped later than they happen, and count at the " +
-        "wrong times. The till sends it the restaurant's time zone each time it starts: restart the device to set its clock, and ignore those " +
+        "wrong times. The system sends it the company's time zone each time it starts: restart the device to set its clock, and ignore those " +
         'punches on the Attendance tab. Attendance devices',
     );
   });

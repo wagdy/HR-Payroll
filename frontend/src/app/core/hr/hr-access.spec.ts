@@ -18,7 +18,7 @@ function jwt(payload: object): string {
 
 function portalSession(hrTabs: unknown): void {
   localStorage.setItem(
-    'otantik-portal.session',
+    'hr-payroll.portal-session',
     JSON.stringify({ token: jwt({ sub: 'hassan', name: 'حسن', role: 'Employee', hr_tabs: hrTabs }), expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(), employeeId: 'hassan', name: 'حسن' }),
   );
 }
@@ -49,7 +49,7 @@ describe('who holds which HR tab', () => {
   });
 
   it('gives an accountant the tabs a manager ticked, and sends a typed address to the first one they hold', () => {
-    const access = staff({ hrTabs: ['Payroll', 'Advances'] }, (p) => p !== Permissions.ApprovalDecide && p !== Permissions.OrderViewOwn);
+    const access = staff({ hrTabs: ['Payroll', 'Advances'] }, (p) => p === Permissions.HrView || p === Permissions.HrManage);
     expect([...access.tabs()]).toEqual(['Payroll', 'Advances']);
     expect(access.canGive()).toBe(false);
     // What only a manager does stays a manager's, even in an accountant's own tab.
@@ -60,13 +60,21 @@ describe('who holds which HR tab', () => {
     expect(url(guard(hrGuard))).toBe(true);
   });
 
-  it('keeps whoever holds no tab out of HR, and reads an older API as every tab for whoever sees HR', () => {
-    const cashier = staff({ hrTabs: [] }, (p) => p === Permissions.OrderViewOwn);
-    expect(cashier.any()).toBe(false);
-    expect(url(guard(hrGuard))).toBe('/orders');
-    expect(url(guard(hrTabGuard('Now')))).toBe('/orders');
+  it('sends whoever holds no tab of HR to Custody when they hold it, or else to their account', () => {
+    const none = staff({ hrTabs: [] }, (p) => p === Permissions.HrView || p === Permissions.HrManage);
+    expect(none.any()).toBe(false);
+    expect(url(guard(hrGuard))).toBe('/account');
+    expect(url(guard(hrTabGuard('Now')))).toBe('/account');
+    expect(url(guard(hrTabGuard('Custody')))).toBe('/account');
 
     TestBed.resetTestingModule();
+    const custody = staff({ hrTabs: ['Custody'] }, (p) => p === Permissions.HrView || p === Permissions.HrManage);
+    expect(url(guard(hrGuard))).toBe('/custody');
+    expect(url(guard(hrTabGuard('Custody')))).toBe(true);
+    expect(custody.first()).toBeNull();
+  });
+
+  it('reads an /me without tabs as every tab for whoever sees HR', () => {
     const older = staff({ permissions: [Permissions.HrView] }, (p) => p === Permissions.HrView);
     expect([...older.tabs()]).toEqual(all);
   });
@@ -81,7 +89,7 @@ describe('an employee working their HR tabs in the portal', () => {
   }
 
   it('reads their tabs from the token, a list or one name, anything not a tab left out', () => {
-    portalSession(['Attendance', 'Now', 'Kitchen']);
+    portalSession(['Attendance', 'Now', 'Key accounts']);
     expect(setUp().portal.hrTabs()).toEqual(['Now', 'Attendance']);
     TestBed.resetTestingModule();
     portalSession('Payroll');
@@ -91,7 +99,7 @@ describe('an employee working their HR tabs in the portal', () => {
     expect(setUp().portal.hrTabs()).toEqual([]);
   });
 
-  it('acts with no one of the till signed in: their tabs, an accountant’s rights in them, a manager’s work in them alone, and nothing to give', () => {
+  it('acts with no user signed in: their tabs, an accountant’s rights in them, a manager’s work in them alone, and nothing to give', () => {
     portalSession(['Now', 'Attendance', 'Custody']);
     const { auth, access } = setUp();
     expect(auth.employeeActing()).toBe(true);
@@ -101,12 +109,12 @@ describe('an employee working their HR tabs in the portal', () => {
     expect(access.canGive()).toBe(false);
     expect([access.canDecide('Attendance'), access.canDecide('Custody'), access.canDecide('Holidays')]).toEqual([true, true, false]);
     expect(access.outside()).toBe('/my-profile');
-    expect([Permissions.HrView, Permissions.HrManage, Permissions.ApprovalDecide, Permissions.InventoryManage, Permissions.OrderCreate].map((p) => auth.can(p))).toEqual([
-      true, true, false, false, false,
+    expect([Permissions.HrView, Permissions.HrManage, Permissions.ApprovalDecide, Permissions.UsersManage].map((p) => auth.can(p))).toEqual([
+      true, true, false, false,
     ]);
   });
 
-  it('sends their token to HR and the portal, never to the till, and a 401 from HR signs them out of the portal', () => {
+  it('sends their token to HR and the portal, never to the users’ API, and a 401 from HR signs them out of the portal', () => {
     portalSession(['Now']);
     const { portal } = setUp();
     const http = TestBed.inject(HttpClient);
@@ -116,8 +124,8 @@ describe('an employee working their HR tabs in the portal', () => {
 
     http.get('/api/hr/attendance/now').subscribe();
     expect(backend.expectOne('/api/hr/attendance/now').request.headers.get('Authorization')).toBe(bearer);
-    http.get('/api/auth/staff').subscribe();
-    expect(backend.expectOne('/api/auth/staff').request.headers.has('Authorization')).toBe(false);
+    http.get('/api/users').subscribe();
+    expect(backend.expectOne('/api/users').request.headers.has('Authorization')).toBe(false);
 
     http.get('/api/hr/employees').subscribe({ error: () => undefined });
     backend.expectOne('/api/hr/employees').flush({}, { status: 401, statusText: 'Unauthorized' });
@@ -126,7 +134,7 @@ describe('an employee working their HR tabs in the portal', () => {
     backend.verify();
   });
 
-  it('is not the one acting while someone of the till is signed in here', () => {
+  it('is not the one acting while a user is signed in here', () => {
     portalSession(['Now']);
     TestBed.configureTestingModule({
       providers: [

@@ -12,14 +12,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { errorMessage } from '../../core/http/error-message';
-import { AuthService } from '../../core/auth/auth.service';
-import { Permissions } from '../../core/auth/permissions';
-import { AdjustmentKind, HrApi, PayrollAdjustment, PayrollSlip } from '../../core/hr/hr.api';
+import { AdjustmentKind, HrApi, PayrollAdjustment, PayrollSlip, SalaryPayment } from '../../core/hr/hr.api';
 import { HrAccess } from '../../core/hr/hr-access';
 import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
-import { Treasury, isoDay } from '../costing/financials';
+import { BusinessDay, isoDay } from '../../core/ui/business-day';
 import { PayslipSheet } from './payslip-sheet';
 
 export interface AdjustmentInput {
@@ -42,7 +39,6 @@ export interface AdjustmentInput {
       <mat-form-field class="wide">
         <mat-label>Amount · المبلغ</mat-label>
         <input matInput type="number" min="0" step="any" [(ngModel)]="amount" aria-label="Amount" />
-        <span matTextSuffix>&nbsp;L.E</span>
         @if (kind === 'LeaveAllowance') {
           <mat-hint>A day’s pay is {{ data.dailyRate | number: '1.2-2' }}. Days off worked are counted by themselves.</mat-hint>
         }
@@ -110,10 +106,82 @@ export class FinalizeDialog {
   protected readonly data = inject<{ employee: string; net: number }>(MAT_DIALOG_DATA);
 }
 
+export interface PaySalaryData {
+  employee: string;
+  // What is still owed of the month's net pay: the most that can be paid.
+  owed: number;
+  // The workday: the payment's date unless another is chosen, and the latest.
+  today: string;
+}
+
+export interface PaySalaryInput {
+  amount: number;
+  date: string;
+  notes: string | null;
+}
+
+// A finalized month's pay paid (صرف الراتب): all that is owed, or part of it now and the rest later.
+@Component({
+  selector: 'app-pay-salary-dialog',
+  imports: [FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MoneyPipe],
+  template: `
+    <h2 mat-dialog-title>Pay {{ data.employee }} <span class="ar">صرف الراتب</span></h2>
+    <mat-dialog-content>
+      <p>{{ data.owed | money }} of the month's pay is still owed.</p>
+      <div class="form">
+        <mat-form-field>
+          <mat-label>Amount · المبلغ</mat-label>
+          <input matInput type="number" min="0" [max]="data.owed" step="0.01" [(ngModel)]="amount" aria-label="Amount" />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Date · التاريخ</mat-label>
+          <input matInput type="date" [(ngModel)]="date" [max]="data.today" aria-label="Date" />
+        </mat-form-field>
+        <mat-form-field class="wide">
+          <mat-label>Notes · ملاحظات</mat-label>
+          <input matInput [(ngModel)]="notes" maxlength="500" placeholder="Bank transfer, cash" aria-label="Notes" />
+        </mat-form-field>
+      </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancel</button>
+      <button mat-flat-button [disabled]="!ready()" [mat-dialog-close]="{ amount, date, notes: notes.trim() || null }">Pay</button>
+    </mat-dialog-actions>
+  `,
+  styles: `
+    .form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 12px;
+    }
+    .wide {
+      grid-column: 1 / -1;
+    }
+    .ar {
+      direction: rtl;
+      unicode-bidi: isolate;
+      margin-left: 6px;
+      opacity: 0.75;
+      font-size: 0.8em;
+    }
+  `,
+})
+export class PaySalaryDialog {
+  protected readonly data = inject<PaySalaryData>(MAT_DIALOG_DATA);
+  protected amount: number | null = this.data.owed;
+  protected date = this.data.today;
+  protected notes = '';
+
+  protected ready(): boolean {
+    const amount = this.amount ?? 0;
+    return amount > 0 && amount <= this.data.owed && !!this.date && this.date <= this.data.today;
+  }
+}
+
 // An employee's payslip for a month (قسيمة الراتب): the formula, line by line, from the base salary
 // to the net payable; the days it was worked out from; the incentives, allowances and advances in
 // it; and what has been paid of it. A manager adds incentives and allowances and finalizes it once
-// the month is over and every day is settled; then it is paid from the safe or a day's takings.
+// the month is over and every day is settled; then pays it, all at once or in parts.
 // It prints as a payslip. Embedded in an employee's profile, it has no way back to Payroll but a
 // link to open it there.
 @Component({
@@ -142,7 +210,7 @@ export class FinalizeDialog {
       <p class="error">{{ error() }}</p>
     } @else if (slip(); as s) {
       @let f = s.figures;
-      <app-payslip-sheet [slip]="s" [month]="month()" [canVoid]="canDecide()" (voidAdjustment)="voidAdjustment($event)">
+      <app-payslip-sheet [slip]="s" [month]="month()" [canVoid]="canDecide()" (voidAdjustment)="voidAdjustment($event)" (voidPayment)="voidPayment($event)">
         <div class="actions no-print">
           @if (canDecide() && s.status !== 'Finalized') {
             <button mat-stroked-button (click)="addAdjustment(s)"><mat-icon>add</mat-icon> Incentive or allowance <span class="inline-ar">حوافز أو بدل</span></button>
@@ -150,7 +218,7 @@ export class FinalizeDialog {
               <button mat-flat-button (click)="finalize(s)" [disabled]="!!finalizeBlocked(s)"><mat-icon>verified</mat-icon> Finalize <span class="inline-ar">اعتماد</span></button>
             </span>
           }
-          @if (s.status === 'Finalized' && s.salaryOwed > 0 && canPay()) {
+          @if (s.status === 'Finalized' && s.salaryOwed > 0 && canDecide()) {
             <button mat-flat-button (click)="pay(s)"><mat-icon>payments</mat-icon> Pay salary <span class="inline-ar">صرف الراتب</span></button>
           }
         </div>
@@ -167,7 +235,7 @@ export class FinalizeDialog {
       <p class="muted">They were not employed in {{ month() | date: 'MMMM y' }}.</p>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .actions {
       display: flex;
@@ -180,11 +248,9 @@ export class FinalizeDialog {
 export class PayslipPage {
   private readonly api = inject(HrApi);
   protected readonly access = inject(HrAccess);
-  private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly notify = inject(NotifyService);
-  private readonly treasury = inject(Treasury);
-  private readonly approvals = inject(Approvals);
+  private readonly businessDay = inject(BusinessDay);
 
   readonly employeeId = input.required<string>();
   readonly startMonth = input<string>(undefined, { alias: 'month' });
@@ -194,10 +260,8 @@ export class PayslipPage {
   // action's penalty is issued or withdrawn beside it.
   readonly reloadKey = input(0);
 
-  // A manager's, or an employee's holding the Payroll tab in the portal.
+  // A manager's, or an employee's holding the Payroll tab in the portal: finalizing, and paying.
   protected readonly canDecide = computed(() => this.access.canDecide('Payroll'));
-  // Paying is a safe entry, Financials': whoever keeps the books.
-  protected readonly canPay = computed(() => this.auth.can(Permissions.InventoryManage));
   protected readonly month = signal(isoDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   protected readonly slip = signal<PayrollSlip | null>(null);
   protected readonly loading = signal(false);
@@ -257,9 +321,22 @@ export class PayslipPage {
   }
 
   protected async pay(s: PayrollSlip): Promise<void> {
-    if (await this.treasury.enter('SalaryPayment', { employeeId: s.employee.id, payrollMonth: this.month(), amount: s.salaryOwed })) {
-      await this.load();
+    const answer = await firstValueFrom(
+      this.dialog
+        .open<PaySalaryDialog, PaySalaryData, PaySalaryInput>(PaySalaryDialog, {
+          data: { employee: s.employee.name, owed: s.salaryOwed, today: await this.businessDay.today() },
+          width: '460px',
+        })
+        .afterClosed(),
+    );
+    if (answer) {
+      const payment = { paymentId: crypto.randomUUID(), employeeId: s.employee.id, month: this.month(), ...answer };
+      await this.act(() => firstValueFrom(this.api.recordSalaryPayment(payment)), `${s.employee.name} is paid ${money(answer.amount)}.`);
     }
+  }
+
+  protected async voidPayment(p: SalaryPayment): Promise<void> {
+    await this.act(() => firstValueFrom(this.api.voidSalaryPayment(p.id)), 'The payment is voided: it is owed again.');
   }
 
   protected print(): void {
@@ -288,4 +365,8 @@ export class PayslipPage {
       this.loading.set(false);
     }
   }
+}
+
+function money(amount: number): string {
+  return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

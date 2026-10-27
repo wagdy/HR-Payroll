@@ -27,7 +27,7 @@ describe('the punch-out dialog', () => {
     punchedIn: '2026-09-21T16:07:00',
   };
 
-  it('opens on the date the shift ends, with the shift’s end a click away', async () => {
+  it('opens on the date the work schedule ends, with the work schedule’s end a click away', async () => {
     const { el, dialog, refresh } = await open(ResolveDayDialog, data);
 
     expect(text(el.querySelector('h2')!)).toBe('Hassan’s punch-out, Mon 21 Sept بصمة الانصراف');
@@ -96,14 +96,14 @@ describe('the penalty dialog', () => {
   const mona = { id: 'mona', name: 'Mona', hourlyRate: 25 };
 
   it('changes a day’s penalty, or takes it off', async () => {
-    const data: PenaltyData = { employee: hassan, date: '2026-09-21', hours: 2, reason: 'Left the walk-in open' };
+    const data: PenaltyData = { employee: hassan, date: '2026-09-21', hours: 2, reason: 'Left the store room open' };
     const { el, dialog } = await open(PenaltyDialog, data);
 
     expect(text(el.querySelector('mat-dialog-content p')!)).toBe('Hassan, Mon 21 Sept');
-    expect(text(el.querySelector('.cost')!)).toBe('− L.E 40.00 at L.E 20.00 an hour');
+    expect(text(el.querySelector('.cost')!)).toBe('− 40.00 at 20.00 an hour');
     expect([...el.querySelectorAll('mat-dialog-actions button')].map(text)).toEqual(['Take it off', 'Cancel', 'Save']);
     expect(dialog['answer'](null)).toEqual({ employeeId: 'hassan', date: '2026-09-21', hours: null, reason: null });
-    expect(dialog['answer'](2)).toEqual({ employeeId: 'hassan', date: '2026-09-21', hours: 2, reason: 'Left the walk-in open' });
+    expect(dialog['answer'](2)).toEqual({ employeeId: 'hassan', date: '2026-09-21', hours: 2, reason: 'Left the store room open' });
   });
 
   it('adds one for whoever is chosen, priced at their rate, and says when it replaces the day’s', async () => {
@@ -119,19 +119,19 @@ describe('the penalty dialog', () => {
 
     Object.assign(dialog, { employeeId: 'mona', date: '2026-09-21', hours: 1.5, reason: 'Late twice this week' });
     refresh();
-    expect(text(el.querySelector('.cost')!)).toBe('− L.E 37.50 at L.E 25.00 an hour');
+    expect(text(el.querySelector('.cost')!)).toBe('− 37.50 at 25.00 an hour');
     expect(text(el.querySelector('.problem')!)).toBe('There is a penalty of 2h on this day already: this replaces it, as there is one a day.');
     expect(dialog['ready']()).toBe(true);
 
     Object.assign(dialog, { employeeId: 'hassan' });
     refresh();
     expect(el.querySelector('.problem')).toBeNull();
-    expect(text(el.querySelector('.cost')!)).toBe('− L.E 30.00 at L.E 20.00 an hour');
+    expect(text(el.querySelector('.cost')!)).toBe('− 30.00 at 20.00 an hour');
   });
 
   it('takes more than no hours, at most 72, to two decimal places', async () => {
     const { el, dialog, refresh } = await open(PenaltyDialog, { employee: hassan, date: '2026-09-21' });
-    dialog['reason'] = 'Left the walk-in open';
+    dialog['reason'] = 'Left the store room open';
 
     for (const [hours, valid] of [[0, false], [-1, false], [72.5, false], [1.333, false], [0.25, true], [72, true]] as const) {
       dialog['hours'] = hours;

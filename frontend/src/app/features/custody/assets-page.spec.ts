@@ -4,12 +4,12 @@ import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { Permissions } from '../../core/auth/permissions';
-import { ApprovalRequest } from '../../core/costing/costing.api';
+import { ApprovalRequest } from '../../core/approvals/approvals.api';
 import { AssetCategory, AssetItem, CustodyApi } from '../../core/custody/custody.api';
 import { Employee, HrApi } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
-import { BusinessDay } from '../costing/financials';
+import { Approvals } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
 import { AssetsPage } from './assets-page';
 import { AssetDialog, AssetHistoryDialog, CheckInDialog, CheckOutDialog } from './custody-dialogs';
 
@@ -23,18 +23,17 @@ const cell = (el: Element): string =>
 
 export function asset(id: string, name: string, extra: Partial<AssetItem> = {}): AssetItem {
   return {
-    id, name, categoryId: 'tableware', categoryName: 'Tableware', isConsumable: true, unitCost: 35, quantity: 40, totalCost: 1_400, employeeId: null,
-    employeeName: null, origin: 'HrManual', status: 'InStore', sourceInvoiceId: null, notes: null, createdBy: 'Omar', createdAtUtc: '2026-10-20T09:00:00Z',
+    id, name, categoryId: 'technology', categoryName: 'Technology', isConsumable: true, unitCost: 35, quantity: 40, totalCost: 1_400, employeeId: null,
+    employeeName: null, status: 'InStore', notes: null, createdBy: 'Omar', createdAtUtc: '2026-10-20T09:00:00Z',
     ...extra,
   };
 }
 
-const tableware: AssetCategory = { id: 'tableware', name: 'Tableware', isConsumable: true, assets: 2, inCustody: 1 };
+const technology: AssetCategory = { id: 'technology', name: 'Technology', isConsumable: true, assets: 2, inCustody: 1 };
 const devices: AssetCategory = { id: 'devices', name: 'Devices', isConsumable: false, assets: 1, inCustody: 0 };
-const plates = asset('plates', 'Dinner plates', { status: 'InCustody', employeeId: 'hassan', employeeName: 'Hassan', quantity: 37, totalCost: 1_295 });
-const glasses = asset('glasses', 'Water glasses', { quantity: 24, unitCost: 20, totalCost: 480 });
-const fryer = asset('fryer', 'Fryer', { categoryId: 'devices', categoryName: 'Devices', isConsumable: false, quantity: 0, unitCost: 9_000, totalCost: 0, status: 'BrokenWaste' });
-const bought = asset('cups', 'Coffee cups', { origin: 'FinancialPurchase', sourceInvoiceId: 'inv', quantity: 12, unitCost: 25, totalCost: 300 });
+const plates = asset('plates', 'Desk lamps', { status: 'InCustody', employeeId: 'hassan', employeeName: 'Hassan', quantity: 37, totalCost: 1_295 });
+const glasses = asset('glasses', 'Water bottles', { quantity: 24, unitCost: 20, totalCost: 480 });
+const forklift = asset('forklift', 'Forklift', { categoryId: 'devices', categoryName: 'Devices', isConsumable: false, quantity: 0, unitCost: 9_000, totalCost: 0, status: 'Broken' });
 
 describe('the assets', () => {
   const assets = vi.fn();
@@ -52,7 +51,7 @@ describe('the assets', () => {
   async function render(manage = true, employee = false) {
     TestBed.configureTestingModule({
       providers: [
-        { provide: CustodyApi, useValue: { assets, categories: () => of([tableware, devices]) } },
+        { provide: CustodyApi, useValue: { assets, categories: () => of([technology, devices]) } },
         { provide: HrApi, useValue: { employees } },
         { provide: AuthService, useValue: { employeeActing: () => employee, me: () => null, can: (p: string) => manage || p !== Permissions.HrManage } },
         { provide: Approvals, useValue: approvals },
@@ -77,10 +76,10 @@ describe('the assets', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    assets.mockReset().mockImplementation((withFinancial: boolean) => of(withFinancial ? [bought, plates, glasses, fryer] : [plates, glasses, fryer]));
+    assets.mockReset().mockReturnValue(of([plates, glasses, forklift]));
     employees.mockReset().mockReturnValue(of([
-      { id: 'hassan', name: 'Hassan', jobTitle: 'Chef', isActive: true },
-      { id: 'gone', name: 'Gone', jobTitle: 'Chef', isActive: false },
+      { id: 'hassan', name: 'Hassan', jobTitle: 'Checker', isActive: true },
+      { id: 'gone', name: 'Gone', jobTitle: 'Checker', isActive: false },
     ] as Employee[]));
     open.mockReset();
     notify.info.mockReset();
@@ -92,39 +91,25 @@ describe('the assets', () => {
   it('lists what there is of each, its cost and whose custody it is in; what is gone only when asked', async () => {
     const { el, page, rows, refresh } = await render();
 
-    expect(assets).toHaveBeenCalledWith(false);
+    expect(assets).toHaveBeenCalled();
     expect(rows()).toEqual([
-      ['Dinner plates Tableware · consumable', '37', 'L.E 35.00', 'L.E 1,295.00', 'Hassan In custody في العهدة'],
-      ['Water glasses Tableware · consumable', '24', 'L.E 20.00', 'L.E 480.00', 'In the store بالمخزن'],
+      ['Desk lamps Technology · consumable', '37', '35.00', '1,295.00', 'Hassan In custody في العهدة'],
+      ['Water bottles Technology · consumable', '24', '20.00', '480.00', 'In the store بالمخزن'],
     ]);
-    expect(text(el.querySelector('.toolbar .muted')!)).toBe('2 assets · L.E 1,775.00');
+    expect(text(el.querySelector('.toolbar .muted')!)).toBe('2 assets · 1,775.00');
 
     page['showGone'].set(true);
     await refresh();
-    expect(rows()[2]).toEqual(['Fryer Devices', '0', 'L.E 9,000.00', 'L.E 0.00', 'Broken كسر هالك']);
+    expect(rows()[2]).toEqual(['Forklift Devices', '0', '9,000.00', '0.00', 'Broken كسر هالك']);
     // Gone: nothing to check in or out.
     expect(el.querySelectorAll('tbody tr')[2].querySelector('button[aria-label^="Check"]')).toBeNull();
 
     page['category'].set('devices');
     await refresh();
-    expect(rows().map((r) => r[0])).toEqual(['Fryer Devices']);
+    expect(rows().map((r) => r[0])).toEqual(['Forklift Devices']);
   });
 
-  it('adds those bought on invoices with Link with Financials, and remembers it', async () => {
-    const { page, rows, refresh } = await render();
-
-    page['link'](true);
-    await refresh();
-    expect(assets).toHaveBeenLastCalledWith(true);
-    expect(rows()[0][0]).toBe('Coffee cups Bought · مشتريات Tableware · consumable');
-    expect(localStorage.getItem('otantik.custody.with-financial')).toBe('true');
-
-    TestBed.resetTestingModule();
-    await render();
-    expect(assets).toHaveBeenLastCalledWith(true);
-  });
-
-  it('checks in to one employed now, checks out, and says when a breakage went to Waste or waits for a manager', async () => {
+  it('checks in to one employed now, checks out, and says when it waits for a manager', async () => {
     const { el, page } = await render();
     const glassesRow = el.querySelectorAll('tbody tr')[1];
     expect([...glassesRow.querySelectorAll('button')].map(text)).toEqual(['history', 'login In', 'logout Out', 'edit']);
@@ -136,12 +121,12 @@ describe('the assets', () => {
     expect(open.mock.lastCall![0]).toBe(CheckInDialog);
     expect(open.mock.lastCall![1].data).toMatchObject({ asset: glasses, today: '2026-10-25', canApprove: true });
     expect(open.mock.lastCall![1].data.employees.map((e: Employee) => e.id)).toEqual(['hassan']);
-    expect(notify.info).toHaveBeenLastCalledWith('Water glasses checked in.');
+    expect(notify.info).toHaveBeenLastCalledWith('Water bottles checked in.');
 
-    open.mockReturnValue({ afterClosed: () => of({ outcome: 'Applied', asset: plates, voucher: { routedToWaste: true }, request: null }) });
+    open.mockReturnValue({ afterClosed: () => of({ outcome: 'Applied', asset: plates, voucher: {}, request: null }) });
     await page['checkOut'](plates);
     expect(open.mock.lastCall![0]).toBe(CheckOutDialog);
-    expect(notify.info).toHaveBeenLastCalledWith('Dinner plates checked out. Its breakage is in Costing → Waste.');
+    expect(notify.info).toHaveBeenLastCalledWith('Desk lamps checked out.');
 
     open.mockReturnValue({ afterClosed: () => of({ outcome: 'Requested', request: { id: 'r', action: 'Update' } }) });
     await page['checkOut'](plates);
@@ -152,7 +137,7 @@ describe('the assets', () => {
     open.mockReturnValue({ afterClosed: () => of(undefined) });
     await page['edit'](plates);
     expect(open.mock.lastCall![0]).toBe(AssetDialog);
-    expect(open.mock.lastCall![1].data).toEqual({ asset: plates, categories: [tableware, devices], canApprove: true, costHidden: false });
+    expect(open.mock.lastCall![1].data).toEqual({ asset: plates, categories: [technology, devices], canApprove: true, costHidden: false });
     expect(assets.mock.calls.length).toBe(reads);
 
     page['history'](plates);
@@ -161,7 +146,7 @@ describe('the assets', () => {
   });
 
   it('locks an asset a manager is asked about, and offers no changes to whoever only sees it', async () => {
-    pending.set([{ id: 'r1', module: 'Custody', action: 'Update', recordId: 'plates', summary: 'Out of Hassan’s custody, lost · Dinner plates × 1', requestedBy: 'Sara' }] as ApprovalRequest[]);
+    pending.set([{ id: 'r1', module: 'Custody', action: 'Update', recordId: 'plates', summary: 'Out of Hassan’s custody, lost · Desk lamps × 1', requestedBy: 'Sara' }] as ApprovalRequest[]);
     const { el } = await render();
     const platesRow = el.querySelectorAll('tbody tr')[0];
     expect(platesRow.querySelector('mat-icon.locked')).not.toBeNull();
@@ -179,7 +164,7 @@ describe('the assets', () => {
     const { el, page } = await render(true, true);
     expect([...el.querySelectorAll('thead th')].map((th) => th.childNodes[0].textContent!.trim())).toEqual(['Asset', 'How many', 'Custody', 'Actions']);
     expect(text(el.querySelector('.toolbar .muted')!)).toBe('2 assets');
-    expect(el.textContent).not.toContain('L.E');
+    expect(el.textContent).not.toMatch(/\d\.\d{2}/);
 
     open.mockReturnValue({ afterClosed: () => of(undefined) });
     await page['edit'](plates);

@@ -15,7 +15,7 @@ import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { Permissions } from '../../core/auth/permissions';
-import { ApprovalResult, isRequested } from '../../core/costing/costing.api';
+import { ApprovalResult, isRequested } from '../../core/approvals/approvals.api';
 import { addressOf, DeviceLink, savedDeviceLink, ZkPort } from '../../core/hr/device-link';
 import { errorMessage } from '../../core/http/error-message';
 import { Department, DeviceUser, Employee, EmployeeImportResult, EmployeeInput, HrApi, weekDays } from '../../core/hr/hr.api';
@@ -23,13 +23,13 @@ import { HrAccess } from '../../core/hr/hr-access';
 import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
 import { saveBlob } from '../../core/ui/save-blob';
-import { Approvals, pendingLabel } from '../costing/approvals';
-import { BusinessDay } from '../costing/financials';
+import { Approvals, pendingLabel } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
 import { EmployeeDialog, EmployeeDialogData } from './employee-dialog';
 import { EmployeeImportDialog } from './employee-import-dialog';
 import { EmploymentDialog, EmploymentDialogData } from './employment-dialog';
 
-// Who on the till gets a device user's number: an employee without one yet.
+// Who in the system gets a device user's number: an employee without one yet.
 @Component({
   selector: 'app-link-device-user-dialog',
   imports: [FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatSelectModule],
@@ -74,12 +74,12 @@ export class LinkDeviceUserDialog {
 
 // The employees (الموظفين), in two lists, one shown at a time (?view=device for the second):
 // - System employees (الموظفين العاملين): who is on the payroll and in which department, their
-//   pay (a monthly salary or a daily wage), their nine-hour shift (or flexible hours) and days
+//   pay (a monthly salary or a daily wage), their nine-hour work schedule (or flexible hours) and days
 //   off, and their number on the attendance device; a row opens the employee's profile. Added,
 //   changed, leaving and coming back by whoever manages HR: a manager's at once, anyone else's
 //   waiting for a manager, listed above the table until then (a new one) or locking its row (a
 //   change).
-// - Device users (مسجلين على جهاز البصمة): the users the device has listed that nobody on the till
+// - Device users (مسجلين على جهاز البصمة): the users the device has listed that nobody in the system
 //   has the number of yet, to add as employees or link to one; each leaves the list once added.
 // Sync device, Excel and Add employee are above both.
 @Component({
@@ -170,7 +170,7 @@ export class LinkDeviceUserDialog {
             <tr>
               <th>Employee<span class="ar">الموظف</span></th>
               <th class="num">Pay<span class="ar">الأجر</span></th>
-              <th>Shift<span class="ar">الوردية</span></th>
+              <th>Work schedule<span class="ar">الدوام</span></th>
               <th>Days off<span class="ar">أيام الراحة</span></th>
               <th>Device no.<span class="ar">رقم البصمة</span></th>
               <th>Status<span class="ar">الحالة</span></th>
@@ -250,7 +250,7 @@ export class LinkDeviceUserDialog {
       </div>
     } @else {
       <section class="on-device" aria-labelledby="on-device-title">
-        <h3 id="on-device-title">On the attendance device, not on the till yet <span class="inline-ar">على جهاز البصمة وليسوا في النظام</span></h3>
+        <h3 id="on-device-title">On the attendance device, not in the system yet <span class="inline-ar">على جهاز البصمة وليسوا في النظام</span></h3>
         @if (unknown().length) {
           <p class="muted small">As the device listed them. Add each as an employee, or give their number to one already here: their punches count from then.</p>
           <div class="table-wrap">
@@ -295,7 +295,7 @@ export class LinkDeviceUserDialog {
       </section>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .lists {
       margin: 0 0 12px;
@@ -312,7 +312,7 @@ export class LinkDeviceUserDialog {
         background: var(--mat-sys-surface-container-high);
       }
       .waiting-count {
-        background: color-mix(in srgb, var(--till-warn) 30%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 30%, transparent);
       }
     }
     /* On a phone, one under the other, each as wide as the page. */
@@ -361,7 +361,7 @@ export class LinkDeviceUserDialog {
       background: var(--mat-sys-surface-container-high);
 
       &.active {
-        background: color-mix(in srgb, var(--till-ok, #2e7d32) 16%, transparent);
+        background: color-mix(in srgb, var(--app-ok, #2e7d32) 16%, transparent);
       }
     }
     .small {
@@ -412,7 +412,7 @@ export class EmployeesPage {
   protected readonly error = signal<string | null>(null);
   protected readonly canManage = computed(() => this.auth.can(Permissions.HrManage));
   protected readonly showLeft = signal(false);
-  // The list shown: the employees, or the device's users not on the till yet (?view=device).
+  // The list shown: the employees, or the device's users not in the system yet (?view=device).
   readonly startList = input<string | undefined>(undefined, { alias: 'view' });
   protected readonly list = signal<EmployeeList>('employees');
 
@@ -565,7 +565,7 @@ export class EmployeesPage {
     return this.departments().find((d) => d.id === e.departmentId)?.name ?? '—';
   }
 
-  // "Fri" or "Fri, Sat", in the restaurant's week order; "None".
+  // "Fri" or "Fri, Sat", in the company's week order; "None".
   protected daysOff(e: Employee): string {
     const off = weekDays.filter((d) => e.daysOff.includes(d.day)).map((d) => d.en);
     return off.length ? off.join(', ') : 'None';

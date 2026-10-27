@@ -29,7 +29,7 @@ public sealed record DeviceProbe(
 
 public sealed record DeviceReading(string SerialNumber, string? Model, IReadOnlyList<DeviceUserLine> Users, IReadOnlyList<DevicePunch> Punches);
 
-public sealed record DeviceSyncResult(string SerialNumber, string DeviceName, bool NewDevice, int Users, int UsersNotOnTheTill, int Punches, int NewPunches);
+public sealed record DeviceSyncResult(string SerialNumber, string DeviceName, bool NewDevice, int Users, int UsersNotInTheSystem, int Punches, int NewPunches);
 
 internal static class DeviceAddresses
 {

@@ -13,7 +13,7 @@ import { HrAccess } from '../../core/hr/hr-access';
 import { LeaveBalance, LeavesApi } from '../../core/hr/leaves.api';
 import { errorMessage } from '../../core/http/error-message';
 import { NotifyService } from '../../core/ui/notify.service';
-import { BusinessDay } from '../costing/financials';
+import { BusinessDay } from '../../core/ui/business-day';
 import { LeaveBalanceDialog } from './leave-dialogs';
 
 // Everyone's leave balances in a year (أرصدة الإجازات): a row each employee employed in it, a
@@ -89,7 +89,7 @@ import { LeaveBalanceDialog } from './leave-dialogs';
       </div>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .year {
       min-width: 60px;

@@ -1,20 +1,15 @@
 # HR, attendance and payroll
 
-The till's HR module: who is on the payroll, their punches on the ZKTeco K40 Pro, their days,
-and their monthly pay. This page is the design.
-
-- **Phase 1, built:** the domain, its tables and this plan.
-- **Phase 2, built:** every endpoint below, the ADMS receiver, and the screens:
-  - HR & Payroll's Employees, Attendance, Corrections, Payroll, Holidays and Attendance devices
-    tabs, with a payslip page;
-  - advances in Financials and the daily batch.
+HR & Payroll: who is on the payroll, their punches on a ZKTeco attendance device (the K40 Pro),
+their days, their advances and their monthly pay. This page is the design; everything on it is
+built: the domain, every endpoint below, the ADMS receiver, and the screens.
 
 ## The rules
 
-- **Employees** (`hr.Employees`): name, job title, base monthly salary, shift start, weekly
-  days off, their user number on the device, an optional link to a till account, hired/left
-  dates. They are not the till's staff accounts: most never sign in to a till.
-- **Their profile** (ملف الموظف, migration `EmployeeProfiles`):
+- **Employees** (`hr.Employees`): name, job title, base monthly salary, work schedule start, weekly
+  days off, their user number on the device, an optional link to a user account, hired/left
+  dates. They are not the system's users: most never sign in to it, but to their own portal.
+- **Their profile** (ملف الموظف):
   - Their name is their full name (الاسم بالكامل), as on their ID card: no field apart.
   - National ID (رقم البطاقة): an Egyptian card's 14 digits, or a passport's letters and digits;
     one employee to a card (a unique index). Mobile (رقم الموبايل): 7 to 15 digits, a leading +
@@ -27,12 +22,12 @@ and their monthly pay. This page is the design.
     HR sees it, served with `nosniff`.
   - Nobody is deleted: deactivating someone is their leaving, paid to their last day with every
     record kept, and they can come back.
-- **Departments** (الأقسام, `hr.Departments`, migration `EmploymentTypesAndDepartments`): every
+- **Departments** (الأقسام, `hr.Departments`): every
   employee is in one. General is made with the table, the employees already entered go to it,
   and it is renamed but never deleted. Another is deleted once its employees, those who left
   too, are moved to one that stays, its roles going with them (one the other department has by
   the same name becomes theirs there). A manager's to add, rename and delete.
-- **Job roles** (الوظائف, `hr.JobRoles`, migration `JobRoles`): each department has its roles,
+- **Job roles** (الوظائف, `hr.JobRoles`): each department has its roles,
   one name to a department, and an employee holds one of their own department's, titled by its
   name. The job titles typed before roles were became their departments' roles. A title given
   with no role (the form's new one, or a request asked before roles were) becomes the
@@ -42,68 +37,69 @@ and their monthly pay. This page is the design.
   a wage for each day worked.
   - A daily worker's base pay is their wage for each day worked on a working day or a holiday.
     A day not worked, whatever it is, earns nothing and costs nothing: nothing is absent for
-    them. A day off worked is paid as anyone's: a day's wage for half a shift or more, its
+    them. A day off worked is paid as anyone's: a day's wage for half a workday or more, its
     hours for less. A holiday worked earns its allowance on top, and lateness and overtime count
-    against their shift at their hourly rate (the wage ÷ 9), as anyone's.
-- **The shift is nine hours**, from the employee's shift start, past midnight if need be.
-- **Flexible hours** (an employee with no shift start, migration `FlexibleShiftsAndDeviceSync`):
+    against their work schedule at their hourly rate (the wage ÷ 9), as anyone's.
+- **The work schedule is nine hours**, from the employee's work schedule start, past midnight if need be.
+- **Flexible hours** (an employee with no work schedule start):
   nothing is late, early or away for them, and the hours past nine worked in a day are overtime.
-  Their day runs as the till's business day does, from 04:00 to 04:00, so a night past midnight
+  Their day runs as the company's workday does (`Company:WorkdayStartsAtHour`, 04:00 to 04:00
+  by default), so a night past midnight
   is one day. A working day with no punches is still an absence, and their salary is paid as
   anyone's.
 - **Rates come from a 30-day month**, whatever the month's length:
   - a day = salary ÷ 30 (a daily worker's: their wage);
   - an hour = a day ÷ 9;
   - a minute = an hour ÷ 60.
-- **A day's punches** are taken from six hours before the shift starts to the same time the
-  next day, so an evening shift that ends after midnight stays one day.
+- **A day's punches** are taken from six hours before the work schedule starts to the same time the
+  next day, so an evening work schedule that ends after midnight stays one day.
   - They are paired in order (in, out, in, out). The In/Out key pressed on the device is kept
     but not relied on.
   - Two scans within 3 minutes count as one (a setting).
-- **Measured against the shift:**
-  - **late**: from the shift's start (the employee's scheduled start) to the first punch,
+- **Measured against the work schedule:**
+  - **late**: from the work schedule's start (the employee's scheduled start) to the first punch,
     unless within the grace (a setting, 0 by default). Past the grace, it counts from the
-    shift's start, however many hours are worked;
-  - **leaving early**: from the last punch to the shift's end;
-  - **away**: time punched out between pairs while the shift ran;
-  - **overtime**: time worked after the shift's end, once nine hours are worked. Coming in
+    work schedule's start, however many hours are worked;
+  - **leaving early**: from the last punch to the work schedule's end;
+  - **away**: time punched out between pairs while the work schedule ran;
+  - **overtime**: time worked after the work schedule's end, once nine hours are worked. Coming in
     early is not overtime, and neither is staying late to make up for coming in late (in at
     10:00 for 08:00, out at 19:00: two hours late, no overtime).
-  - So late, early, away and the time worked within the shift add up to nine hours.
+  - So late, early, away and the time worked within the work schedule add up to nine hours.
 - **Days:**
   - no punches on a working day is an **absence**, unless a manager marked it as leave or a
     day off;
   - weekly days off are per employee;
   - punches on a day off or on leave are hours worked, with nothing late or overtime, and earn
-    a **leave allowance** by themselves: a day's pay for half a shift (4½ hours) or more, the
+    a **leave allowance** by themselves: a day's pay for half a workday (4½ hours) or more, the
     hours at the hourly rate for less;
   - a weekly day off worked in exchange for another is marked a **working day** (a swap): a
-    normal shift, late and overtime counted, no allowance; the day taken instead is marked a
+    normal workday, late and overtime counted, no allowance; the day taken instead is marked a
     day off;
-  - a punch-in left **18 hours** without its punch-out is an abandoned shift: the day is
+  - a punch-in left **18 hours** without its punch-out is an abandoned work schedule: the day is
     **Suspended**, pending a manager, and its hours are not worked out. A manager resolves it by
     entering the punch-out (after the punch-in, within the day), or by ignoring the stray punch.
     The month's slip cannot be finalized while a day is suspended;
   - a manager can put an **administrative penalty** (جزاء إداري) on a day: hours, with the
     reason, one a day. It is deducted on the payslip at the hourly rate;
-  - a **public holiday** (عطلة رسمية, `hr.PublicHolidays`, migration `PublicHolidays`) is
+  - a **public holiday** (عطلة رسمية, `hr.PublicHolidays`) is
     everyone's paid day off, entered by a manager with its name and days (one to ten: the Eids
     run several). Not worked, it is a holiday whatever the day would have been, never an
-    absence. Worked, it is measured as the day would have been (against the shift on a working
+    absence. Worked, it is measured as the day would have been (against the work schedule on a working
     day, with lateness, leaving early and overtime; nothing late on a weekly day off) and earns a
-    **holiday allowance** by itself, as a day off worked does: a day's pay for half a shift or
+    **holiday allowance** by itself, as a day off worked does: a day's pay for half a workday or
     more, the hours for less. On a weekly day off it is paid once, as a holiday. Its lateness
-    never takes more than its allowance gives: worked for less than half a shift, it counts no
+    never takes more than its allowance gives: worked for less than half a workday, it counts no
     more short minutes than it worked, so coming in on a holiday never pays less than staying
     home. A month whose pay is finalized for anyone keeps its holidays.
-- **Advances (سلفيات)** leave the safe or a day's takings at once, as a safe entry of kind
-  `EmployeeAdvance` that names the employee and the payroll month it is deducted in.
+- **Advances (سلفيات)** are HR's own records (`HrAdvance`): an amount handed to an employee on a
+  day, deducted from their pay of the payroll month it names.
   - **Not an expense:** the employee owes it until their payslip deducts it. The wages are
     counted once, at payroll.
-  - It counts in the month it is paid, or the next open one when that month's payroll is
+  - It counts in the month it is dated, or the next open one when that month's payroll is
     finalized.
 - **Incentives (حوافز) and leave allowances (بدل إجازات)** are adjustments to one month's pay,
-  entered by a manager (or, later, made by the till), voided rather than changed.
+  entered by a manager (or, later, made by the system), voided rather than changed.
 - **The payslip (مسير الرواتب)**, per employee per month:
 
   ```
@@ -121,10 +117,10 @@ and their monthly pay. This page is the design.
   - A slip is a draft, worked out again as the month changes, until it is finalized. After
     that it does not change.
 
-## The domain (Phase 1, built)
+## The domain
 
-`otantik-pos/backend/src/OtantikPos.Hr.Domain`, its own module referencing only the building
-blocks. Tables are in the `hr` schema; migration `HrFoundation`.
+`backend/src/HrPayroll.Domain`, referencing nothing but .NET. Tables are in the `hr` schema, the
+system's users in `identity`; one migration, `InitialCreate`.
 
 | Type | Table | What it is |
 | --- | --- | --- |
@@ -136,21 +132,23 @@ blocks. Tables are in the `hr` schema; migration `HrFoundation`.
 | `PayrollAdjustment` | `hr.PayrollAdjustments` | An incentive or a leave allowance for a month |
 | `PayrollCalculator`, `PayrollSlip` | `hr.PayrollSlips` | A month's payslip and every figure in it |
 | `HrSettings` | `hr.Settings` | The grace, and how close two scans are to be one |
-| `SafeTransaction` (treasury) | `inventory.SafeTransactions` | New kinds `EmployeeAdvance` and `SalaryPayment`, with `EmployeeId` and `PayrollMonth` |
+| `HrAdvance` | `hr.HrAdvances` | An advance: to an employee, or to no one yet (a lump sum given out a share each) |
+| `AdvanceAllocation` | `hr.AdvanceAllocations` | An employee's share of a lump sum, deducted from their pay of a month |
+| `SalaryPayment` | `hr.SalaryPayments` | What was paid of a finalized slip, on a day; voided rather than changed |
 
 Punch times are the device's wall clock, stored as `timestamp without time zone`. A punch sent
 twice is kept once: it is unique by device, user number and time.
 
-## Receiving the device's punches (Phase 2): ADMS
+## Receiving the device's punches: ADMS
 
 The K40 Pro pushes to us over HTTP with ZKTeco's ADMS ("iclock") protocol. Nothing Windows-only
-(no `zkemkeeper.dll`, no COM) is needed. The till's API answers it at these paths, outside
+(no `zkemkeeper.dll`, no COM) is needed. The API answers it at these paths, outside
 `/api` because the device's paths are fixed:
 
 | Request | When | Our answer |
 | --- | --- | --- |
 | `GET /iclock/cdata?SN=…&options=all` | The device starts or reconnects | Its options, text/plain: `GET OPTION FROM: <SN>`, `ATTLOGStamp=<last stamp>`, `OPERLOGStamp=9999`, `ErrorDelay=30`, `Delay=10`, `TransTimes=00:00;14:05`, `TransInterval=1`, `TransFlag=TransData AttLog OpLog`, `Realtime=1`, `Encrypt=None` |
-| `POST /iclock/cdata?SN=…&table=ATTLOG&Stamp=…` | New punches, or all those it kept while the till was away | Each line `PIN⇥YYYY-MM-DD HH:MM:SS⇥status⇥verify⇥…` becomes an `AttendanceLog`, any number of them, saved a thousand at a time (up to 16 MB a request). Answer `OK:<lines>`, then keep the stamp |
+| `POST /iclock/cdata?SN=…&table=ATTLOG&Stamp=…` | New punches, or all those it kept while the server was away | Each line `PIN⇥YYYY-MM-DD HH:MM:SS⇥status⇥verify⇥…` becomes an `AttendanceLog`, any number of them, saved a thousand at a time (up to 16 MB a request). Answer `OK:<lines>`, then keep the stamp |
 | `POST /iclock/cdata?SN=…&table=USERINFO` (or `OPERLOG`) | Its users, when asked | `PIN=…⇥Name=…` (or `USER PIN=…⇥Name=…`) lines keep the user's number and name (`DeviceUser`), nothing else: no password or card. Fingerprint and face templates (`FP …`, `FACE …`, `BIODATA …`) are never stored |
 | `GET /iclock/getrequest?SN=…` | Every few seconds | `OK`, or the oldest command a manager left for it, `C:<n>:DATA QUERY USERINFO` or `C:<n>:DATA QUERY ATTLOG StartTime=…⇥EndTime=…` (`DeviceCommand`), handed over once |
 | `POST /iclock/devicecmd?SN=…` | A command's result | `ID=<n>&Return=<code>&CMD=…`: the command answered, 0 being done; `OK` |
@@ -159,16 +157,16 @@ The exact option set and command syntax vary by firmware. They are to be checked
 unit with a capture of its first requests before they are fixed. A command the firmware does not
 take comes back with a non-zero code, shown on the Devices tab.
 
-**Syncing what the device held before the till** (built):
-- Its attendance: on approval the till's options say `ATTLOGStamp=None`, so the device sends
+**Syncing what the device held before the system:**
+- Its attendance: on approval the server's options say `ATTLOGStamp=None`, so the device sends
   its whole stored log by itself. A manager can also have it read again from one day to another
   (`DATA QUERY ATTLOG`); what is kept already is kept once. Punches from before an employee's
   hire date count for nothing.
-- Its users: a manager has it list them (`DATA QUERY USERINFO`). Each user nobody on the till has
+- Its users: a manager has it list them (`DATA QUERY USERINFO`). Each user nobody in the system has
   the number of is listed on the Employees tab, with the punches waiting under it, to add as an
   employee (name and number filled in) or link to one; their punches are theirs from then.
 
-**Offline, and late punches** (built): the device keeps its punches while the laptop is off the
+**Offline, and late punches:** the device keeps its punches while the server is off the
 network and sends them all when it is back. The days are worked out from the punches' own
 times, so past days come out as if the punches had arrived on time, and a punch sent twice is
 kept once. One that arrives for a month whose pay is finalized is kept, the slip stays as it was,
@@ -182,7 +180,7 @@ it changes).
 3. The punch is inserted unless already there (the unique index).
 4. The device's stamp and last-seen time are updated.
 5. The days are worked out from the punches whenever they are read (`Timesheet.Evaluate`).
-   So a punch arriving, one entered or ignored, a day marked, a shift moved or the grace changed
+   So a punch arriving, one entered or ignored, a day marked, a work schedule moved or the grace changed
    shows at once, with nothing stored to fall out of step. A month's days are kept
    (`DailyRecord`) when its slip is finalized: what the pay was worked out from.
 6. A day is absent once it is over (its window has closed) with no punches on a working day.
@@ -194,51 +192,49 @@ it changes).
   everything after its stamp once approved, so nothing is lost.
 - Requests are size-limited and rate-limited per serial number. A punch far from the current
   time (a device whose clock was reset) is kept but flagged.
-- **Address checks inside Docker are unreliable.** On macOS, Docker Desktop's port forwarding
-  makes every connection appear to come from its own gateway, not the device's real address.
-  The serial number and the network's own separation are what protect it.
-- Anyone on the till's network who reads the serial off the device's label could post punches.
-  Keep guest Wi-Fi off that network, and the till's port off the internet. Punches are raw
+- **Address checks behind Docker or a proxy are unreliable**: port forwarding can make every
+  connection appear to come from its own gateway, not the device's real address. The serial
+  number and the network's own separation are what protect it.
+- Anyone on the office network who reads the serial off the device's label could post punches.
+  Keep guest Wi-Fi off that network, and the server's port off the internet. Punches are raw
   evidence a manager reviews, with manual corrections recorded by name and reason.
 
-**Network: the till in Docker on a Mac.**
-- The compose file publishes the till on `TILL_PORT` (5080) on all of the Mac's interfaces, and
-  Docker Desktop forwards it into the container. The device reaches the same port and app as
-  the tablets do: there is no second port.
-- Give the Mac a fixed address (a DHCP reservation on the router), and allow Docker's incoming
-  connections in the macOS firewall.
-- **The device's own port** (`Attendance:DevicePort`): when set, the till answers nothing but the
-  device's `/iclock` paths on it, so its screens stay on its machine. `./start.sh` runs the
-  development till this way: the screens on `localhost:5081`, the device on port 5082 of the
-  Mac's network address. `GET /api/hr/devices/connection` gives the port and the addresses, and
-  the Devices tab shows them. Unset, as in the installed till, every port answers everything.
+**Network.**
+- The API listens on its `Urls` (port 5090 unless configured). The device reaches the same port
+  and app as the browsers do, unless it has a port of its own.
+- Give the server a fixed address (a DHCP reservation on the router), and allow incoming
+  connections to its port in the firewall.
+- **The device's own port** (`Attendance:DevicePort`): when set, the API answers nothing but the
+  device's `/iclock` paths on it, so the screens stay off that port. `GET
+  /api/hr/devices/connection` gives the port and the server's addresses, and the Devices tab
+  shows them. Unset, every port answers everything.
 - On the device: Main Menu → COMM. → Cloud Server Setting.
   - Server mode ADMS, Enable Domain Name off.
-  - Server Address = the Mac's address, Server Port = `TILL_PORT`.
+  - Server Address = the server's address, Server Port = the API's port (or the device port).
   - Proxy off, HTTPS off.
   - Menu names vary by firmware.
-- If the Mac sleeps or the till is down, the device holds its punches and sends them when it
+- If the server sleeps or is down, the device holds its punches and sends them when it
   reconnects.
 
 **Calling in.** A device calling over ADMS asks for commands every few seconds, and its last
-call is kept apart from when the till last read it (`LastCalledInAtUtc`, migration
-`DeviceCallIns`). Quiet for three minutes, it is not reaching the till: its punches come only when
-someone presses Sync. A device added by a Sync has never called in until it is pointed at the
-till.
+call is kept apart from when the server last read it (`LastCalledInAtUtc`). Quiet for three
+minutes, it is not reaching the server: its punches come only when someone presses Sync. A
+device added by a Sync has never called in until it is pointed at the server.
 
-**Its clock.** A device sets its clock from the time of the till's answer (UTC) and a time zone:
+**Its clock.** A device sets its clock from the time of the server's answer (UTC) and a time zone:
 left to its own, +8 as ZKTeco ships it, its punches run hours ahead, and count on the wrong day
-(the K40 did, five hours fast, on 2026-10-22). The till sends the restaurant's zone as it starts
+(the K40 did, five hours fast, on 2026-10-22). The server sends the company's zone
+(`Company:TimeZoneId`) as it starts
 (`TimeZone=` in the options, whole hours, or minutes for a zone on the half hour), so it sets its
 clock right each time it starts; a change of daylight saving reaches it at its next start. A
 device whose last punch (ignored ones aside) came stamped more than ten minutes ahead of its
 arrival is said to have a fast clock, on Now and the Devices tab, until a punch comes right or
 those punches are ignored. A slow clock cannot be told from punches kept while it was away.
 
-## Reaching the device on its own port (built): TCP 4370
+## Reaching the device on its own port: TCP 4370
 
-Beside ADMS, the till can reach the device itself over ZKTeco's binary protocol on TCP port
-4370. Nothing Windows-only is used: `ZkClient` (in `Node.Infrastructure/Hr/ZkTeco`) follows the
+Beside ADMS, the server can reach the device itself over ZKTeco's binary protocol on TCP port
+4370. Nothing Windows-only is used: `ZkClient` (in `HrPayroll.Infrastructure/Hr/ZkTeco`) follows the
 open-source pyzk client packet for packet.
 - **Its frames:** `50 50 82 7D`, the length, then command, checksum, session and reply number.
 - **A comm key**, when one is set on the device (COMM. → Comm Key), is sent as pyzk makes it.
@@ -258,18 +254,18 @@ device's IP address, port 4370 unless said otherwise, and its comm key (0 for no
   - a device read for the first time is approved by it, as a manager gave its address and asked;
   - a clash with an ADMS upload of the same punches is read again.
 - **Only local addresses** are accepted: IPv4 in the private ranges, link-local or loopback.
-  The till does not reach further than the restaurant's network.
+  The server does not reach further than the local network.
 - **Timeouts:** each answer is waited on for 5 seconds on a test and 20 on a sync, so a device
   that stops answering is let go.
 
 ADMS goes on as before; this is for a device whose Cloud Server Setting is off or missing, and
 for reading everything now.
 
-## Excel (built)
+## Excel
 
-ClosedXML, as the raw materials and prep items imports use, in `Node.Infrastructure/Excel`
+ClosedXML, in `HrPayroll.Infrastructure/Excel`
 (`EmployeeWorkbook`, `PayrollWorkbook`); what a row becomes is `ImportEmployeesCommand`'s.
-- **The template:** Name, Employment Type, Base Salary, Department, Job Role, Shift Start, Days
+- **The template:** Name, Employment Type, Base Salary, Department, Job Role, Work Schedule Start, Days
   Off, Hired On and Device No., each headed in English and Arabic. Dropdowns list monthly or
   daily, the departments and the roles; a sheet says how to fill it, with examples.
 - **Reading a sheet:** columns are found by heading, in either language and in any order. It
@@ -277,24 +273,30 @@ ClosedXML, as the raw materials and prep items imports use, in `Node.Infrastruct
   Days off are English or Arabic ("الجمعة والسبت"). Dates are cells, ISO or day first
   ("1/10/2026"), and Arabic digits are read too.
 - **What a row becomes:**
-  - a department not on the till is added (a manager's import only: anyone else's row waits for
+  - a department not in the system is added (a manager's import only: anyone else's row waits for
     a manager to add it), and a role not in its department is made;
-  - a name or device number already on the till, asked for, or earlier on the sheet is skipped,
+  - a name or device number already in the system, asked for, or earlier on the sheet is skipped,
     so a sheet imported twice adds no one twice;
   - a manager's rows are added at once; anyone else's are each a request a manager approves.
-- **The export** is in the template's columns, so it can be added to and imported again (those on
-  the till are skipped). The payroll export is for the accounts: a title, each slip's columns as
+- **The export** is in the template's columns, so it can be added to and imported again (those in
+  the system are skipped). The payroll export is for the accounts: a title, each slip's columns as
   the Payroll tab shows them, and a totals row of sums.
 
-## Phase 2: the API (built)
+## The API
 
-**Permissions:**
-- `hr.view` sees HR and salaries; `hr.manage` enters employees and advances.
-- Managers and accountants have both. Cashiers have neither.
-- An accountant's employee changes and advances are requests a manager approves
-  (approval modules `Employee` and `Treasury`).
-- Correcting attendance, the devices and their settings, incentives and allowances, and
-  finalizing pay are a manager's alone.
+**Who:** the system's users sign in with an email and a password (`POST /api/auth/sign-in`), as
+a Manager or an Accountant; the first manager comes from `Auth:FirstManager`, and a manager adds
+the rest on Users (`/api/users`). Employees sign in to their portal with their mobile number and
+PIN instead.
+- `hr.view` sees HR and salaries; `hr.manage` enters employees, advances and assets;
+  `approval.decide` decides requests and does what only a manager does; `users.manage` keeps
+  the users.
+- Managers have all four; accountants `hr.view` and `hr.manage`, in the tabs a manager gives them.
+- An accountant's employee changes, advances and custody changes are requests a manager approves
+  (`/api/approval-requests`, modules `Employee`, `Advance` and `Custody`).
+- Correcting attendance, the devices and their settings, incentives and allowances, finalizing
+  pay and paying it are a manager's (or an employee's holding the tab, see Employee
+  permissions).
 
 **Endpoints:**
 
@@ -321,79 +323,65 @@ ClosedXML, as the raw materials and prep items imports use, in `Node.Infrastruct
 | `GET /api/hr/penalties?month=` | The month's administrative penalties, everyone's, each with what it takes off the pay |
 | `GET /api/hr/departments`, `PUT …/{id}`, `DELETE …/{id}?moveTo=` | The departments with how many are in each and their roles, and what each costs (monthly salaries and daily wages apart, of those employed now); added or renamed, or deleted with its employees moved first: a manager's |
 | `PUT /api/hr/departments/{id}/roles/{roleId}`, `DELETE /api/hr/roles/{roleId}?moveTo=` | A department's role added or renamed, or deleted with its holders moved to another: a manager's |
-| `GET /api/hr/devices/connection` | Where a device reaches the till: the device's own port, when set, and the machine's addresses |
-| `POST /api/hr/devices/test`, `…/sync` | The till reaching the device at `{ address, port = 4370, commKey = 0 }`: whether it answers and what it holds, or its users and whole log read and kept (approved if new): a manager's |
-| `GET /api/hr/attendance/now` | Who is in now: each employee on the day their own window puts now in, in (an odd number of scans), left (even), not arrived, late (their shift and its grace started) or off. As punches come or a day is put right, the till's hub sends `EmployeeStatusChanged` to whoever sees HR: each employee it touched, with their day, state, since when, when due, and the time it was worked out |
+| `GET /api/hr/devices/connection` | Where a device reaches the server: the device's own port, when set, and the machine's addresses |
+| `POST /api/hr/devices/test`, `…/sync` | The server reaching the device at `{ address, port = 4370, commKey = 0 }`: whether it answers and what it holds, or its users and whole log read and kept (approved if new): a manager's |
+| `GET /api/hr/attendance/now` | Who is in now: each employee on the day their own window puts now in, in (an odd number of scans), left (even), not arrived, late (their work schedule and its grace started) or off. As punches come or a day is put right, the hub (`/hubs/hr`) sends `EmployeeStatusChanged` to whoever sees HR: each employee it touched, with their day, state, since when, when due, and the time it was worked out |
 | `GET /api/hr/holidays?year=` | A year's public holidays |
 | `POST /api/hr/devices/{id}/read-users`, `…/read-attendance` | A command left for the device: list its users, or send its attendance from a day to another again: a manager's |
-| `GET /api/hr/device-users` | The users the devices listed, who on the till has each number, and the punches waiting under it |
+| `GET /api/hr/device-users` | The users the devices listed, who in the system has each number, and the punches waiting under it |
 | `GET /api/hr/attendance/late-punches`, `POST …/settle` | Device punches that came after their month's pay was finalized; marked seen to by a manager |
 | `PUT /api/hr/holidays/{id}`, `DELETE …/{id}` | A public holiday added or changed, or taken off: a manager's |
 | `GET`/`PUT /api/hr/settings` | The grace, and how close two scans are to be one |
 | `GET /api/hr/devices`, `POST …/{id}/approve`, `…/revoke` | The devices, approved by name |
 | `GET /api/hr/advances?month=` | The month's advances, each deducted from whose pay (paid to them, or their share of a lump sum); and the advances handed out with no one named, every one not all given out: how much, given out, left, and the shares |
-| `POST /api/hr/advances`, `POST /api/hr/advances/{id}/void` | An advance paid outside the till, recorded in HR only (`{ advanceId, amount, date, employeeId?, notes }`): a manager's at once, anyone else's a request (module `Advance`); voided by a manager while its pay is not finalized, a lump sum once no share of it stands |
+| `POST /api/hr/advances`, `POST /api/hr/advances/{id}/void` | An advance (`{ advanceId, amount, date, employeeId?, notes }`): a manager's at once, anyone else's a request (module `Advance`); voided by a manager while its pay is not finalized, a lump sum once no share of it stands |
 | `POST /api/hr/advances/{id}/distribute`, `POST /api/hr/advance-shares/{id}/take-back` | A lump sum given out, a share each (`{ shares: [{ employeeId, amount, notes }] }`), in parts and never more than is left; a share taken back while its pay is not finalized: a manager's |
 | `GET /api/hr/payroll?month=` | Every slip as it stands, with the month's totals: its total salaries (gross) and administrative penalties among them |
 | `GET /api/hr/payroll/daily-cost?date=` | A day's labour cost: who punched in, each at their day's rate, by department, the day's overtime pay beside it |
 | `POST /api/hr/payroll/calculate?month=` | Saves the drafts |
 | `POST /api/hr/payroll/{employeeId}/finalize?month=` | Finalizes one slip |
 | `POST /api/hr/payroll/adjustments`, `…/{id}/void` | Incentives and leave allowances |
+| `POST /api/hr/payroll/payments`, `…/payments/{id}/void` | A finalized slip paid, in full or in part (`{ paymentId, employeeId, month, date, amount, notes }`), never more than it still owes; a payment entered by mistake voided |
+| `GET /api/approval-requests?decided=`, `POST …/{id}/approve`, `…/{id}/reject` | What waits for a manager, and the last decisions; approved or rejected with a note: a manager's |
+| `GET /api/users`, `POST /api/users`, `PUT …/{id}`, `PUT …/{id}/password` | The system's users: added with a first password, changed or deactivated, a new password set (which signs them out and lifts a lockout): a manager's |
+| `GET /api/auth/me`, `POST /api/auth/password` | Who is signed in and what they may do; their own password changed with the one they have now |
 
-**The treasury:**
-- An advance is a safe voucher of kind `EmployeeAdvance`, from the safe or a day's takings
-  (`POST /api/financials/vouchers`), or a line of the daily batch.
-- Its pay is a `SalaryPayment` against a finalized slip, never more than is owed of it.
-- `GET /api/financials/advances` lists advances, for HR viewers only.
-- An advance deducted by a finalized slip cannot be voided. One paid after its month's slip is
+**Advances and salary payments,** HR's own records:
+- An advance (`HrAdvance`) is entered on HR → Advances → New advance: an amount on a day, to an
+  employee or to no one yet. A manager's is recorded at once, anyone else's waits for a manager.
+- Paid to an employee, it comes off their pay of its month (or the first after it whose pay is
+  not finalized for them), and shows on their payslip.
+- An advance deducted by a finalized slip cannot be voided. One dated after its month's slip is
   finalized counts in the next month.
-- The daily cash, reconciliation and takings preview count advances and salaries paid out of a
-  day's takings. The safe's ledger names the employee.
-
-**Where an advance is paid from:**
-- **From the till:** Financials (the advance voucher), Purchases (its New advance button opens the
-  same dialog), or the daily batch's advance block. A safe entry, out of the safe or a day's
-  takings.
-- **Outside the till:** HR → Advances → New advance, the same dialog without "Paid from". It covers
-  an advance from the owner's own pocket, say. It is an `HrAdvance` (migration `HrAdvances`),
-  recorded in HR only: no cash leaves the safe or the takings, and Financials never sees it.
-- **Either way:** paid to an employee, it comes off their pay (the payslip says "outside the till"
-  for these). Paid to no one yet, it is a lump sum given out a share each. A share
-  (`AdvanceAllocation`) is of a safe entry or of an HR advance, never both.
+- A finalized slip is paid by salary payments (`SalaryPayment`): all that is owed at once, or
+  part of it now and the rest later, never more than it still owes. A payment entered by
+  mistake is voided, and owed again.
 
 **Advances handed out with no one named (السلفيات المعلقة):**
-- An advance voucher, or a line of the daily batch, may name no employee. Its cash leaves the safe
-  or the takings at once, as any advance's does.
+- An advance may name no employee: a lump sum handed out, to give out later.
 - It waits on HR's Advances (`GET /api/hr/advances`). A manager gives it out to employees, a share
-  each (`AdvanceAllocation`, migration `AdvanceAllocations`): in parts if need be, and never more
-  than is left. It is fully allocated once the shares add up to it.
+  each (`AdvanceAllocation`): in parts if need be, and never more than is left. It is fully
+  allocated once the shares add up to it.
 - Each share is deducted from its employee's pay as their own advance would be: from the month the
   money was handed out, or the first after it whose pay is not finalized for them. It shows on
   their payslip as a share of that day's advances.
 - A share is taken back while that pay is not finalized. The lump sum is voided only once no share
   of it stands.
-- Advances paid to an employee directly (from the daily batch or a Financials voucher) work as
-  before. They are listed beside the shares as allocated.
 - **Screens:**
-  - The employee is chosen by typing part of their name or job (`EmployeePicker`), in the daily
-    batch's advance block and the Financials advance voucher. "No one yet" makes the advance a
-    lump sum, and Financials → Advances counts lump sums apart, with a link to HR → Advances.
+  - The employee is chosen by typing part of their name or job (`EmployeePicker`). "No one yet"
+    makes the advance a lump sum.
   - HR → Advances (السلفيات) has two views. Pending (وضع معلق) shows each lump sum: what is given
     out and what is left, and its shares, each taken back by a manager. Allocated shows the
-    month's advances off whose pay: paid to them, or a share.
+    month's advances off whose pay: an advance to them, or a share.
   - A manager's Distribute dialog has a row an employee, offered only those employed on its day
-    and each once. Split equally shares what is left in whole pounds, the odd ones on the first.
+    and each once. Split equally shares what is left in whole units, the odd ones on the first.
     It never gives out more than is left, and some may stay for later.
 
-**KPIs:** a finalized month's slips count as its wages (`WagesCost`), on top of what is
-entered. The old "سلفيات" expense item is archived once advances are entered as advances; what
-is already entered stays as it is.
+A day off worked earns its leave allowance by itself (the slip's `DaysOffWorkedPay`), and a public
+holiday worked its holiday allowance (`HolidaysWorkedPay`); leave allowances entered by a manager
+are for anything else.
 
-A day off worked earns its leave allowance by itself (the slip's `DaysOffWorkedPay`, migration
-`DaysOffWorkedPay`), and a public holiday worked its holiday allowance (`HolidaysWorkedPay`,
-migration `PublicHolidays`); leave allowances entered by a manager are for anything else.
-
-## Employee permissions (صلاحيات الموظفين, built)
+## Employee permissions (صلاحيات الموظفين)
 
 Each tab of HR & Payroll is given on its own: Now, Employees, Departments, Attendance,
 Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets beside them
@@ -401,12 +389,12 @@ Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets besid
 
 - **Who holds which.** A manager holds every tab, always, and alone gives them (the
   Permissions tab, `GET /api/hr/access`, `PUT …/access/employees/{id}`,
-  `PUT …/access/staff/{staffId}`).
+  `PUT …/access/staff/{userId}` for an accountant).
   - An employee holds none until given some (`Employee.HrTabs`, stored by name). They work
     theirs in the portal, on their phone: `/hr` there is HR & Payroll's own screens, only their
     tabs, under the portal's bar.
-  - An accountant holds every tab until a manager ticks theirs (`hr.StaffHrAccess`, by the till
-    account's id; the account itself is the delivery system's).
+  - An accountant holds every tab until a manager ticks theirs (`hr.StaffHrAccess`, by the
+    user's id).
 - **What a tab lets them do.**
   - Someone's record, an advance or an asset: a change goes to a manager to approve, from an
     employee as from an accountant.
@@ -415,18 +403,17 @@ Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets besid
     and allowances, finalizing a month, giving out and voiding advances, custody categories):
     an employee holding the tab does it at once, as a manager would (`[HrTab(..., Decide =
     true)]`). An accountant does not: that stays a manager's for them.
-  - PINs, and who holds which tab, stay a manager's alone. Paying a salary is a safe entry,
-    Financials', which an employee never reaches.
+  - PINs, who holds which tab, and the users stay a manager's alone.
 - **The token.** An employee's portal token names their tabs (`hr_tabs`), which the portal reads
   for its tabs. Every request checks them against the ones they have now, as it checks their
   PIN: a change of tabs signs them out, and they sign in again to see the new ones.
 - **The API.** Each HR and Custody endpoint says its tabs (`[HrTab(...)]`; a test keeps every
-  one saying so). The portal's port answers `/hr`, `/custody`, `/api/hr` and `/api/custody`
-  too, and only an employee's token holds a tab there: a till account's, carried over the
-  Wi-Fi, holds none.
+  one saying so). The portal's port answers `/hr`, `/custody`, `/api/hr`, `/api/custody`,
+  `/api/leaves` and `/api/performance` too, and only an employee's token holds a tab there: a
+  user's, carried over the Wi-Fi, holds none.
 - **What is never sent.** These come back as null to whoever lacks the tab that shows them:
   - what anyone earns, their national ID, mobile and ID card, without the Employees or Payroll
-    tab (Attendance has the names and shifts, not the pay);
+    tab (Attendance has the names and work schedules, not the pay);
   - a department's costs, without Departments, Employees or Payroll;
   - what an asset cost, to an employee, always: Custody's screens show them none, and an asset
     they change keeps its cost when they send none.
@@ -437,8 +424,10 @@ Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets besid
 
 ## The screens
 
-**Built:**
-- HR & Payroll in the top bar for whoever holds a tab of it, opening on the first one they hold, Now (الآن): who is in the restaurant right
+- **Sign-in** with an email and a password; **Users** (a manager's) to add, change, deactivate
+  and set a new password for the system's users; **Approvals** (a manager's) for what
+  accountants asked, counted in the top bar; and **Your account** to change one's own password.
+- HR & Payroll in the top bar for whoever holds a tab of it, opening on the first one they hold, Now (الآن): who is in right
   now, by department, green in since their last scan, grey left, yellow not arrived yet, red
   late, and off today; with the counts, and what waits on Corrections. A pushed card changes in
   place, lit up for a moment, without the page being read again; the whole page is read every
@@ -447,7 +436,7 @@ Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets besid
   punches then come only with Sync) and where to point it; the Devices tab says it of each.
   - Employees, in two lists one at a time (a switch at the top, each side with its count; the
     second kept in the address as `?view=device`): System employees (الموظفين العاملين), and
-    Device users (مسجلين على جهاز البصمة), the device's users nobody on the till has the number of
+    Device users (مسجلين على جهاز البصمة), the device's users nobody in the system has the number of
     yet, each leaving it once added or linked. Show who has left and Department filter the
     first; Excel, Sync device and Add employee are above both;
   - Employees: add, change, leave and come back; an accountant's go to a manager; a row (or the
@@ -457,7 +446,7 @@ Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets besid
     the browser's viewer, larger on View larger) with Upload, Replace and Take off; Edit opens
     the Employees form, Deactivate their leaving, Bring back their return, all locked while a
     change waits for a manager; beside them (below on a narrow screen), their payslip for the
-    business month, a month back at a time, as Payroll has it (incentives, finalizing and paying
+    current month, a month back at a time, as Payroll has it (incentives, finalizing and paying
     included), printing alone;
   - Device users: add each as an employee, or link their number to one already here;
     the form takes the department, a role of it (picked, or a new one typed), monthly or daily
@@ -491,13 +480,10 @@ Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets besid
   far, or one before it), who came in at their day's rate (a monthly salary over 30, or the
   daily wage), the total and each department's with its share, and the day's overtime beside it,
   not in the total.
-- Financials → Advances (السلفيات): the month's advances, each employee's total, a new advance
-  from the safe or a day's takings, and voids.
-- The daily batch: an employee advance block beside the supplier payments.
 
 - Attendance: the day's review (مراجعة يوم), everyone's in, out and status on a day, or one
   employee's month.
-  - Forgot to check out (نسي تسجيل الانصراف): a punch-in with no punch-out once the shift is over
+  - Forgot to check out (نسي تسجيل الانصراف): a punch-in with no punch-out once the work schedule is over
     (flexible hours, or a day off: once the day is), its row lit and its Out said so, counted
     at the top, where a click shows only them. A suspended day is one too; the 18-hour rule for
     the pay stays.
@@ -509,7 +495,7 @@ Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets besid
 - Corrections (مراجعة وجزاءات), its tab counting the days waiting:
   - the suspended days since the first of last month (or a day chosen), each with its punches
     and the stray punch-in marked; a manager enters the punch-out (after the punch-in, within
-    18 hours of it and before the next day starts; the shift's end a click away) or ignores the
+    18 hours of it and before the next day starts; the work schedule's end a click away) or ignores the
     stray punch;
   - the month's administrative penalties, with what each takes off and the total; a manager
     adds one for whoever is employed in the month (told when it replaces the day's own), and
@@ -525,7 +511,8 @@ Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets besid
   - Calculate drafts saves them.
   - Each row opens the employee's payslip: the formula line by line from base salary to net
     payable, the days it came from, incentives and allowances (a manager adds and voids them),
-    advances, and salary paid.
+    advances, and the salary paid of it.
   - Finalize (a manager's, once the month is over and no day is suspended; the payslip points
-    to Corrections when one is), then Pay salary through the safe entry dialog.
+    to Corrections when one is), then Pay salary: what is owed, or part of it, on a day, with
+    notes; a payment entered by mistake is voided.
   - It prints as a payslip.

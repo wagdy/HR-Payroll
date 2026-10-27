@@ -9,7 +9,7 @@ function employee(id: string, name: string, jobTitle: string): Employee {
   };
 }
 
-const staff = [employee('hassan', 'Hassan Ali', 'Chef'), employee('mona', 'منى سعيد', 'Waiter'), employee('karim', 'Karim', 'Delivery')];
+const staff = [employee('hassan', 'Hassan Ali', 'Checker'), employee('mona', 'منى سعيد', 'Warehouse clerk'), employee('karim', 'Karim', 'Delivery')];
 
 describe('choosing an employee by typing', () => {
   function render(none = false) {
@@ -21,7 +21,7 @@ describe('choosing an employee by typing', () => {
     return { fixture, page: fixture.componentInstance as unknown as Record<string, any> };
   }
 
-  it('compares names as the till’s sheets do: capitals and Arabic spellings aside', () => {
+  it('compares names as the system’s sheets do: capitals and Arabic spellings aside', () => {
     expect(searchKey('  مـنى  ')).toBe('مني');
     expect(searchKey('HASSAN')).toBe('hassan');
     expect(searchKey('أحمد')).toBe(searchKey('احمد'));
@@ -32,7 +32,7 @@ describe('choosing an employee by typing', () => {
 
     page['typed']('مني');
     expect(page['shown']().map((e: Employee) => e.id)).toEqual(['mona']);
-    page['typed']('chef');
+    page['typed']('checker');
     expect(page['shown']().map((e: Employee) => e.id)).toEqual(['hassan']);
 
     page['chose']({ option: { value: 'hassan' } });

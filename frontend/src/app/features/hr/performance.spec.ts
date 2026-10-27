@@ -7,7 +7,7 @@ import { HrAccess } from '../../core/hr/hr-access';
 import { Employee } from '../../core/hr/hr.api';
 import { DisciplinaryAction, EmployeePerformance, Evaluation, PerformanceApi, canWithdraw, timeline } from '../../core/hr/performance.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { BusinessDay } from '../costing/financials';
+import { BusinessDay } from '../../core/ui/business-day';
 import { DisciplinaryDialog, EvaluationDialog, KpiDialog, WithdrawActionDialog } from './performance-dialogs';
 import { PerformanceSection } from './performance-section';
 import { PerformanceTimeline } from './performance-timeline';
@@ -17,7 +17,7 @@ const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 function evaluation(id: string, date: string, over: Partial<Evaluation> = {}): Evaluation {
   return {
     id, employeeId: 'hassan', date, totalScore: 80, notes: null, reviewerName: 'Omar', recordedAtUtc: `${date}T12:00:00Z`,
-    scores: [{ kpiId: 'k1', kpiName: 'Punctuality', score: 5 }, { kpiId: 'k2', kpiName: 'Hygiene', score: 4 }, { kpiId: 'k3', kpiName: 'Service', score: 3 }],
+    scores: [{ kpiId: 'k1', kpiName: 'Punctuality', score: 5 }, { kpiId: 'k2', kpiName: 'Hygiene', score: 4 }, { kpiId: 'k3', kpiName: 'Sales', score: 3 }],
     ...over,
   };
 }
@@ -73,13 +73,13 @@ describe('the performance record', () => {
     ]);
     expect(text(el.querySelector('.summary')!)).toBe('2 warnings in all · next in line: Penalty deductionخصم جزاء');
     const entries = [...el.querySelectorAll('.entry')];
-    expect(text(entries[0])).toContain('L.E 200.00 · to come off the October payslip');
+    expect(text(entries[0])).toContain('200.00 · to come off the October payslip');
     expect(entries[1].classList).toContain('withdrawn');
     expect(text(entries[1])).toContain('Withdrawn by Omar, 6 Oct 2026: Wrong employee');
     expect([text(entries[2].querySelector('.score')!), ...[...entries[2].querySelectorAll('.kpi')].map(text), text(entries[2].querySelector('.notes')!)]).toEqual([
-      '80%', 'Punctuality 5/5', 'Hygiene 4/5', 'Service 3/5', 'Good month',
+      '80%', 'Punctuality 5/5', 'Hygiene 4/5', 'Sales 3/5', 'Good month',
     ]);
-    expect(text(entries[5])).toContain('L.E 100.00 · taken off the August payslip');
+    expect(text(entries[5])).toContain('100.00 · taken off the August payslip');
     // Withdrawn: only those that may be.
     expect(entries.map((e) => !!e.querySelector('button.withdraw'))).toEqual([true, false, false, true, true, false]);
     (entries[0].querySelector('button.withdraw') as HTMLElement).click();
@@ -207,13 +207,15 @@ async function openDialog<T>(component: Type<T>, data: unknown, providers: unkno
 
 describe('the performance dialogs', () => {
   const submit = vi.fn();
-  beforeEach(() => submit.mockReset().mockReturnValue(of({})));
+  beforeEach(() => {
+    submit.mockReset().mockReturnValue(of({}));
+  });
 
-  it('scores the KPIs 1 to 5, any left out, and works the total out as the till does', async () => {
+  it('scores the KPIs 1 to 5, any left out, and works the total out as the system does', async () => {
     const kpis = [
       { id: 'k1', name: 'Punctuality', isActive: true, inUse: false },
       { id: 'k2', name: 'Hygiene', isActive: true, inUse: false },
-      { id: 'k3', name: 'Service', isActive: true, inUse: false },
+      { id: 'k3', name: 'Sales', isActive: true, inUse: false },
     ];
     const { el, dialog, close, refresh } = await openDialog(EvaluationDialog, { employeeName: 'Hassan', kpis, today: '2026-10-26', hiredOn: '2026-01-05', submit });
 
@@ -265,7 +267,7 @@ describe('the performance dialogs', () => {
   it('withdraws only with why', async () => {
     const { el, dialog, close, refresh } = await openDialog(WithdrawActionDialog, hassan.actions[0]);
     expect(text(el.querySelector('h2')!)).toBe('Withdraw the penalty deduction? سحب الإنذار');
-    expect(text(el.querySelector('mat-dialog-content')!)).toContain('Its penalty of L.E 200.00 comes off Corrections and the October pay.');
+    expect(text(el.querySelector('mat-dialog-content')!)).toContain('Its penalty of 200.00 comes off Corrections and the October pay.');
     dialog['save']();
     await refresh();
     expect(text(el.querySelector('.problem')!)).toBe('Say why it is withdrawn.');
@@ -292,9 +294,9 @@ describe('the performance dialogs', () => {
     expect([...el.querySelectorAll('.kpis li')].map((li) => [...li.querySelectorAll('button')].map(text).filter((t) => t !== 'edit'))).toEqual([
       ['Retire'], ['Delete'], ['Bring back'],
     ]);
-    dialog['newName'] = ' Service ';
+    dialog['newName'] = ' Sales ';
     await dialog['add']();
-    expect(kpiApi.saveKpi).toHaveBeenCalledWith(expect.any(String), 'Service');
+    expect(kpiApi.saveKpi).toHaveBeenCalledWith(expect.any(String), 'Sales');
     expect(dialog['newName']).toBe('');
 
     dialog['startRename']({ id: 'k2', name: 'Smile' });

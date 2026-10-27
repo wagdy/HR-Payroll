@@ -144,7 +144,7 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
         color: var(--mat-sys-error);
       }
       &.SecondWritten:not(.zero) {
-        background: color-mix(in srgb, var(--till-warn) 24%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 24%, transparent);
       }
     }
     .summary {
@@ -180,7 +180,7 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
         gap: 4px 8px;
       }
       &.action .kind {
-        color: var(--till-warn);
+        color: var(--app-warn);
       }
       &.PenaltyDeduction .kind,
       &.Termination .kind {
@@ -210,7 +210,7 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
       background: var(--mat-sys-surface-container-high);
 
       &.good {
-        background: color-mix(in srgb, var(--till-ok, #2e7d32) 18%, transparent);
+        background: color-mix(in srgb, var(--app-ok, #2e7d32) 18%, transparent);
       }
       &.low {
         background: color-mix(in srgb, var(--mat-sys-error) 14%, transparent);

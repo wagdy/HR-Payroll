@@ -53,12 +53,12 @@ const styles = `
 
 export interface AddPunchData {
   employee: string;
-  // The day it is for, and when its shift runs: a punch after midnight is on the next date.
+  // The day it is for, and when its work schedule runs: a punch after midnight is on the next date.
   day: string;
   shift: string;
 }
 
-// A punch the device missed, entered by a manager: when, on the restaurant's clock, and why.
+// A punch the device missed, entered by a manager: when, on the company's clock, and why.
 // Closes with the time ('2026-10-19T20:00:00') and the reason.
 @Component({
   selector: 'app-add-punch-dialog',
@@ -67,7 +67,7 @@ export interface AddPunchData {
     <h2 mat-dialog-title>Add a punch for {{ data.employee }} <span class="ar">إضافة بصمة</span></h2>
     <mat-dialog-content>
       <p class="muted">
-        The device missed it: a forgotten scan, the device down. {{ data.shift === 'Flexible' ? 'They work flexible hours' : 'Their shift runs ' + data.shift }}; a
+        The device missed it: a forgotten scan, the device down. {{ data.shift === 'Flexible' ? 'They work flexible hours' : 'Their work schedule runs ' + data.shift }}; a
         punch after midnight is on the next date.
       </p>
       <div class="row">
@@ -138,7 +138,7 @@ export interface MarkDayData {
 }
 
 // A day marked as leave or a day off (not an absence), a weekly day off marked as a working day (a
-// swap: a normal shift, and no leave allowance), or the mark taken off. Closes with the kind
+// swap: a normal workday, and no leave allowance), or the mark taken off. Closes with the kind
 // ('None' to take it off) and the notes.
 @Component({
   selector: 'app-mark-day-dialog',
@@ -177,7 +177,7 @@ export class MarkDayDialog {
 // A punch-in left this long without its punch-out suspends the day.
 const abandonedAfterMinutes = 18 * 60;
 
-// A punch-in left 18 hours without its punch-out (a suspended day), the shift it was for (none
+// A punch-in left 18 hours without its punch-out (a suspended day), the work schedule it was for (none
 // for flexible hours), and when the day ends.
 export interface ResolveDayData {
   employee: string;
@@ -188,7 +188,7 @@ export interface ResolveDayData {
   punchedIn: string;
 }
 
-// The punch-out a manager enters for a suspended day: when they left, on the restaurant's clock,
+// The punch-out a manager enters for a suspended day: when they left, on the company's clock,
 // after the punch-in, within 18 hours of it and before the next day starts, and why it is entered. Closes with the time
 // ('2026-10-20T01:00:00') and the reason.
 @Component({
@@ -202,7 +202,7 @@ export interface ResolveDayData {
         they left, and the day is worked out from it.
       </p>
       @if (shiftEndFits) {
-        <button mat-stroked-button type="button" class="shortcut" (click)="atShiftEnd()">At the shift’s end, {{ endsAt }}</button>
+        <button mat-stroked-button type="button" class="shortcut" (click)="atShiftEnd()">At the work schedule’s end, {{ endsAt }}</button>
       }
       <div class="row">
         <mat-form-field>
@@ -238,9 +238,9 @@ export class ResolveDayDialog {
   protected readonly inAt = clock(this.data.punchedIn, this.data.date);
   protected readonly endsAt = clock(this.data.shiftEndsAt, this.data.date);
   private readonly toShiftEnd = this.data.shiftEndsAt ? minutesBetween(this.data.punchedIn, this.data.shiftEndsAt) : 0;
-  // The shift's end, when it can be the punch-out: after the punch-in and within 18 hours of it.
+  // The work schedule's end, when it can be the punch-out: after the punch-in and within 18 hours of it.
   protected readonly shiftEndFits = this.toShiftEnd > 0 && this.toShiftEnd <= abandonedAfterMinutes;
-  // On the date the shift ends, as most punch-outs are; the time is the manager's to enter.
+  // On the date the work schedule ends, as most punch-outs are; the time is the manager's to enter.
   protected date = (this.shiftEndFits ? this.data.shiftEndsAt! : this.data.punchedIn).slice(0, 10);
   protected time = '';
   protected reason = '';

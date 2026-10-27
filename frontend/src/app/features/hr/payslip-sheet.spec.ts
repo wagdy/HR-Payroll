@@ -6,7 +6,7 @@ const text = (el: Node) => el.textContent!.replace(/\s+/g, ' ').trim();
 
 function slip(figures: Partial<PayrollFigures>, over: Partial<PayrollSlip> = {}): PayrollSlip {
   return {
-    employee: { id: 'hassan', name: 'Hassan', jobTitle: 'Chef', hourlyRate: 20, dailyRate: 180 },
+    employee: { id: 'hassan', name: 'Hassan', jobTitle: 'Checker', hourlyRate: 20, dailyRate: 180 },
     month: '2026-10-01',
     status: 'Draft',
     figures: {
@@ -45,7 +45,7 @@ describe('a payslip’s deductions', () => {
         {
           unpaidLeaveDays: ['2026-10-14', '2026-10-15'],
           penalties: [
-            { date: '2026-10-05', hours: 2, amount: null, reason: 'Left the walk-in open', disciplinaryActionId: null },
+            { date: '2026-10-05', hours: 2, amount: null, reason: 'Left the store room open', disciplinaryActionId: null },
             { date: '2026-10-05', hours: 0, amount: 200, reason: 'Penalty deduction: Absence', disciplinaryActionId: 'a1' },
             { date: '2026-10-20', hours: 0, amount: 50, reason: 'Penalty deduction: Hygiene', disciplinaryActionId: 'a2' },
           ],
@@ -53,9 +53,9 @@ describe('a payslip’s deductions', () => {
       ),
     );
 
-    expect(rows).toContain('− Unpaid leave | 2 days at L.E 180.00, approved leave not paid | 14 Oct, 15 Oct | L.E 360.00');
-    expect(rows).toContain('− Administrative penalties | 2 hours at L.E 20.00 | L.E 40.00');
-    expect(rows).toContain('− Disciplinary penalties | 5 Oct · Penalty deduction: AbsenceL.E 200.00 | 20 Oct · Penalty deduction: HygieneL.E 50.00 | L.E 250.00');
+    expect(rows).toContain('− Unpaid leave | 2 days at 180.00, approved leave not paid | 14 Oct, 15 Oct | 360.00');
+    expect(rows).toContain('− Administrative penalties | 2 hours at 20.00 | 40.00');
+    expect(rows).toContain('− Disciplinary penalties | 5 Oct · Penalty deduction: Absence200.00 | 20 Oct · Penalty deduction: Hygiene50.00 | 250.00');
     expect([...el.querySelectorAll('.days > div')].map(text)).toContain('Unpaid leave2');
   });
 
@@ -66,8 +66,8 @@ describe('a payslip’s deductions', () => {
         { unpaidLeaveDays: ['2026-10-14'], penalties: [{ date: '2026-10-05', hours: 0, amount: 150, reason: 'Penalty deduction: Absence', disciplinaryActionId: 'a1' }] },
       ),
     );
-    expect(rows).toContain('− Unpaid leave | 2 days at L.E 180.00, approved leave not paid | L.E 360.00');
-    expect(rows).toContain('− Disciplinary penalties | Penalty deductions of disciplinary actions, as issued | L.E 200.00');
+    expect(rows).toContain('− Unpaid leave | 2 days at 180.00, approved leave not paid | 360.00');
+    expect(rows).toContain('− Disciplinary penalties | Penalty deductions of disciplinary actions, as issued | 200.00');
     expect(rows.some((r) => r.startsWith('− Administrative penalties'))).toBe(false);
   });
 

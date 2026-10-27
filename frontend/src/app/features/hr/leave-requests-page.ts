@@ -13,7 +13,7 @@ import { HrAccess } from '../../core/hr/hr-access';
 import { Employee, HrApi, dayName } from '../../core/hr/hr.api';
 import { LeaveBalance, LeaveRequest, LeavesApi, leaveDays, leaveStatus } from '../../core/hr/leaves.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { BusinessDay } from '../costing/financials';
+import { BusinessDay } from '../../core/ui/business-day';
 import { CancelLeaveData, CancelLeaveDialog, LeaveRequestData, LeaveRequestDialog, RejectLeaveDialog } from './leave-dialogs';
 import { PendingLeaves } from './pending-leaves';
 
@@ -166,7 +166,7 @@ import { PendingLeaves } from './pending-leaves';
       </div>
     </section>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     h2 {
       margin: 0;
@@ -216,14 +216,14 @@ import { PendingLeaves } from './pending-leaves';
         margin-left: 4px;
       }
       &.Approved {
-        background: color-mix(in srgb, var(--till-ok, #2e7d32) 18%, transparent);
+        background: color-mix(in srgb, var(--app-ok, #2e7d32) 18%, transparent);
       }
       &.Rejected {
         background: color-mix(in srgb, var(--mat-sys-error) 14%, transparent);
         color: var(--mat-sys-error);
       }
       &.CutShort {
-        background: color-mix(in srgb, var(--till-warn) 22%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 22%, transparent);
       }
     }
   `,
@@ -250,7 +250,7 @@ export class LeaveRequestsPage {
   private readonly balances = signal<LeaveBalance[]>([]);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
-  // The request being decided, its buttons held until the till answers.
+  // The request being decided, its buttons held until the system answers.
   protected readonly busy = signal<string | null>(null);
   private today = '';
 
@@ -323,7 +323,7 @@ export class LeaveRequestsPage {
     }
   }
 
-  // Does it, says so, and reads the lists again; a refusal is said as the till says it.
+  // Does it, says so, and reads the lists again; a refusal is said as the API says it.
   private async act(r: LeaveRequest, call: () => Observable<LeaveRequest>, done: (made: LeaveRequest) => string): Promise<void> {
     this.busy.set(r.id);
     try {

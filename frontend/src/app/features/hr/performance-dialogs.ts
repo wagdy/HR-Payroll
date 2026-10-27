@@ -162,7 +162,7 @@ export class EvaluationDialog {
       .map(([kpiId, score]) => ({ kpiId, score })),
   );
   protected readonly scored = computed(() => this.given().length);
-  // As the till works it out: the average over 5, as a percent to one decimal place.
+  // As the system works it out: the average over 5, as a percent to one decimal place.
   protected readonly total = computed(() => {
     const given = this.given();
     return given.length ? Math.round((given.reduce((t, s) => t + s.score, 0) / given.length / 5) * 1000) / 10 : null;
@@ -240,7 +240,7 @@ export interface DisciplinaryData {
       </mat-form-field>
       @if (level() === 'PenaltyDeduction') {
         <mat-form-field class="wide amount">
-          <mat-label>Penalty amount · مبلغ الجزاء (L.E)</mat-label>
+          <mat-label>Penalty amount · مبلغ الجزاء</mat-label>
           <input matInput type="number" min="0.01" step="0.01" [(ngModel)]="amount" aria-label="Penalty amount" />
           <mat-hint>Taken off their {{ (validDay(date) ? date : data.today) | date: 'MMMM' }} pay, and listed on Corrections</mat-hint>
         </mat-form-field>
@@ -498,7 +498,7 @@ export class KpiDialog {
     }
   }
 
-  // Does it and reads the list again; a refusal is said as the till says it.
+  // Does it and reads the list again; a refusal is said as the API says it.
   protected async act(call: Observable<unknown>): Promise<boolean> {
     this.problem.set(null);
     try {

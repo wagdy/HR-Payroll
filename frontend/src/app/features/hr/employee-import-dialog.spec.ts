@@ -16,22 +16,22 @@ describe('what an employees import did', () => {
   it('says who was added, the departments added with them, and each row skipped and why', () => {
     const el = render({
       imported: [
-        { row: 2, id: 'a', name: 'Hassan', department: 'Kitchen', jobTitle: 'Chef', requested: false },
-        { row: 3, id: 'b', name: 'Mona', department: 'Kitchen', jobTitle: 'Helper', requested: false },
+        { row: 2, id: 'a', name: 'Hassan', department: 'Key accounts', jobTitle: 'Checker', requested: false },
+        { row: 3, id: 'b', name: 'Mona', department: 'Key accounts', jobTitle: 'Helper', requested: false },
       ],
-      skipped: [{ row: 4, name: 'Karim', reason: 'Karim is on the till already.' }],
-      departmentsAdded: ['Kitchen'],
+      skipped: [{ row: 4, name: 'Karim', reason: 'Karim is in the system already.' }],
+      departmentsAdded: ['Key accounts'],
     });
 
     expect(text(el.querySelector('.added')!)).toBe('2 employees added. تمت الإضافة');
-    expect(text(el.querySelector('.muted')!)).toBe('New departments: Kitchen.');
+    expect(text(el.querySelector('.muted')!)).toBe('New departments: Key accounts.');
     expect(text(el.querySelector('h3')!)).toBe('1 row skipped صفوف لم تُستورد');
-    expect([...el.querySelectorAll('tbody td')].map(text)).toEqual(['4', 'Karim', 'Karim is on the till already.']);
+    expect([...el.querySelectorAll('tbody td')].map(text)).toEqual(['4', 'Karim', 'Karim is in the system already.']);
   });
 
   it('says an accountant’s wait for a manager, and when nothing was added', () => {
     const asked = render({
-      imported: [{ row: 2, id: 'a', name: 'Samir', department: 'Kitchen', jobTitle: 'Chef', requested: true }],
+      imported: [{ row: 2, id: 'a', name: 'Samir', department: 'Key accounts', jobTitle: 'Checker', requested: true }],
       skipped: [],
       departmentsAdded: [],
     });

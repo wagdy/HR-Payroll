@@ -1,4 +1,4 @@
-// Shared by the costing screens. Labels carry English and Arabic, as the templates do.
+// Shared by the HR and custody screens. Labels carry English and Arabic, as the templates do.
 
 :host {
   display: block;
@@ -115,7 +115,7 @@ table.grid {
   white-space: nowrap;
 
   &.WithinTarget {
-    background: color-mix(in srgb, var(--till-ok) 18%, transparent);
+    background: color-mix(in srgb, var(--app-ok) 18%, transparent);
   }
 
   &.AboveTarget,
@@ -207,9 +207,9 @@ tr.surplus td.strong,
   white-space: nowrap;
 }
 
-// A record whose deletion waits for a manager: still in every figure, marked, and locked.
+// A record whose change waits for a manager: as it was until then, marked, and locked.
 tr.pending-deletion td {
-  background: color-mix(in srgb, var(--till-warn) 12%, var(--mat-sys-surface));
+  background: color-mix(in srgb, var(--app-warn) 12%, var(--mat-sys-surface));
 }
 
 .pending-badge,
@@ -227,8 +227,8 @@ tr.pending-deletion td {
 }
 
 .pending-badge {
-  background: color-mix(in srgb, var(--till-warn) 22%, transparent);
-  color: var(--till-warn);
+  background: color-mix(in srgb, var(--app-warn) 22%, transparent);
+  color: var(--app-warn);
 }
 
 // Posted, then deleted with a manager's approval: kept, its stock reversed.
@@ -239,7 +239,7 @@ tr.pending-deletion td {
 }
 
 .locked {
-  color: var(--till-warn);
+  color: var(--app-warn);
   vertical-align: middle;
 }
 
@@ -251,12 +251,12 @@ tr.pending-deletion td {
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--till-warn) 16%, var(--mat-sys-surface));
+  background: color-mix(in srgb, var(--app-warn) 16%, var(--mat-sys-surface));
   color: var(--mat-sys-on-surface);
 
   > mat-icon {
     flex: none;
-    color: var(--till-warn);
+    color: var(--app-warn);
   }
 }
 
@@ -312,11 +312,11 @@ tr.pending-deletion td {
   background: var(--mat-sys-surface-container-high);
 
   &.Paid {
-    background: color-mix(in srgb, var(--till-ok) 18%, transparent);
+    background: color-mix(in srgb, var(--app-ok) 18%, transparent);
   }
   &.Pending {
-    background: color-mix(in srgb, var(--till-warn) 22%, transparent);
-    color: var(--till-warn);
+    background: color-mix(in srgb, var(--app-warn) 22%, transparent);
+    color: var(--app-warn);
   }
   &.Unpaid {
     background: color-mix(in srgb, var(--mat-sys-error) 14%, transparent);

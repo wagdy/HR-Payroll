@@ -8,7 +8,7 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { errorMessage } from '../../core/http/error-message';
 import { HrApi, PublicHoliday, dayName, egyptFixedHolidays } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { BusinessDay } from '../costing/financials';
+import { BusinessDay } from '../../core/ui/business-day';
 import { HolidayAnswer, HolidayData, HolidayDialog } from './holiday-dialog';
 import { HrAccess } from '../../core/hr/hr-access';
 
@@ -30,8 +30,8 @@ import { HrAccess } from '../../core/hr/hr-access';
       }
     </div>
     <p class="note">
-      Everyone's paid day off: not working one is never an absence. Whoever works it is measured against their shift as on any day, and earns a
-      day's pay on top for half a shift or more, its hours for less. One on someone's weekly day off is paid once.
+      Everyone's paid day off: not working one is never an absence. Whoever works it is measured against their work schedule as on any day, and earns a
+      day's pay on top for half a workday or more, its hours for less. One on someone's weekly day off is paid once.
     </p>
     @if (loading()) {
       <mat-progress-bar mode="indeterminate" />
@@ -100,7 +100,7 @@ import { HrAccess } from '../../core/hr/hr-access';
       }
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .year {
       min-width: 60px;
@@ -195,7 +195,7 @@ export class HolidaysPage {
     }
   }
 
-  // Does it, says so, and reads the year again; a refusal is said as the till says it.
+  // Does it, says so, and reads the year again; a refusal is said as the API says it.
   private async act(call: () => Observable<unknown>, done: string): Promise<void> {
     try {
       await firstValueFrom(call());

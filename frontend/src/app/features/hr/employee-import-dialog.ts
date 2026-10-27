@@ -53,7 +53,7 @@ import { EmployeeImportResult } from '../../core/hr/hr.api';
       <button mat-flat-button mat-dialog-close>Done</button>
     </mat-dialog-actions>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .added {
       font: var(--mat-sys-title-small);

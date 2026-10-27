@@ -11,7 +11,7 @@ export class NotifyService {
     this.snackBar.open(message, 'OK', { duration: 3500 });
   }
 
-  // Something arrived that the cashier did not do: kept up longer, and dismissed by hand.
+  // Something arrived that whoever uses the app did not do: kept up longer, and dismissed by hand.
   attention(message: string): void {
     this.snackBar.open(message, 'Got it', { duration: 8000, panelClass: 'snack-attention' });
   }

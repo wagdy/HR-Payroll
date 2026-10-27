@@ -77,7 +77,7 @@ import { LeaveTypeAnswer, LeaveTypeDialog } from './leave-dialogs';
       }
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .small {
       font-size: 0.85em;
@@ -124,7 +124,7 @@ export class LeaveTypesPage {
     }
   }
 
-  // Does it, says so, and reads the list again; a refusal is said as the till says it.
+  // Does it, says so, and reads the list again; a refusal is said as the API says it.
   private async act(call: () => Observable<unknown>, done: string): Promise<void> {
     try {
       await firstValueFrom(call());

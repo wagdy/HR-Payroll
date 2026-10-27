@@ -14,6 +14,6 @@ internal sealed class HrDbContextFactory : IDesignTimeDbContextFactory<HrDbConte
         var connectionString = Environment.GetEnvironmentVariable("HRPAYROLL_CONNECTION")
             ?? "Host=localhost;Port=5435;Database=hr_payroll;Username=hr;Password=hr-dev";
 
-        return new HrDbContext(new DbContextOptionsBuilder<HrDbContext>().UseNpgsql(connectionString).Options);
+        return new HrDbContext(new DbContextOptionsBuilder<HrDbContext>().UseNpgsql(connectionString, HrDbContext.ConfigureNpgsql).Options);
     }
 }

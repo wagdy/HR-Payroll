@@ -29,7 +29,7 @@ interface ShareRow {
 // Advances handed out with no one named, given out (توزيع السلفة): an employee a row, each with a
 // share, never more than is left; some now and the rest later is fine. Split equally shares what
 // is left among the employees chosen, in whole pounds, the odd ones on the first. Each share comes
-// off its employee's pay. Sent from here, so a share the till refuses (one not employed then) is
+// off its employee's pay. Sent from here, so a share the system refuses (one not employed then) is
 // said here and nothing is lost.
 @Component({
   selector: 'app-distribute-advance-dialog',
@@ -50,11 +50,6 @@ interface ShareRow {
     <mat-dialog-content>
       <p class="muted">
         Handed out {{ advance.date | date: 'd MMM y' }}
-        @if (advance.fromTakingsOf) {
-          from the takings of {{ advance.fromTakingsOf | date: 'd MMM' }}
-        } @else {
-          from the safe
-        }
         @if (advance.notes) {
           · {{ advance.notes }}
         }
@@ -71,7 +66,6 @@ interface ShareRow {
             <mat-label>Amount · المبلغ</mat-label>
             <input matInput type="number" min="0" step="any" [ngModel]="row.amount" (ngModelChange)="set(i, { amount: $event })"
               [attr.aria-label]="'Share ' + (i + 1) + ', amount'" />
-            <span matTextSuffix>&nbsp;L.E</span>
           </mat-form-field>
           <mat-form-field subscriptSizing="dynamic" class="notes">
             <mat-label>Notes · ملاحظات</mat-label>
@@ -104,7 +98,7 @@ interface ShareRow {
       <button mat-flat-button (click)="save()" [disabled]="!!holdUp() || saving()">Give out {{ total() | money }}</button>
     </mat-dialog-actions>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .row {
       display: flex;

@@ -15,9 +15,9 @@ export function westernDigits(text: string): string {
 const NUMBER_FIELDS =
   'input[type=number], input[type=tel], input[inputmode=numeric], input[inputmode=decimal], input[inputmode=tel], input[data-western-digits]';
 
-// So that nobody has to switch keyboards between an Arabic name and its price: an Arabic digit typed
-// or pasted into a field that takes numbers goes in as the Western one, wherever the field is in the
-// till. Installed once, at startup, for the whole page.
+// So that nobody has to switch keyboards between an Arabic name and an amount: an Arabic digit
+// typed or pasted into a field that takes numbers goes in as the Western one, wherever the field
+// is in the app. Installed once, at startup, for the whole page.
 //
 // A number field drops an Arabic digit before any input event, so the key is caught as it goes
 // down, and the Western digit typed in its place. Typed by the browser's own insert, at the cursor:

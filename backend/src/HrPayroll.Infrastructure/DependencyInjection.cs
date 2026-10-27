@@ -29,8 +29,7 @@ public static class DependencyInjection
         services.AddSingleton<IWorkClock>(sp => sp.GetRequiredService<WorkClock>());
         services.TryAddSingleton(TimeProvider.System);
 
-        services.AddDbContext<HrDbContext>(o =>
-            o.UseNpgsql(connectionString, npgsql => npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery)));
+        services.AddDbContext<HrDbContext>(o => o.UseNpgsql(connectionString, HrDbContext.ConfigureNpgsql));
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<HrDbContext>());
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(RetryOnConflictBehavior<,>));
 

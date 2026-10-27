@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
 using Npgsql;
 using HrPayroll.Domain.Common;
 using HrPayroll.Domain.Access;
@@ -22,6 +24,13 @@ public sealed class HrDbContext(DbContextOptions<HrDbContext> options) : DbConte
     // HR & Payroll, Custody & Assets and the approvals in one schema; the system's users apart.
     public const string HrSchema = "hr";
     public const string IdentitySchema = "identity";
+
+    // The app's and the design-time tools' own setup. The history of migrations is kept in the hr
+    // schema by name: left to the search path, a database user named hr (whose "$user" schema is
+    // hr once the first migration makes it) would look there, find none, and apply them again.
+    public static void ConfigureNpgsql(NpgsqlDbContextOptionsBuilder npgsql) => npgsql
+        .UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery)
+        .MigrationsHistoryTable(HistoryRepository.DefaultTableName, HrSchema);
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeIdPhoto> EmployeeIdPhotos => Set<EmployeeIdPhoto>();

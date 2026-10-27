@@ -6,13 +6,13 @@ import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { Permissions } from '../../core/auth/permissions';
-import { ApprovalRequest } from '../../core/costing/costing.api';
+import { ApprovalRequest } from '../../core/approvals/approvals.api';
 import { CustodyApi, CustodyItem } from '../../core/custody/custody.api';
 import { Department, Employee, HrApi, PayrollFigures, PayrollSlip } from '../../core/hr/hr.api';
 import { PerformanceApi } from '../../core/hr/performance.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
-import { BusinessDay, Treasury } from '../costing/financials';
+import { Approvals } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
 import { EmployeeDialog } from './employee-dialog';
 import { EmployeeProfilePage, IdCardDialog, PinDialog, RemoveIdCardDialog } from './employee-profile-page';
 import { EmploymentDialog } from './employment-dialog';
@@ -26,15 +26,15 @@ const cell = (el: Element): string =>
     .join(' ');
 
 const hassan: Employee = {
-  id: 'hassan', name: 'Hassan Mahmoud Ali', jobTitle: 'Chef', monthlySalary: 5_400, shiftStartsAt: '10:00:00', shiftEndsAt: '19:00:00',
+  id: 'hassan', name: 'Hassan Mahmoud Ali', jobTitle: 'Checker', monthlySalary: 5_400, shiftStartsAt: '10:00:00', shiftEndsAt: '19:00:00',
   daysOff: ['Friday', 'Saturday'], deviceUserId: '7', hiredOn: '2026-01-05', leftOn: null, isActive: true, dailyRate: 180, hourlyRate: 20,
   nationalId: '29001010123456', mobileNumber: '01012345678',
   idPhoto: { fileName: 'card.jpg', contentType: 'image/jpeg', bytes: 2_000, uploadedAtUtc: '2026-10-20T09:30:00Z', uploadedBy: 'Omar' },
-  employmentType: 'Monthly', dailyWage: 0, departmentId: 'kitchen', jobRoleId: 'chef',
+  employmentType: 'Monthly', dailyWage: 0, departmentId: 'accounts', jobRoleId: 'checker',
 };
 const departments: Department[] = [
   { id: 'general', name: 'General', isGeneral: true, employed: 0, everyone: 0, roles: [], monthlyCost: 0, dailyCost: 0 },
-  { id: 'kitchen', name: 'Kitchen', isGeneral: false, employed: 1, everyone: 1, roles: [{ id: 'chef', departmentId: 'kitchen', name: 'Chef', employed: 1, monthlyCost: 0, dailyCost: 0 }], monthlyCost: 0, dailyCost: 0 },
+  { id: 'accounts', name: 'Key accounts', isGeneral: false, employed: 1, everyone: 1, roles: [{ id: 'checker', departmentId: 'accounts', name: 'Checker', employed: 1, monthlyCost: 0, dailyCost: 0 }], monthlyCost: 0, dailyCost: 0 },
 ];
 
 function slip(employee: Employee, month: string): PayrollSlip {
@@ -87,7 +87,6 @@ describe('an employee’s profile', () => {
         { provide: Approvals, useValue: approvals },
         { provide: NotifyService, useValue: notify },
         { provide: MatDialog, useValue: { open } },
-        { provide: Treasury, useValue: { enter: vi.fn() } },
         { provide: BusinessDay, useValue: { today: () => Promise.resolve('2026-10-22') } },
         { provide: PerformanceApi, useValue: { employee: performanceOf, kpis: () => of([]) } },
       ],
@@ -134,15 +133,15 @@ describe('an employee’s profile', () => {
     const { el, details } = await render();
 
     expect(employee).toHaveBeenCalledWith('hassan');
-    expect(cell(el.querySelector('.profile-head')!)).toBe('HM Hassan Mahmoud Ali Chef · Kitchen Employed على رأس العمل');
+    expect(cell(el.querySelector('.profile-head')!)).toBe('HM Hassan Mahmoud Ali Checker · Key accounts Employed على رأس العمل');
     expect(details()).toEqual({
       'Full name الاسم بالكامل': 'Hassan Mahmoud Ali',
       'National ID رقم البطاقة': '29001010123456',
       'Mobile رقم الموبايل': '01012345678',
       'Started on تاريخ التعيين': '5 Jan 2026',
-      'Department · role القسم والوظيفة': 'Kitchen · Chef',
-      'Pay الأجر': 'L.E 5,400.00 a month · L.E 180.00 a day',
-      'Shift الوردية': '10:00–19:00 · off Sat, Fri',
+      'Department · role القسم والوظيفة': 'Key accounts · Checker',
+      'Pay الأجر': '5,400.00 a month · 180.00 a day',
+      'Work schedule الدوام': '10:00–19:00 · off Sat, Fri',
       'Device no. رقم البصمة': '7',
     });
     expect(el.querySelector('a[href="tel:01012345678"]')).not.toBeNull();
@@ -170,7 +169,7 @@ describe('an employee’s profile', () => {
 
     expect(payroll).toHaveBeenLastCalledWith('2026-10-01');
     expect(text(el.querySelector('app-payslip-page h2')!)).toBe('Hassan Mahmoud Ali');
-    expect(cell(el.querySelector('app-payslip-page .total')!)).toBe('= Net payable صافي المستحق L.E 5,100.00');
+    expect(cell(el.querySelector('app-payslip-page .total')!)).toBe('= Net payable صافي المستحق 5,100.00');
     // In the profile, no way back to Payroll: a link to open it there.
     const links = [...el.querySelectorAll('app-payslip-page .toolbar a')].map(text);
     expect(links).toContain('open_in_new On Payroll');
@@ -218,7 +217,7 @@ describe('an employee’s profile', () => {
     expect(text(el.querySelector('.waiting')!)).toBe('Change requestedطلب تعديل Employee changed · Hassan Mahmoud Ali · asked by Sara');
   });
 
-  it('uploads, replaces and takes off the ID card, refusing a file the till would', async () => {
+  it('uploads, replaces and takes off the ID card, refusing a file the system would', async () => {
     const { el, page, refresh } = await render();
     const pick = async (file: File) => {
       const picker = el.querySelector<HTMLInputElement>('input[type="file"]')!;
@@ -292,8 +291,8 @@ describe('an employee’s profile', () => {
     const plates: CustodyItem = {
       since: '2026-10-20',
       asset: {
-        id: 'plates', name: 'Dinner plates', categoryId: 't', categoryName: 'Tableware', isConsumable: true, unitCost: 35, quantity: 37, totalCost: 1_295,
-        employeeId: 'hassan', employeeName: 'Hassan Mahmoud Ali', origin: 'HrManual', status: 'InCustody', sourceInvoiceId: null, notes: null,
+        id: 'plates', name: 'Desk lamps', categoryId: 't', categoryName: 'Technology', isConsumable: true, unitCost: 35, quantity: 37, totalCost: 1_295,
+        employeeId: 'hassan', employeeName: 'Hassan Mahmoud Ali', status: 'InCustody', notes: null,
         createdBy: 'Omar', createdAtUtc: '2026-10-20T09:00:00Z',
       },
     };
@@ -301,7 +300,7 @@ describe('an employee’s profile', () => {
     const { el } = await render();
 
     expect(employeeCustody).toHaveBeenCalledWith('hassan');
-    expect([...el.querySelectorAll('.custody .held')].map(cell)).toEqual(['Dinner plates × 37 Tableware · since 20 Oct 2026 L.E 1,295.00']);
+    expect([...el.querySelectorAll('.custody .held')].map(cell)).toEqual(['Desk lamps × 37 Technology · since 20 Oct 2026 1,295.00']);
     expect(el.querySelector('.custody a')!.getAttribute('href')).toBe('/custody/assets');
   });
 
@@ -312,7 +311,7 @@ describe('an employee’s profile', () => {
     await refresh();
 
     expect(cell(pin())).toContain('No PIN yet: they cannot sign in to the portal.');
-    expect(cell(pin())).toContain('On the restaurant\'s Wi-Fi: http://192.168.1.57:5083/portal');
+    expect(cell(pin())).toContain('On the office Wi-Fi: http://192.168.1.57:5083/portal');
     expect([...pin().querySelectorAll('button')].map(text)).toEqual(['password Set a PIN الرقم السري']);
 
     open.mockReturnValue({ afterClosed: () => of('2468') });

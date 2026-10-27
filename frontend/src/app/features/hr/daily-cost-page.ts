@@ -10,7 +10,7 @@ import { firstValueFrom } from 'rxjs';
 import { errorMessage } from '../../core/http/error-message';
 import { DailyLabourCost, HrApi, duration } from '../../core/hr/hr.api';
 import { MoneyPipe } from '../../core/ui/money.pipe';
-import { BusinessDay, isoDay } from '../costing/financials';
+import { BusinessDay, isoDay } from '../../core/ui/business-day';
 
 // A day's labour cost (تكلفة يوم), a quick reference: everyone who punched in on the day, each at
 // their day's rate (a monthly salary over 30, or their daily wage), totalled and by department.
@@ -147,7 +147,7 @@ import { BusinessDay, isoDay } from '../costing/financials';
       </p>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .day {
       width: 170px;
@@ -194,14 +194,14 @@ import { BusinessDay, isoDay } from '../costing/financials';
       max-width: 900px;
     }
     tr.forgot td {
-      background: color-mix(in srgb, var(--till-warn) 12%, transparent);
+      background: color-mix(in srgb, var(--app-warn) 12%, transparent);
     }
     .flag {
       display: inline-block;
       padding: 1px 8px;
       border-radius: 999px;
       font: var(--mat-sys-label-small);
-      background: color-mix(in srgb, var(--till-warn) 30%, transparent);
+      background: color-mix(in srgb, var(--app-warn) 30%, transparent);
     }
     .small {
       font-size: 0.85em;

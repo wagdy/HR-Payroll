@@ -6,12 +6,12 @@ import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { Permissions } from '../../core/auth/permissions';
-import { ApprovalRequest } from '../../core/costing/costing.api';
+import { ApprovalRequest } from '../../core/approvals/approvals.api';
 import { saveDeviceLink } from '../../core/hr/device-link';
 import { AttendanceDevice, Department, DeviceCommand, DeviceSyncResult, DeviceUser, Employee, HrApi } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
-import { BusinessDay } from '../costing/financials';
+import { Approvals } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
 import { EmployeeDialog } from './employee-dialog';
 import { EmployeeImportDialog } from './employee-import-dialog';
 import { EmployeesPage, LinkDeviceUserDialog } from './employees-page';
@@ -28,22 +28,22 @@ const cell = (el: Element): string =>
 
 function employee(id: string, name: string, extra: Partial<Employee> = {}): Employee {
   return {
-    id, name, jobTitle: 'Chef', monthlySalary: 5_400, shiftStartsAt: '10:00:00', shiftEndsAt: '19:00:00', daysOff: ['Friday'], deviceUserId: null,
+    id, name, jobTitle: 'Checker', monthlySalary: 5_400, shiftStartsAt: '10:00:00', shiftEndsAt: '19:00:00', daysOff: ['Friday'], deviceUserId: null,
     hiredOn: '2026-01-01', leftOn: null, isActive: true, dailyRate: 180, hourlyRate: 20, nationalId: null, mobileNumber: null, idPhoto: null, employmentType: 'Monthly', dailyWage: 0, departmentId: 'general', jobRoleId: null, ...extra,
   };
 }
 
 const hassan = employee('hassan', 'Hassan', { deviceUserId: '7', daysOff: ['Friday', 'Saturday'] });
-const mona = employee('mona', 'Mona', { jobTitle: 'Waiter', monthlySalary: 4_000, dailyRate: 133.33, hourlyRate: 14.81, shiftStartsAt: '16:00:00', shiftEndsAt: '01:00:00', daysOff: [] });
+const mona = employee('mona', 'Mona', { jobTitle: 'Warehouse clerk', monthlySalary: 4_000, dailyRate: 133.33, hourlyRate: 14.81, shiftStartsAt: '16:00:00', shiftEndsAt: '01:00:00', daysOff: [] });
 const gone = employee('gone', 'Gone Already', { isActive: false, leftOn: '2026-09-30' });
 const departments: Department[] = [
   { id: 'general', name: 'General', isGeneral: true, employed: 2, everyone: 3, roles: [], monthlyCost: 0, dailyCost: 0 },
-  { id: 'kitchen', name: 'Kitchen', isGeneral: false, employed: 0, everyone: 0, roles: [], monthlyCost: 0, dailyCost: 0 },
+  { id: 'accounts', name: 'Key accounts', isGeneral: false, employed: 0, everyone: 0, roles: [], monthlyCost: 0, dailyCost: 0 },
 ];
 
 function deviceUser(number: string, name: string, extra: Partial<DeviceUser> = {}): DeviceUser {
   return {
-    id: `u${number}`, deviceSerialNumber: 'CQZ', deviceName: 'Kitchen door', deviceUserId: number, name, lastSeenAtUtc: '2026-10-20T08:00:00Z',
+    id: `u${number}`, deviceSerialNumber: 'CQZ', deviceName: 'Main door', deviceUserId: number, name, lastSeenAtUtc: '2026-10-20T08:00:00Z',
     employeeId: null, employeeName: null, waitingPunches: 0, ...extra,
   };
 }
@@ -124,16 +124,16 @@ describe('the employees', () => {
   it('lists who is employed, their salary, shift, days off and device number, and who has left when asked', async () => {
     const { el, page, rows, refresh } = await render();
 
-    expect(text(el.querySelector('.toolbar .muted')!)).toBe('2 employed · L.E 9,400.00 a month');
+    expect(text(el.querySelector('.toolbar .muted')!)).toBe('2 employed · 9,400.00 a month');
     expect(rows()).toEqual([
-      // The restaurant's week starts on Saturday.
-      ['Hassan Chef · General', 'L.E 5,400.00 L.E 180.00 a day · L.E 20.00 an hour', '10:00–19:00', 'Sat, Fri', '7', 'Employed على رأس العمل since 1 Jan 2026'],
-      ['Mona Waiter · General', 'L.E 4,000.00 L.E 133.33 a day · L.E 14.81 an hour', '16:00–01:00', 'None', '—', 'Employed على رأس العمل since 1 Jan 2026'],
+      // The company's week starts on Saturday.
+      ['Hassan Checker · General', '5,400.00 180.00 a day · 20.00 an hour', '10:00–19:00', 'Sat, Fri', '7', 'Employed على رأس العمل since 1 Jan 2026'],
+      ['Mona Warehouse clerk · General', '4,000.00 133.33 a day · 14.81 an hour', '16:00–01:00', 'None', '—', 'Employed على رأس العمل since 1 Jan 2026'],
     ]);
 
     page['showLeft'].set(true);
     await refresh();
-    expect(rows()[0]).toEqual(['Gone Already Chef · General', 'L.E 5,400.00 L.E 180.00 a day · L.E 20.00 an hour', '10:00–19:00', 'Fri', '—', 'Left ترك العمل last day 30 Sep 2026']);
+    expect(rows()[0]).toEqual(['Gone Already Checker · General', '5,400.00 180.00 a day · 20.00 an hour', '10:00–19:00', 'Fri', '—', 'Left ترك العمل last day 30 Sep 2026']);
   });
 
   it('opens an employee’s profile from their row or their name, and not from the row’s buttons', async () => {
@@ -156,13 +156,13 @@ describe('the employees', () => {
 
   it('lists a new one an accountant asked for, and locks one whose change waits', async () => {
     pending.set([
-      { id: 'r1', module: 'Employee', action: 'Create', recordId: 'new', summary: 'New employee · Karim · Waiter · L.E 4,000.00 a month, from 12:00', requestedBy: 'Sara' },
+      { id: 'r1', module: 'Employee', action: 'Create', recordId: 'new', summary: 'New employee · Karim · Warehouse clerk · 4,000.00 a month, from 12:00', requestedBy: 'Sara' },
       { id: 'r2', module: 'Employee', action: 'Update', recordId: 'mona', summary: 'Employee changed · Mona', requestedBy: 'Sara' },
     ] as ApprovalRequest[]);
     const { el } = await render();
 
     expect(text(el.querySelector('.waiting li')!)).toBe(
-      'Waiting for approvalبانتظار الموافقة New employee · Karim · Waiter · L.E 4,000.00 a month, from 12:00 · asked by Sara',
+      'Waiting for approvalبانتظار الموافقة New employee · Karim · Warehouse clerk · 4,000.00 a month, from 12:00 · asked by Sara',
     );
     const monaRow = [...el.querySelectorAll('tbody tr')][1];
     expect(text(monaRow.querySelector('.pending-badge')!)).toBe('Change requestedطلب تعديل');
@@ -189,23 +189,23 @@ describe('the employees', () => {
   });
 
   it('shows a daily worker’s wage, and one department’s employees when chosen', async () => {
-    const samir = employee('samir', 'Samir', { employmentType: 'Daily', monthlySalary: 0, dailyWage: 270, dailyRate: 270, hourlyRate: 30, departmentId: 'kitchen' });
+    const samir = employee('samir', 'Samir', { employmentType: 'Daily', monthlySalary: 0, dailyWage: 270, dailyRate: 270, hourlyRate: 30, departmentId: 'accounts' });
     employees.mockReturnValue(of([hassan, samir]));
     const { el, page, rows, refresh } = await render();
 
-    expect(rows()[1].slice(0, 2)).toEqual(['Samir Chef · Kitchen', 'L.E 270.00 a day Daily wage · L.E 30.00 an hour']);
-    expect(text(el.querySelector('.toolbar > .muted')!)).toBe('2 employed · L.E 5,400.00 a month · 1 on daily wages');
+    expect(rows()[1].slice(0, 2)).toEqual(['Samir Checker · Key accounts', '270.00 a day Daily wage · 30.00 an hour']);
+    expect(text(el.querySelector('.toolbar > .muted')!)).toBe('2 employed · 5,400.00 a month · 1 on daily wages');
 
-    page['department'].set('kitchen');
+    page['department'].set('accounts');
     await refresh();
-    expect(rows().map((r) => r[0])).toEqual(['Samir Chef · Kitchen']);
+    expect(rows().map((r) => r[0])).toEqual(['Samir Checker · Key accounts']);
   });
 
   describe('Excel', () => {
     const imported = {
-      imported: [{ row: 2, id: 'new', name: 'Samir', department: 'Kitchen', jobTitle: 'Chef', requested: false }],
-      skipped: [{ row: 3, name: 'Karim', reason: 'Karim is on the till already.' }],
-      departmentsAdded: ['Kitchen'],
+      imported: [{ row: 2, id: 'new', name: 'Samir', department: 'Key accounts', jobTitle: 'Checker', requested: false }],
+      skipped: [{ row: 3, name: 'Karim', reason: 'Karim is in the system already.' }],
+      departmentsAdded: ['Key accounts'],
     };
 
     function saving() {
@@ -269,11 +269,11 @@ describe('the employees', () => {
       answeredAtUtc: null, returnCode: null,
     };
     const door: AttendanceDevice = {
-      id: 'd1', serialNumber: 'CQZ', name: 'Kitchen door', isApproved: true, approvedBy: 'Omar', approvedAtUtc: null, firstSeenAtUtc: '', lastSeenAtUtc: '',
+      id: 'd1', serialNumber: 'CQZ', name: 'Main door', isApproved: true, approvedBy: 'Omar', approvedAtUtc: null, firstSeenAtUtc: '', lastSeenAtUtc: '',
       lastAddress: '192.168.1.106', commands: [], lastCalledInAtUtc: null, callingIn: false, clockAheadMinutes: null,
     };
     const synced = (extra: Partial<DeviceSyncResult> = {}): DeviceSyncResult => ({
-      serialNumber: 'CQZ', deviceName: 'Kitchen door', newDevice: false, users: 3, usersNotOnTheTill: 1, punches: 40, newPunches: 12, ...extra,
+      serialNumber: 'CQZ', deviceName: 'Main door', newDevice: false, users: 3, usersNotInTheSystem: 1, punches: 40, newPunches: 12, ...extra,
     });
     const closed = new HttpErrorResponse({
       status: 422,
@@ -307,7 +307,7 @@ describe('the employees', () => {
         ['192.168.1.106', 4370, 0],
       ]);
       expect(readDeviceUsers).not.toHaveBeenCalled();
-      expect(notify.info).toHaveBeenLastCalledWith('Synced Bar: 1 user, 1 new punch; Kitchen door: 3 users, 12 new punches.');
+      expect(notify.info).toHaveBeenLastCalledWith('Synced Bar: 1 user, 1 new punch; Main door: 3 users, 12 new punches.');
       expect(page['unknown']().map((u: DeviceUser) => u.deviceUserId)).toEqual(['31']);
       expect(page['syncing']()).toBe(false);
     });
@@ -329,7 +329,7 @@ describe('the employees', () => {
       expect(syncDevice).toHaveBeenCalledWith('192.168.1.106', 4370, 0);
       expect(readDeviceUsers).toHaveBeenCalledWith('d1');
       expect(notify.attention).toHaveBeenCalledWith(
-        `${closed.error.errors[0]} Asked Kitchen door for its users over ADMS: they appear under Device users within seconds.`,
+        `${closed.error.errors[0]} Asked Main door for its users over ADMS: they appear under Device users within seconds.`,
       );
       expect(devicesOf).toHaveBeenCalledTimes(2);
       expect(page['unknown']().map((u: DeviceUser) => u.deviceUserId)).toEqual(['31']);
@@ -399,7 +399,7 @@ describe('the employees', () => {
     const { el, page, refresh } = await render(true, 'device');
 
     const listed = [...el.querySelectorAll('.on-device tbody tr')];
-    expect(listed.map((r) => [...r.querySelectorAll('td')].slice(0, 4).map(cell))).toEqual([['12', 'منى', 'Kitchen door', '40']]);
+    expect(listed.map((r) => [...r.querySelectorAll('td')].slice(0, 4).map(cell))).toEqual([['12', 'منى', 'Main door', '40']]);
 
     open.mockReturnValue({ afterClosed: () => of(undefined) });
     await page['addFromDevice'](deviceUser('12', 'منى'));

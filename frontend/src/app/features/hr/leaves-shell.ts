@@ -22,7 +22,7 @@ import { PendingLeaves } from './pending-leaves';
     </nav>
     <router-outlet />
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .sub {
       display: flex;
@@ -58,7 +58,7 @@ import { PendingLeaves } from './pending-leaves';
       font: var(--mat-sys-label-small);
       line-height: 20px;
       text-align: center;
-      background: var(--till-warn);
+      background: var(--app-warn);
       color: #000;
     }
   `,

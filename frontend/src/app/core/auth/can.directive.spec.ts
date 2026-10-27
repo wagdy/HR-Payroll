@@ -4,24 +4,22 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Me } from '../api/models';
-import { captainMe, cashierMe } from '../../../testing/fixtures';
+import { accountantMe, managerMe } from '../../../testing/fixtures';
 import { AuthService } from './auth.service';
 import { CanDirective } from './can.directive';
-import { MoneyPermissions, Permissions } from './permissions';
+import { Permissions } from './permissions';
 
 @Component({
   imports: [CanDirective],
   template: `
-    <button *appCan="P.OrderSendToKitchen" id="send">Send to kitchen</button>
-    <button *appCan="P.OrderCheckout" id="checkout">Checkout</button>
-    <button *appCan="P.VoidAfterPayment" id="refund">Refund</button>
-    <button *appCan="P.ReceiptPrintFinal" id="receipt">Print receipt</button>
-    <span *appCan="money" id="any-money">money</span>
+    <button *appCan="P.HrManage" id="change">Change</button>
+    <button *appCan="P.ApprovalDecide" id="approve">Approve</button>
+    <a *appCan="P.UsersManage" id="users">Users</a>
+    <span *appCan="[P.ApprovalDecide, P.UsersManage]" id="any-manager">manager</span>
   `,
 })
-class Till {
+class Screen {
   protected readonly P = Permissions;
-  protected readonly money = MoneyPermissions;
 }
 
 describe('role-based buttons', () => {
@@ -37,15 +35,13 @@ describe('role-based buttons', () => {
 
   afterEach(() => http.verify());
 
-  // The sign-in response is answered with a manager's rights on purpose: the till must ignore it
+  // The sign-in response is answered with a manager's rights on purpose: the app must ignore it
   // and believe only GET /api/auth/me.
   async function signInAs(me: Me): Promise<void> {
-    const signedIn = auth.signIn(me.id, '2468');
-    http.expectOne('/api/auth/sign-in').flush({
-      token: 'token-' + me.id,
-      expiresAtUtc: '2026-10-04T00:00:00Z',
-      staff: { ...cashierMe, role: 'Manager', permissions: [...cashierMe.permissions, 'staff.manage'] },
-    });
+    const signedIn = auth.signIn(me.email, 'a-password');
+    const signIn = http.expectOne('/api/auth/sign-in');
+    expect(signIn.request.body).toEqual({ email: me.email, password: 'a-password' });
+    signIn.flush({ token: 'token-' + me.id, expiresAtUtc: '2026-10-04T00:00:00Z', user: managerMe });
     await new Promise((resolve) => setTimeout(resolve));
     const meRequest = http.expectOne('/api/auth/me');
     expect(meRequest.request.headers.has('Authorization')).toBe(false); // the interceptor is not in this test bed
@@ -54,37 +50,51 @@ describe('role-based buttons', () => {
   }
 
   async function render(): Promise<HTMLElement> {
-    const fixture = TestBed.createComponent(Till);
+    const fixture = TestBed.createComponent(Screen);
     await fixture.whenStable();
     return fixture.nativeElement as HTMLElement;
   }
 
   it('takes the role from /api/auth/me, never from the sign-in response', async () => {
-    await signInAs(captainMe);
+    await signInAs(accountantMe);
 
-    expect(auth.me()?.role).toBe('CaptainOrder');
-    expect(auth.can(Permissions.StaffManage)).toBe(false);
-    expect(auth.can(Permissions.OrderCheckout)).toBe(false);
+    expect(auth.me()?.role).toBe('Accountant');
+    expect(auth.can(Permissions.UsersManage)).toBe(false);
+    expect(auth.can(Permissions.HrManage)).toBe(true);
+    expect(localStorage.getItem('hr-payroll.token')).toBe('token-user-accountant');
   });
 
-  // Requirement: a captain who reaches the POS screen has no payment, receipt or void controls.
-  it('shows a captain order taking and nothing that touches money', async () => {
-    await signInAs(captainMe);
-    const till = await render();
+  it('shows an accountant changes, and nothing a manager decides', async () => {
+    await signInAs(accountantMe);
+    const screen = await render();
 
-    expect(till.querySelector('#send')).not.toBeNull();
-    expect(till.querySelector('#checkout')).toBeNull();
-    expect(till.querySelector('#refund')).toBeNull();
-    expect(till.querySelector('#receipt')).toBeNull();
-    expect(till.querySelector('#any-money')).toBeNull();
+    expect(screen.querySelector('#change')).not.toBeNull();
+    expect(screen.querySelector('#approve')).toBeNull();
+    expect(screen.querySelector('#users')).toBeNull();
+    expect(screen.querySelector('#any-manager')).toBeNull();
   });
 
-  it('gives a cashier the whole till', async () => {
-    await signInAs(cashierMe);
-    const till = await render();
+  it('gives a manager everything', async () => {
+    await signInAs(managerMe);
+    const screen = await render();
 
-    for (const id of ['send', 'checkout', 'refund', 'receipt', 'any-money']) {
-      expect(till.querySelector('#' + id), id).not.toBeNull();
+    for (const id of ['change', 'approve', 'users', 'any-manager']) {
+      expect(screen.querySelector('#' + id), id).not.toBeNull();
     }
+  });
+
+  it('keeps the new token when the password is changed, and asks who it is again', async () => {
+    await signInAs(accountantMe);
+
+    const changed = auth.changePassword('a-password', 'a-better-one');
+    const request = http.expectOne('/api/auth/password');
+    expect(request.request.body).toEqual({ currentPassword: 'a-password', newPassword: 'a-better-one' });
+    request.flush({ token: 'token-new', expiresAtUtc: '2026-10-04T00:00:00Z', user: accountantMe });
+    await new Promise((resolve) => setTimeout(resolve));
+    http.expectOne('/api/auth/me').flush(accountantMe);
+    await changed;
+
+    expect(auth.token()).toBe('token-new');
+    expect(localStorage.getItem('hr-payroll.token')).toBe('token-new');
   });
 });

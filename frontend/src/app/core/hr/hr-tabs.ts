@@ -1,6 +1,6 @@
 // The tabs of HR & Payroll, and Custody & Assets beside them, as the API names them (صلاحيات
-// الموظفين): what a manager gives an employee, who works them in the portal, or an accountant, on
-// the till. A manager has them all.
+// الموظفين): what a manager gives an employee, who works them in the portal, or an accountant, in
+// the system. A manager has them all.
 export type HrTab = 'Now' | 'Employees' | 'Departments' | 'Attendance' | 'Corrections' | 'Payroll' | 'Advances' | 'Holidays' | 'Devices' | 'Custody';
 
 export interface HrTabInfo {

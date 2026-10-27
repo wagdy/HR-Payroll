@@ -1,18 +1,15 @@
 import { Component, DestroyRef, effect, inject, input, signal, untracked } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Observable, firstValueFrom } from 'rxjs';
-import { CostingApi } from '../../core/costing/costing.api';
-import { errorMessage } from '../../core/http/error-message';
-import { saveBlob } from '../../core/ui/save-blob';
+import { errorMessage } from '../http/error-message';
+import { saveBlob } from './save-blob';
 
-// An invoice's photo or scan, fetched with the manager's sign-in (a plain link would carry none)
-// and shown in the page: a photo as it is, a PDF in the browser's own viewer. A till running
-// full screen has no tabs to open it in. Another file (an employee's ID card) is shown the same
-// way, given how to fetch it.
+// A file the API keeps, such as an employee's ID card, fetched with the sign-in (a plain link
+// would carry none) and shown in the page: a photo as it is, a PDF in the browser's own viewer.
+// Given how to fetch it.
 @Component({
   selector: 'app-paper-preview',
   imports: [MatButtonModule, MatIconModule, MatProgressBarModule],
@@ -68,12 +65,9 @@ import { saveBlob } from '../../core/ui/save-blob';
   `,
 })
 export class PaperPreview {
-  private readonly api = inject(CostingApi);
   private readonly sanitizer = inject(DomSanitizer);
 
-  readonly invoiceId = input<string | null>(null);
-  // Another file than an invoice's paper: how it is fetched.
-  readonly fetch = input<(() => Observable<Blob>) | null>(null);
+  readonly fetch = input.required<() => Observable<Blob>>();
   readonly fileName = input.required<string>();
 
   protected readonly image = signal<string | null>(null);
@@ -84,8 +78,8 @@ export class PaperPreview {
 
   constructor() {
     effect(() => {
-      const [id, fetch] = [this.invoiceId(), this.fetch()];
-      untracked(() => void this.load(fetch ?? (() => this.api.purchaseInvoiceFile(id!))));
+      const fetch = this.fetch();
+      untracked(() => void this.load(fetch));
     });
     inject(DestroyRef).onDestroy(() => this.release());
   }
@@ -109,7 +103,7 @@ export class PaperPreview {
       if (blob.type.startsWith('image/')) {
         this.image.set(this.url);
       } else {
-        // A PDF, in the browser's own viewer. The URL is one made here, of a file the till checked
+        // A PDF, in the browser's own viewer. The URL is one made here, of a file the API checked
         // was a PDF by its first bytes when it was uploaded.
         this.document.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.url));
       }
@@ -124,44 +118,4 @@ export class PaperPreview {
       this.url = null;
     }
   }
-}
-
-export interface InvoicePaperData {
-  invoiceId: string;
-  fileName: string;
-}
-
-// The paper alone, over the page: from the invoice being entered, or a paperclip in the history.
-@Component({
-  selector: 'app-invoice-paper',
-  imports: [MatButtonModule, MatDialogModule, PaperPreview],
-  template: `
-    <h2 mat-dialog-title>{{ data.fileName }} <span class="inline-ar">صورة الفاتورة</span></h2>
-    <mat-dialog-content>
-      <app-paper-preview [invoiceId]="data.invoiceId" [fileName]="data.fileName" />
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-flat-button mat-dialog-close>Close</button>
-    </mat-dialog-actions>
-  `,
-  styles: `
-    .inline-ar {
-      direction: rtl;
-      unicode-bidi: isolate;
-      opacity: 0.75;
-      margin-left: 6px;
-    }
-  `,
-})
-export class InvoicePaperDialog {
-  protected readonly data = inject<InvoicePaperData>(MAT_DIALOG_DATA);
-}
-
-// The icon beside a paper's name: a PDF or a photo.
-export function paperIcon(fileName: string): string {
-  return fileName.toLowerCase().endsWith('.pdf') ? 'picture_as_pdf' : 'image';
-}
-
-export function viewInvoicePaper(dialog: MatDialog, invoiceId: string, fileName: string): void {
-  dialog.open<InvoicePaperDialog, InvoicePaperData>(InvoicePaperDialog, { data: { invoiceId, fileName }, maxWidth: '95vw' });
 }

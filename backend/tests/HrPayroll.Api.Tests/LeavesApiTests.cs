@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace HrPayroll.Api.Tests;
 
-// Leaves through the API: the three types the till starts with, balances (a new hire's share of
+// Leaves through the API: the three types the system starts with, balances (a new hire's share of
 // annual leave, each year afresh), requests asked in the portal or by HR, and a manager's approval,
 // rejection and cancellation, the days marked on the timesheet and unpaid ones off the pay.
 public class LeavesApiTests
@@ -36,7 +36,7 @@ public class LeavesApiTests
         var id = Guid.NewGuid();
         await Json(await manager.PutAsJsonAsync($"/api/hr/employees/{id}", new
         {
-            requestId = Guid.NewGuid(), name, jobTitle = "Chef", monthlySalary = 5_400, shiftStartsAt = "10:00:00", daysOff = new[] { "Friday" },
+            requestId = Guid.NewGuid(), name, jobTitle = "Checker", monthlySalary = 5_400, shiftStartsAt = "10:00:00", daysOff = new[] { "Friday" },
             hiredOn = Iso(hiredOn), mobileNumber = mobile,
         }, Cancel));
         if (mobile is not null)

@@ -16,7 +16,7 @@ public class PerformanceTests
     private static readonly PerformanceKpi Service = new(Guid.NewGuid(), "Service");
 
     private static DisciplinaryAction Action(SeverityLevel level, decimal? amount = null, string violation = "Negligence") =>
-        new(Guid.NewGuid(), Hassan, Monday, violation, level, "Left the walk-in open", amount, "staff-omar", "Omar");
+        new(Guid.NewGuid(), Hassan, Monday, violation, level, "Left the store room open", amount, "staff-omar", "Omar");
 
     [Fact]
     public void A_kpi_is_named_and_retired_rather_than_deleted()

@@ -16,8 +16,8 @@ public class HrTests
     private static readonly AttendancePolicy TenMinutesGrace = new(10, 3);
 
     // 5,400 a month: 180 a day, 20 an hour.
-    private static Employee Chef(TimeOnly? shift = null, DateOnly? hiredOn = null) =>
-        new(Guid.NewGuid(), " Hassan ", " Chef ", 5_400, shift ?? new TimeOnly(10, 0), WeekDays.Friday, hiredOn ?? new DateOnly(2026, 1, 1), "7");
+    private static Employee Checker(TimeOnly? shift = null, DateOnly? hiredOn = null) =>
+        new(Guid.NewGuid(), " Hassan ", " Checker ", 5_400, shift ?? new TimeOnly(10, 0), WeekDays.Friday, hiredOn ?? new DateOnly(2026, 1, 1), "7");
 
     private static DateTime At(DateOnly day, int hour, int minute = 0) => day.ToDateTime(new TimeOnly(hour, minute));
 
@@ -27,55 +27,55 @@ public class HrTests
     [Fact]
     public void An_employee_has_a_nine_hour_shift_and_rates_from_a_thirty_day_month()
     {
-        var chef = Chef(new TimeOnly(10, 0, 42));
+        var checker = Checker(new TimeOnly(10, 0, 42));
 
-        Assert.Equal(("Hassan", "Chef", "7", new TimeOnly(10, 0)), (chef.Name, chef.JobTitle, chef.DeviceUserId, chef.ShiftStartsAt));
-        Assert.Equal((180m, 20m), (chef.DailyRate, chef.HourlyRate));
+        Assert.Equal(("Hassan", "Checker", "7", new TimeOnly(10, 0)), (checker.Name, checker.JobTitle, checker.DeviceUserId, checker.ShiftStartsAt));
+        Assert.Equal((180m, 20m), (checker.DailyRate, checker.HourlyRate));
         Assert.Equal(9, Employee.ShiftHours);
-        Assert.True(chef.IsDayOff(Friday));
-        Assert.False(chef.IsDayOff(Monday));
+        Assert.True(checker.IsDayOff(Friday));
+        Assert.False(checker.IsDayOff(Monday));
 
-        Assert.Throws<DomainException>(() => chef.Rename(" "));
-        Assert.Throws<DomainException>(() => chef.SetSalary(-1));
-        Assert.Throws<DomainException>(() => chef.SetDaysOff(WeekDaysExtensions.All));
-        Assert.Throws<DomainException>(() => chef.LinkDevice("7 b"));
-        chef.LinkDevice(" ");
-        Assert.Null(chef.DeviceUserId);
+        Assert.Throws<DomainException>(() => checker.Rename(" "));
+        Assert.Throws<DomainException>(() => checker.SetSalary(-1));
+        Assert.Throws<DomainException>(() => checker.SetDaysOff(WeekDaysExtensions.All));
+        Assert.Throws<DomainException>(() => checker.LinkDevice("7 b"));
+        checker.LinkDevice(" ");
+        Assert.Null(checker.DeviceUserId);
     }
 
     [Fact]
     public void One_who_leaves_is_employed_to_their_last_day_and_again_from_their_return()
     {
-        var chef = Chef(hiredOn: new DateOnly(2026, 10, 5));
-        Assert.False(chef.IsEmployedOn(new DateOnly(2026, 10, 4)));
+        var checker = Checker(hiredOn: new DateOnly(2026, 10, 5));
+        Assert.False(checker.IsEmployedOn(new DateOnly(2026, 10, 4)));
 
-        Assert.Throws<DomainException>(() => chef.Leave(new DateOnly(2026, 10, 4)));
-        chef.Leave(new DateOnly(2026, 10, 20));
-        Assert.False(chef.IsActive);
-        Assert.True(chef.IsEmployedOn(new DateOnly(2026, 10, 20)));
-        Assert.False(chef.IsEmployedOn(new DateOnly(2026, 10, 21)));
+        Assert.Throws<DomainException>(() => checker.Leave(new DateOnly(2026, 10, 4)));
+        checker.Leave(new DateOnly(2026, 10, 20));
+        Assert.False(checker.IsActive);
+        Assert.True(checker.IsEmployedOn(new DateOnly(2026, 10, 20)));
+        Assert.False(checker.IsEmployedOn(new DateOnly(2026, 10, 21)));
 
-        Assert.Throws<DomainException>(() => chef.Return(new DateOnly(2026, 10, 20)));
-        chef.Return(new DateOnly(2026, 11, 1));
-        Assert.Equal((true, (DateOnly?)null, new DateOnly(2026, 11, 1)), (chef.IsActive, chef.LeftOn, chef.HiredOn));
+        Assert.Throws<DomainException>(() => checker.Return(new DateOnly(2026, 10, 20)));
+        checker.Return(new DateOnly(2026, 11, 1));
+        Assert.Equal((true, (DateOnly?)null, new DateOnly(2026, 11, 1)), (checker.IsActive, checker.LeftOn, checker.HiredOn));
     }
 
     [Fact]
     public void A_day_on_time_within_the_grace_is_worked_with_nothing_short()
     {
-        var chef = Chef();
+        var checker = Checker();
 
-        var early = Day(chef, Monday, At(Monday, 9, 55), At(Monday, 19));
+        var early = Day(checker, Monday, At(Monday, 9, 55), At(Monday, 19));
         Assert.Equal(new DayEvaluation(Monday, DayStatus.Worked, At(Monday, 9, 55), At(Monday, 19), 2, 545, 0, 0, 0, 0), early);
 
-        var withinGrace = Day(chef, Monday, At(Monday, 10, 8), At(Monday, 19));
+        var withinGrace = Day(checker, Monday, At(Monday, 10, 8), At(Monday, 19));
         Assert.Equal((0, 0), (withinGrace.LateMinutes, withinGrace.ShortMinutes));
     }
 
     [Fact]
     public void Late_past_the_grace_counts_from_the_start_and_only_time_past_nine_hours_worked_is_overtime()
     {
-        var day = Day(Chef(), Monday, At(Monday, 10, 25), At(Monday, 19, 30));
+        var day = Day(Checker(), Monday, At(Monday, 10, 25), At(Monday, 19, 30));
 
         // 25 minutes late; of the half hour after the shift's end, five minutes are past nine hours.
         Assert.Equal((25, 0, 5, 545), (day.LateMinutes, day.EarlyLeaveMinutes, day.OvertimeMinutes, day.WorkedMinutes));
@@ -84,7 +84,7 @@ public class HrTests
     [Fact]
     public void Coming_in_late_and_staying_to_make_up_is_late_all_the_same_and_no_overtime()
     {
-        var early = Chef(new TimeOnly(8, 0));
+        var early = Checker(new TimeOnly(8, 0));
 
         // 08:00 shift, in at 10:00, out at 19:00: nine hours worked, two hours late, nothing over.
         var madeUp = Day(early, Monday, At(Monday, 10), At(Monday, 19));
@@ -97,7 +97,7 @@ public class HrTests
     [Fact]
     public void Time_out_between_punches_and_leaving_early_are_short_of_the_shift()
     {
-        var day = Day(Chef(), Monday, At(Monday, 10), At(Monday, 14), At(Monday, 15), At(Monday, 18, 30));
+        var day = Day(Checker(), Monday, At(Monday, 10), At(Monday, 14), At(Monday, 15), At(Monday, 18, 30));
 
         Assert.Equal((0, 30, 60, 0, 450), (day.LateMinutes, day.EarlyLeaveMinutes, day.AwayMinutes, day.OvertimeMinutes, day.WorkedMinutes));
         Assert.Equal(90, day.ShortMinutes);
@@ -106,7 +106,7 @@ public class HrTests
     [Fact]
     public void A_finger_put_on_twice_is_one_scan()
     {
-        var day = Day(Chef(), Monday, At(Monday, 10), At(Monday, 10, 2), At(Monday, 19));
+        var day = Day(Checker(), Monday, At(Monday, 10), At(Monday, 10, 2), At(Monday, 19));
 
         Assert.Equal((DayStatus.Worked, 2, 540), (day.Status, day.Punches, day.WorkedMinutes));
     }
@@ -114,7 +114,7 @@ public class HrTests
     [Fact]
     public void A_shift_past_midnight_is_one_day()
     {
-        var evening = Chef(new TimeOnly(16, 0));
+        var evening = Checker(new TimeOnly(16, 0));
         var next = Monday.AddDays(1);
 
         var day = Day(evening, Monday, At(Monday, 15, 50), At(next, 1, 30));
@@ -129,7 +129,7 @@ public class HrTests
     [Fact]
     public void Coming_after_the_shift_has_ended_is_the_whole_shift_short()
     {
-        var day = Day(Chef(), Monday, At(Monday, 20), At(Monday, 22));
+        var day = Day(Checker(), Monday, At(Monday, 20), At(Monday, 22));
 
         Assert.Equal((540, 0, 0, 540), (day.LateMinutes, day.EarlyLeaveMinutes, day.OvertimeMinutes, day.ShortMinutes));
     }
@@ -137,22 +137,22 @@ public class HrTests
     [Fact]
     public void A_day_without_punches_is_an_absence_unless_it_is_a_day_off_or_marked()
     {
-        var chef = Chef();
+        var checker = Checker();
 
-        Assert.Equal(DayStatus.Absent, Day(chef, Monday).Status);
-        Assert.Equal(DayStatus.DayOff, Day(chef, Friday).Status);
-        Assert.Equal(DayStatus.Leave, Timesheet.Evaluate(chef, Monday, [], DayMarkKind.Leave, TenMinutesGrace, Later).Status);
-        Assert.Equal(DayStatus.DayOff, Timesheet.Evaluate(chef, Monday, [], DayMarkKind.DayOff, TenMinutesGrace, Later).Status);
+        Assert.Equal(DayStatus.Absent, Day(checker, Monday).Status);
+        Assert.Equal(DayStatus.DayOff, Day(checker, Friday).Status);
+        Assert.Equal(DayStatus.Leave, Timesheet.Evaluate(checker, Monday, [], DayMarkKind.Leave, TenMinutesGrace, Later).Status);
+        Assert.Equal(DayStatus.DayOff, Timesheet.Evaluate(checker, Monday, [], DayMarkKind.DayOff, TenMinutesGrace, Later).Status);
         // Not over yet: not absent yet.
-        Assert.Equal(DayStatus.Open, Timesheet.Evaluate(chef, Monday, [], null, TenMinutesGrace, At(Monday, 12)).Status);
+        Assert.Equal(DayStatus.Open, Timesheet.Evaluate(checker, Monday, [], null, TenMinutesGrace, At(Monday, 12)).Status);
         // Before they started.
-        Assert.Equal(DayStatus.NotEmployed, Day(Chef(hiredOn: Friday), Monday, At(Monday, 10), At(Monday, 19)).Status);
+        Assert.Equal(DayStatus.NotEmployed, Day(Checker(hiredOn: Friday), Monday, At(Monday, 10), At(Monday, 19)).Status);
     }
 
     [Fact]
     public void A_day_off_worked_is_hours_with_no_shift_to_be_late_for()
     {
-        var day = Day(Chef(), Friday, At(Friday, 12), At(Friday, 16));
+        var day = Day(Checker(), Friday, At(Friday, 12), At(Friday, 16));
 
         Assert.Equal(new DayEvaluation(Friday, DayStatus.WorkedOnDayOff, At(Friday, 12), At(Friday, 16), 2, 240, 0, 0, 0, 0), day);
     }
@@ -160,18 +160,18 @@ public class HrTests
     [Fact]
     public void A_weekly_day_off_marked_a_working_day_is_a_shift_like_any()
     {
-        var chef = Chef();
-        var swapped = Timesheet.Evaluate(chef, Friday, [At(Friday, 10, 20), At(Friday, 19)], DayMarkKind.WorkingDay, TenMinutesGrace, Later);
+        var checker = Checker();
+        var swapped = Timesheet.Evaluate(checker, Friday, [At(Friday, 10, 20), At(Friday, 19)], DayMarkKind.WorkingDay, TenMinutesGrace, Later);
 
         Assert.Equal((DayStatus.Worked, 20), (swapped.Status, swapped.LateMinutes));
         // Not worked after all: absent, as any working day.
-        Assert.Equal(DayStatus.Absent, Timesheet.Evaluate(chef, Friday, [], DayMarkKind.WorkingDay, TenMinutesGrace, Later).Status);
+        Assert.Equal(DayStatus.Absent, Timesheet.Evaluate(checker, Friday, [], DayMarkKind.WorkingDay, TenMinutesGrace, Later).Status);
     }
 
     [Fact]
     public void A_day_off_worked_earns_a_days_pay_from_half_a_shift_and_its_hours_before()
     {
-        var chef = Chef();
+        var checker = Checker();
         var october = new DateOnly(2026, 10, 1);
         DayEvaluation OffWorked(DateOnly d, int minutes) => new(d, DayStatus.WorkedOnDayOff, null, null, 2, minutes, 0, 0, 0, 0);
         var days = PayrollMonth.Days(october).Select(d => d.Day switch
@@ -180,11 +180,11 @@ public class HrTests
             2 => OffWorked(d, 360),
             9 => OffWorked(d, 180),
             16 => OffWorked(d, PayrollCalculator.HalfShiftMinutes),
-            _ when chef.IsDayOff(d) => Nothing(d, DayStatus.DayOff),
+            _ when checker.IsDayOff(d) => Nothing(d, DayStatus.DayOff),
             _ => new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0),
         }).ToList();
 
-        var figures = PayrollCalculator.Calculate(chef, october, days, [], advances: 0, broughtForward: 0);
+        var figures = PayrollCalculator.Calculate(checker, october, days, [], advances: 0, broughtForward: 0);
 
         // 180 + 3 hours at 20 + 180.
         Assert.Equal((3, 420m), (figures.DaysOffWorked, figures.DaysOffWorkedPay));
@@ -196,9 +196,9 @@ public class HrTests
     [Fact]
     public void A_public_holiday_is_a_paid_day_off_and_worked_is_measured_as_the_day_would_have_been()
     {
-        var chef = Chef();
+        var checker = Checker();
         DayEvaluation Holiday(DateOnly day, DayMarkKind? mark = null, DateTime? now = null, params DateTime[] punches) =>
-            Timesheet.Evaluate(chef, day, punches, mark, TenMinutesGrace, now ?? Later, holiday: true);
+            Timesheet.Evaluate(checker, day, punches, mark, TenMinutesGrace, now ?? Later, holiday: true);
 
         // Not worked: a holiday, never an absence, on a working day, a day off or one marked; known
         // before the day is over.
@@ -218,7 +218,7 @@ public class HrTests
     [Fact]
     public void A_holiday_worked_earns_a_days_pay_once_and_never_costs_more_than_it_gives()
     {
-        var chef = Chef();
+        var checker = Checker();
         var october = new DateOnly(2026, 10, 1);
         DayEvaluation Worked(DateOnly d, DayStatus status, int minutes, int late = 0, int early = 0) => new(d, status, null, null, 2, minutes, late, early, 0, 0);
         var days = PayrollMonth.Days(october).Select(d => d.Day switch
@@ -230,11 +230,11 @@ public class HrTests
             7 => Worked(d, DayStatus.WorkedOnHoliday, 420, late: 120),
             8 => Worked(d, DayStatus.WorkedOnHoliday, 180, early: 360),
             16 => Worked(d, DayStatus.WorkedOnHoliday, 240),
-            _ when chef.IsDayOff(d) => Nothing(d, DayStatus.DayOff),
+            _ when checker.IsDayOff(d) => Nothing(d, DayStatus.DayOff),
             _ => Worked(d, DayStatus.Worked, 540),
         }).ToList();
 
-        var figures = PayrollCalculator.Calculate(chef, october, days, [], advances: 0, broughtForward: 0);
+        var figures = PayrollCalculator.Calculate(checker, october, days, [], advances: 0, broughtForward: 0);
 
         // A day's pay twice, three hours, four hours: 180 + 180 + 60 + 80, and the Friday is not
         // also a day off worked.
@@ -251,34 +251,34 @@ public class HrTests
     [Fact]
     public void Flexible_hours_have_no_shift_and_their_day_is_the_business_days()
     {
-        var waiter = new Employee(Guid.NewGuid(), "Mona", "Waiter", 4_050, null, WeekDays.Friday, new DateOnly(2026, 1, 1), "12");
-        Assert.True(waiter.HasFlexibleHours);
+        var clerk = new Employee(Guid.NewGuid(), "Mona", "Warehouse clerk", 4_050, null, WeekDays.Friday, new DateOnly(2026, 1, 1), "12");
+        Assert.True(clerk.HasFlexibleHours);
         var tuesday = Monday.AddDays(1);
 
         // From 04:00 to 04:00: a night past midnight is one day.
-        Assert.Equal((At(Monday, 4), At(tuesday, 4)), Timesheet.Window(waiter, Monday));
-        Assert.Equal(Monday, Timesheet.DayOf(waiter, At(tuesday, 3, 59)));
-        Assert.Equal(tuesday, Timesheet.DayOf(waiter, At(tuesday, 4)));
+        Assert.Equal((At(Monday, 4), At(tuesday, 4)), Timesheet.Window(clerk, Monday));
+        Assert.Equal(Monday, Timesheet.DayOf(clerk, At(tuesday, 3, 59)));
+        Assert.Equal(tuesday, Timesheet.DayOf(clerk, At(tuesday, 4)));
 
         // Nothing late, early or away; the hours past nine are overtime.
-        var late = Day(waiter, Monday, At(Monday, 13), At(Monday, 15), At(Monday, 16), At(tuesday, 1, 30));
+        var late = Day(clerk, Monday, At(Monday, 13), At(Monday, 15), At(Monday, 16), At(tuesday, 1, 30));
         Assert.Equal((DayStatus.Worked, 690, 0, 0, 0, 150), (late.Status, late.WorkedMinutes, late.LateMinutes, late.EarlyLeaveMinutes, late.AwayMinutes, late.OvertimeMinutes));
-        var short_ = Day(waiter, Monday, At(Monday, 13), At(Monday, 17));
+        var short_ = Day(clerk, Monday, At(Monday, 13), At(Monday, 17));
         Assert.Equal((240, 0, 0), (short_.WorkedMinutes, short_.ShortMinutes, short_.OvertimeMinutes));
         // A working day without punches is an absence still; their day off is a day off.
-        Assert.Equal(DayStatus.Absent, Day(waiter, Monday).Status);
-        Assert.Equal(DayStatus.DayOff, Day(waiter, Friday).Status);
+        Assert.Equal(DayStatus.Absent, Day(clerk, Monday).Status);
+        Assert.Equal(DayStatus.DayOff, Day(clerk, Friday).Status);
 
         // Given a shift later: measured against it from then.
-        waiter.SetShift(new TimeOnly(10, 0));
-        Assert.Equal(180, Day(waiter, Monday, At(Monday, 13), At(Monday, 19)).LateMinutes);
+        clerk.SetShift(new TimeOnly(10, 0));
+        Assert.Equal(180, Day(clerk, Monday, At(Monday, 13), At(Monday, 19)).LateMinutes);
     }
 
     [Fact]
     public void A_daily_worker_is_paid_their_wage_for_each_day_worked_and_never_absent()
     {
         // 250 a day: 27.78 an hour.
-        var helper = Chef();
+        var helper = Checker();
         helper.SetPay(EmploymentType.Daily, 250);
         Assert.Equal((EmploymentType.Daily, 0m, 250m, 250m), (helper.EmploymentType, helper.MonthlySalary, helper.DailyWage, helper.DailyRate));
         var october = new DateOnly(2026, 10, 1);
@@ -321,109 +321,109 @@ public class HrTests
     [Fact]
     public void An_employee_is_in_a_department_General_unless_moved()
     {
-        var chef = Chef();
-        Assert.Equal(Department.GeneralId, chef.DepartmentId);
-        var kitchen = new Department(Guid.NewGuid(), " Kitchen ");
-        chef.MoveTo(kitchen.Id);
-        Assert.Equal((kitchen.Id, "Kitchen", false), (chef.DepartmentId, kitchen.Name, kitchen.IsGeneral));
+        var checker = Checker();
+        Assert.Equal(Department.GeneralId, checker.DepartmentId);
+        var accounts = new Department(Guid.NewGuid(), " Key accounts ");
+        checker.MoveTo(accounts.Id);
+        Assert.Equal((accounts.Id, "Key accounts", false), (checker.DepartmentId, accounts.Name, accounts.IsGeneral));
         Assert.True(new Department(Department.GeneralId, "General").IsGeneral);
-        Assert.Throws<DomainException>(() => chef.MoveTo(Guid.Empty));
-        Assert.Throws<DomainException>(() => kitchen.Rename(" "));
+        Assert.Throws<DomainException>(() => checker.MoveTo(Guid.Empty));
+        Assert.Throws<DomainException>(() => accounts.Rename(" "));
     }
 
     [Fact]
     public void An_employee_holds_one_of_their_departments_roles_and_is_titled_by_it()
     {
-        var chef = Chef();
-        var kitchen = new Department(Guid.NewGuid(), "Kitchen");
-        var headChef = new JobRole(Guid.NewGuid(), kitchen.Id, " Head chef ");
-        Assert.Equal(("Head chef", kitchen.Id), (headChef.Name, headChef.DepartmentId));
+        var checker = Checker();
+        var accounts = new Department(Guid.NewGuid(), "Key accounts");
+        var headChef = new JobRole(Guid.NewGuid(), accounts.Id, " Head checker ");
+        Assert.Equal(("Head checker", accounts.Id), (headChef.Name, headChef.DepartmentId));
 
-        // In General still: the kitchen's role is not theirs to hold.
-        Assert.Throws<DomainException>(() => chef.AssignRole(headChef));
-        chef.MoveTo(kitchen.Id);
-        chef.AssignRole(headChef);
-        Assert.Equal((headChef.Id, "Head chef"), (chef.JobRoleId, chef.JobTitle));
+        // In General still: the accounts's role is not theirs to hold.
+        Assert.Throws<DomainException>(() => checker.AssignRole(headChef));
+        checker.MoveTo(accounts.Id);
+        checker.AssignRole(headChef);
+        Assert.Equal((headChef.Id, "Head checker"), (checker.JobRoleId, checker.JobTitle));
 
-        Assert.Throws<DomainException>(() => new JobRole(Guid.NewGuid(), kitchen.Id, " "));
+        Assert.Throws<DomainException>(() => new JobRole(Guid.NewGuid(), accounts.Id, " "));
         Assert.Throws<DomainException>(() => new JobRole(Guid.NewGuid(), Guid.Empty, "Helper"));
     }
 
     [Fact]
     public void A_punch_in_without_its_punch_out_is_forgetting_to_check_out_once_the_shift_is_over()
     {
-        var chef = Chef(new TimeOnly(10, 0));
+        var checker = Checker(new TimeOnly(10, 0));
         bool Forgot(Employee e, DateOnly day, DateTime now, DayMarkKind? mark = null, params DateTime[] punches) =>
             Timesheet.ForgotToCheckOut(e, Timesheet.Evaluate(e, day, punches, mark, TenMinutesGrace, now), mark, now);
 
         // In at 10:02, no punch-out: not until the nine hours end at 19:00.
-        Assert.False(Forgot(chef, Monday, At(Monday, 18, 59), null, At(Monday, 10, 2)));
-        Assert.True(Forgot(chef, Monday, At(Monday, 19, 0), null, At(Monday, 10, 2)));
+        Assert.False(Forgot(checker, Monday, At(Monday, 18, 59), null, At(Monday, 10, 2)));
+        Assert.True(Forgot(checker, Monday, At(Monday, 19, 0), null, At(Monday, 10, 2)));
         // Out again after a break, and not back out: the same.
-        Assert.True(Forgot(chef, Monday, At(Monday, 20, 0), null, At(Monday, 10, 2), At(Monday, 14, 0), At(Monday, 15, 0)));
+        Assert.True(Forgot(checker, Monday, At(Monday, 20, 0), null, At(Monday, 10, 2), At(Monday, 14, 0), At(Monday, 15, 0)));
         // Checked out, or never in: nothing to forget.
-        Assert.False(Forgot(chef, Monday, Later, null, At(Monday, 10, 2), At(Monday, 19, 0)));
-        Assert.False(Forgot(chef, Monday, Later));
+        Assert.False(Forgot(checker, Monday, Later, null, At(Monday, 10, 2), At(Monday, 19, 0)));
+        Assert.False(Forgot(checker, Monday, Later));
         // Suspended, 18 hours on: forgot, still.
-        var abandoned = Timesheet.Evaluate(chef, Monday, [At(Monday, 10, 2)], null, TenMinutesGrace, Later);
+        var abandoned = Timesheet.Evaluate(checker, Monday, [At(Monday, 10, 2)], null, TenMinutesGrace, Later);
         Assert.Equal(DayStatus.Suspended, abandoned.Status);
-        Assert.True(Timesheet.ForgotToCheckOut(chef, abandoned, null, Later));
+        Assert.True(Timesheet.ForgotToCheckOut(checker, abandoned, null, Later));
 
         // No shift to end: flexible hours, once the day ends at 04:00 the next morning.
-        var flexible = Chef();
+        var flexible = Checker();
         flexible.SetShift(null);
         Assert.False(Forgot(flexible, Monday, At(Monday.AddDays(1), 3, 59), null, At(Monday, 12, 0)));
         Assert.True(Forgot(flexible, Monday, At(Monday.AddDays(1), 4, 0), null, At(Monday, 12, 0)));
         // A day off worked has no shift either: once the day ends, 18 hours after the shift would start.
-        Assert.False(Forgot(chef, Friday, At(Friday, 19, 0), null, At(Friday, 12, 0)));
-        Assert.True(Forgot(chef, Friday, At(Friday.AddDays(1), 4, 0), null, At(Friday, 12, 0)));
+        Assert.False(Forgot(checker, Friday, At(Friday, 19, 0), null, At(Friday, 12, 0)));
+        Assert.True(Forgot(checker, Friday, At(Friday.AddDays(1), 4, 0), null, At(Friday, 12, 0)));
         // A day off marked a working day (a swap) has its shift.
-        Assert.True(Forgot(chef, Friday, At(Friday, 19, 0), DayMarkKind.WorkingDay, At(Friday, 10, 0)));
+        Assert.True(Forgot(checker, Friday, At(Friday, 19, 0), DayMarkKind.WorkingDay, At(Friday, 10, 0)));
     }
 
     [Fact]
     public void An_employees_national_id_and_mobile_are_kept_as_digits_however_they_are_typed()
     {
-        var chef = Chef();
-        Assert.Equal(((string?)null, (string?)null), (chef.NationalId, chef.MobileNumber));
+        var checker = Checker();
+        Assert.Equal(((string?)null, (string?)null), (checker.NationalId, checker.MobileNumber));
 
         // Arabic digits, spaces and dashes: the card's 14 digits.
-        chef.SetNationalId(" ٢٩٠٠١٠١ ٠١٢٣٤-٥٦ ");
-        chef.SetMobileNumber("٠١٠ ١٢٣٤-٥٦٧٨");
-        Assert.Equal(("29001010123456", "01012345678"), (chef.NationalId, chef.MobileNumber));
+        checker.SetNationalId(" ٢٩٠٠١٠١ ٠١٢٣٤-٥٦ ");
+        checker.SetMobileNumber("٠١٠ ١٢٣٤-٥٦٧٨");
+        Assert.Equal(("29001010123456", "01012345678"), (checker.NationalId, checker.MobileNumber));
 
         // A passport's number, in capitals; a number from abroad, with its +.
-        chef.SetNationalId("a1234567");
-        chef.SetMobileNumber("+20 (101) 234 5678");
-        Assert.Equal(("A1234567", "+201012345678"), (chef.NationalId, chef.MobileNumber));
+        checker.SetNationalId("a1234567");
+        checker.SetMobileNumber("+20 (101) 234 5678");
+        Assert.Equal(("A1234567", "+201012345678"), (checker.NationalId, checker.MobileNumber));
 
-        Assert.Throws<DomainException>(() => chef.SetNationalId("2900101012345"));
-        Assert.Throws<DomainException>(() => chef.SetNationalId("A12/45"));
-        Assert.Throws<DomainException>(() => chef.SetMobileNumber("010-CALL-ME"));
-        Assert.Throws<DomainException>(() => chef.SetMobileNumber("12345"));
+        Assert.Throws<DomainException>(() => checker.SetNationalId("2900101012345"));
+        Assert.Throws<DomainException>(() => checker.SetNationalId("A12/45"));
+        Assert.Throws<DomainException>(() => checker.SetMobileNumber("010-CALL-ME"));
+        Assert.Throws<DomainException>(() => checker.SetMobileNumber("12345"));
 
-        chef.SetNationalId(" ");
-        chef.SetMobileNumber(null);
-        Assert.Equal(((string?)null, (string?)null), (chef.NationalId, chef.MobileNumber));
+        checker.SetNationalId(" ");
+        checker.SetMobileNumber(null);
+        Assert.Equal(((string?)null, (string?)null), (checker.NationalId, checker.MobileNumber));
     }
 
     [Fact]
     public void An_employees_id_card_is_a_photo_or_pdf_under_5_MB_replaced_or_taken_off()
     {
-        var chef = Chef();
-        Assert.False(chef.HasIdPhoto);
-        Assert.Throws<DomainException>(() => chef.RemoveIdPhoto());
-        Assert.Throws<DomainException>(() => chef.AttachIdPhoto("card.gif", "image/gif", 100, "Omar"));
-        Assert.Throws<DomainException>(() => chef.AttachIdPhoto("card.jpg", "image/jpeg", Employee.MaxIdPhotoBytes + 1, "Omar"));
-        Assert.Throws<DomainException>(() => chef.AttachIdPhoto("card.jpg", "image/jpeg", 0, "Omar"));
+        var checker = Checker();
+        Assert.False(checker.HasIdPhoto);
+        Assert.Throws<DomainException>(() => checker.RemoveIdPhoto());
+        Assert.Throws<DomainException>(() => checker.AttachIdPhoto("card.gif", "image/gif", 100, "Omar"));
+        Assert.Throws<DomainException>(() => checker.AttachIdPhoto("card.jpg", "image/jpeg", Employee.MaxIdPhotoBytes + 1, "Omar"));
+        Assert.Throws<DomainException>(() => checker.AttachIdPhoto("card.jpg", "image/jpeg", 0, "Omar"));
 
-        chef.AttachIdPhoto("../front.JPG", "IMAGE/JPEG", 2_000, "Omar");
-        Assert.Equal((true, "front.JPG", "image/jpeg", (int?)2_000, "Omar"), (chef.HasIdPhoto, chef.IdPhotoFileName, chef.IdPhotoContentType, chef.IdPhotoBytes, chef.IdPhotoUploadedBy));
-        chef.AttachIdPhoto("scan.pdf", "application/pdf", 3_000, "Sara");
-        Assert.Equal(("scan.pdf", "application/pdf", "Sara"), (chef.IdPhotoFileName, chef.IdPhotoContentType, chef.IdPhotoUploadedBy));
+        checker.AttachIdPhoto("../front.JPG", "IMAGE/JPEG", 2_000, "Omar");
+        Assert.Equal((true, "front.JPG", "image/jpeg", (int?)2_000, "Omar"), (checker.HasIdPhoto, checker.IdPhotoFileName, checker.IdPhotoContentType, checker.IdPhotoBytes, checker.IdPhotoUploadedBy));
+        checker.AttachIdPhoto("scan.pdf", "application/pdf", 3_000, "Sara");
+        Assert.Equal(("scan.pdf", "application/pdf", "Sara"), (checker.IdPhotoFileName, checker.IdPhotoContentType, checker.IdPhotoUploadedBy));
 
-        chef.RemoveIdPhoto();
-        Assert.Equal((false, (string?)null, (int?)null), (chef.HasIdPhoto, chef.IdPhotoFileName, chef.IdPhotoBytes));
+        checker.RemoveIdPhoto();
+        Assert.Equal((false, (string?)null, (int?)null), (checker.HasIdPhoto, checker.IdPhotoFileName, checker.IdPhotoBytes));
     }
 
     [Fact]
@@ -464,11 +464,11 @@ public class HrTests
     [Fact]
     public void A_punch_in_left_18_hours_without_its_punch_out_suspends_the_day_for_a_manager()
     {
-        var chef = Chef();
+        var checker = Checker();
 
-        var abandoned = Day(chef, Monday, At(Monday, 10, 30));
+        var abandoned = Day(checker, Monday, At(Monday, 10, 30));
         Assert.Equal((DayStatus.Suspended, 0, (DateTime?)null), (abandoned.Status, abandoned.WorkedMinutes, abandoned.LastOut));
-        DayStatus At_(DateTime now) => Timesheet.Evaluate(chef, Monday, [At(Monday, 10)], null, TenMinutesGrace, now).Status;
+        DayStatus At_(DateTime now) => Timesheet.Evaluate(checker, Monday, [At(Monday, 10)], null, TenMinutesGrace, now).Status;
         Assert.Equal(DayStatus.Open, At_(At(Monday, 15)));
         Assert.Equal(DayStatus.Open, At_(At(Monday, 10).AddHours(18).AddMinutes(-1)));
         Assert.Equal(DayStatus.Suspended, At_(At(Monday, 10).AddHours(18)));
@@ -476,7 +476,7 @@ public class HrTests
         // In at 23:00 for a 10:00 shift: the day's window closes at 04:00, but it stays open till
         // 17:00 the next day, 18 hours on.
         var tuesday = Monday.AddDays(1);
-        DayStatus Late(DateTime now) => Timesheet.Evaluate(chef, Monday, [At(Monday, 23)], null, TenMinutesGrace, now).Status;
+        DayStatus Late(DateTime now) => Timesheet.Evaluate(checker, Monday, [At(Monday, 23)], null, TenMinutesGrace, now).Status;
         Assert.Equal(DayStatus.Open, Late(At(tuesday, 10)));
         Assert.Equal(DayStatus.Suspended, Late(At(tuesday, 17)));
     }
@@ -484,21 +484,21 @@ public class HrTests
     [Fact]
     public void An_administrative_penalty_is_hours_with_a_reason_deducted_at_the_hourly_rate()
     {
-        var chef = Chef();
-        Assert.Throws<DomainException>(() => new AdministrativePenalty(chef.Id, Monday, 0, "Late again", "Omar"));
-        Assert.Throws<DomainException>(() => new AdministrativePenalty(chef.Id, Monday, 73, "Late again", "Omar"));
-        Assert.Throws<DomainException>(() => new AdministrativePenalty(chef.Id, Monday, 1.255m, "Late again", "Omar"));
-        Assert.Throws<DomainException>(() => new AdministrativePenalty(chef.Id, Monday, 2, " ", "Omar"));
-        var penalty = new AdministrativePenalty(chef.Id, Monday, 2, " Left the walk-in open ", "Omar");
-        Assert.Equal((2m, "Left the walk-in open"), (penalty.Hours, penalty.Reason));
+        var checker = Checker();
+        Assert.Throws<DomainException>(() => new AdministrativePenalty(checker.Id, Monday, 0, "Late again", "Omar"));
+        Assert.Throws<DomainException>(() => new AdministrativePenalty(checker.Id, Monday, 73, "Late again", "Omar"));
+        Assert.Throws<DomainException>(() => new AdministrativePenalty(checker.Id, Monday, 1.255m, "Late again", "Omar"));
+        Assert.Throws<DomainException>(() => new AdministrativePenalty(checker.Id, Monday, 2, " ", "Omar"));
+        var penalty = new AdministrativePenalty(checker.Id, Monday, 2, " Left the store room open ", "Omar");
+        Assert.Equal((2m, "Left the store room open"), (penalty.Hours, penalty.Reason));
 
         var october = new DateOnly(2026, 10, 1);
         var days = PayrollMonth.Days(october).Select(d =>
-            chef.IsDayOff(d) ? Nothing(d, DayStatus.DayOff)
+            checker.IsDayOff(d) ? Nothing(d, DayStatus.DayOff)
             : d == Monday ? new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0, PenaltyHours: 2)
             : d.Day == 13 ? new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0, PenaltyHours: 0.5m)
             : new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0)).ToList();
-        var figures = PayrollCalculator.Calculate(chef, october, days, [], advances: 0, broughtForward: 0);
+        var figures = PayrollCalculator.Calculate(checker, october, days, [], advances: 0, broughtForward: 0);
 
         // Two and a half hours at 20.
         Assert.Equal((2.5m, 50m, 5_350m, 5_350m), (figures.AdministrativePenaltyHours, figures.AdministrativePenalty, figures.Net, figures.WagesCost));
@@ -507,53 +507,53 @@ public class HrTests
     [Fact]
     public void A_penalty_in_money_is_deducted_as_it_is_beside_the_hours_and_a_disciplinary_actions_is_its_own()
     {
-        var chef = Chef();
-        var amount = AdministrativePenalty.ForAmount(chef.Id, Monday, 150.5m, " Broke the rota ", "Omar");
+        var checker = Checker();
+        var amount = AdministrativePenalty.ForAmount(checker.Id, Monday, 150.5m, " Broke the rota ", "Omar");
         Assert.Equal((0m, (decimal?)150.5m, "Broke the rota", (Guid?)null), (amount.Hours, amount.Amount, amount.Reason, amount.DisciplinaryActionId));
         Assert.Equal(150.5m, amount.DeductionAt(20));
-        Assert.Equal(40m, new AdministrativePenalty(chef.Id, Monday, 2, "Late", "Omar").DeductionAt(20));
+        Assert.Equal(40m, new AdministrativePenalty(checker.Id, Monday, 2, "Late", "Omar").DeductionAt(20));
         Assert.Throws<DomainException>(() => amount.Change(2, "Late", "Omar"));
-        Assert.Throws<DomainException>(() => new AdministrativePenalty(chef.Id, Monday, 2, "Late", "Omar").ChangeAmount(100, "Late", "Omar"));
-        Assert.Throws<DomainException>(() => AdministrativePenalty.ForAmount(chef.Id, Monday, 0, "Late", "Omar"));
-        Assert.Throws<DomainException>(() => AdministrativePenalty.ForAmount(chef.Id, Monday, 10.255m, "Late", "Omar"));
-        Assert.Throws<DomainException>(() => AdministrativePenalty.ForAmount(chef.Id, Monday, AdministrativePenalty.MaxAmount + 1, "Late", "Omar"));
+        Assert.Throws<DomainException>(() => new AdministrativePenalty(checker.Id, Monday, 2, "Late", "Omar").ChangeAmount(100, "Late", "Omar"));
+        Assert.Throws<DomainException>(() => AdministrativePenalty.ForAmount(checker.Id, Monday, 0, "Late", "Omar"));
+        Assert.Throws<DomainException>(() => AdministrativePenalty.ForAmount(checker.Id, Monday, 10.255m, "Late", "Omar"));
+        Assert.Throws<DomainException>(() => AdministrativePenalty.ForAmount(checker.Id, Monday, AdministrativePenalty.MaxAmount + 1, "Late", "Omar"));
 
         // Two hours and 150.50 on the Monday: 40 + 150.50 off the pay, the money apart.
         var october = new DateOnly(2026, 10, 1);
         var days = PayrollMonth.Days(october).Select(d =>
-            chef.IsDayOff(d) ? Nothing(d, DayStatus.DayOff)
+            checker.IsDayOff(d) ? Nothing(d, DayStatus.DayOff)
             : d == Monday ? new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0, PenaltyHours: 2, PenaltyAmount: 150.5m)
             : new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0)).ToList();
-        var figures = PayrollCalculator.Calculate(chef, october, days, [], advances: 0, broughtForward: 0);
+        var figures = PayrollCalculator.Calculate(checker, october, days, [], advances: 0, broughtForward: 0);
         Assert.Equal((2m, 150.5m, 190.5m, 5_209.5m), (figures.AdministrativePenaltyHours, figures.AdministrativePenaltyAmounts, figures.AdministrativePenalty, figures.Net));
 
         // Kept on the day's record as worked out.
-        var record = new DailyRecord(chef.Id, days.Single(d => d.Day == Monday));
+        var record = new DailyRecord(checker.Id, days.Single(d => d.Day == Monday));
         Assert.Equal((2m, 150.5m), (record.ToEvaluation().PenaltyHours, record.ToEvaluation().PenaltyAmount));
     }
 
     [Fact]
     public void Unpaid_leave_takes_a_days_pay_never_counted_absent_and_worked_after_all_is_a_working_day()
     {
-        var chef = Chef();
-        Assert.Equal(DayStatus.UnpaidLeave, Timesheet.Evaluate(chef, Monday, [], DayMarkKind.UnpaidLeave, TenMinutesGrace, Later).Status);
-        var came = Timesheet.Evaluate(chef, Monday, [At(Monday, 10, 20), At(Monday, 19)], DayMarkKind.UnpaidLeave, TenMinutesGrace, Later);
+        var checker = Checker();
+        Assert.Equal(DayStatus.UnpaidLeave, Timesheet.Evaluate(checker, Monday, [], DayMarkKind.UnpaidLeave, TenMinutesGrace, Later).Status);
+        var came = Timesheet.Evaluate(checker, Monday, [At(Monday, 10, 20), At(Monday, 19)], DayMarkKind.UnpaidLeave, TenMinutesGrace, Later);
         Assert.Equal((DayStatus.Worked, 20), (came.Status, came.LateMinutes));
         // Only a leave request's.
-        Assert.Throws<DomainException>(() => new DayMark(chef.Id, Monday, DayMarkKind.UnpaidLeave, null, "Omar"));
-        Assert.Equal(DayMarkKind.UnpaidLeave, new DayMark(chef.Id, Monday, DayMarkKind.UnpaidLeave, "Unpaid", "Omar", Guid.NewGuid()).Kind);
+        Assert.Throws<DomainException>(() => new DayMark(checker.Id, Monday, DayMarkKind.UnpaidLeave, null, "Omar"));
+        Assert.Equal(DayMarkKind.UnpaidLeave, new DayMark(checker.Id, Monday, DayMarkKind.UnpaidLeave, "Unpaid", "Omar", Guid.NewGuid()).Kind);
 
         // Two days of it in October: 180 each off, and no absence.
         var october = new DateOnly(2026, 10, 1);
         var days = PayrollMonth.Days(october).Select(d =>
-            chef.IsDayOff(d) ? Nothing(d, DayStatus.DayOff)
+            checker.IsDayOff(d) ? Nothing(d, DayStatus.DayOff)
             : d == Monday || d == Monday.AddDays(1) ? Nothing(d, DayStatus.UnpaidLeave)
             : new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0)).ToList();
-        var figures = PayrollCalculator.Calculate(chef, october, days, [], advances: 0, broughtForward: 0);
+        var figures = PayrollCalculator.Calculate(checker, october, days, [], advances: 0, broughtForward: 0);
         Assert.Equal((2, 360m, 0, 5_040m, 5_040m), (figures.UnpaidLeaveDays, figures.UnpaidLeaveDeduction, figures.AbsentDays, figures.Net, figures.WagesCost));
 
         // A daily worker is paid only the days they work: nothing more comes off.
-        var helper = Chef();
+        var helper = Checker();
         helper.SetPay(EmploymentType.Daily, 200);
         Assert.Equal(0m, PayrollCalculator.Calculate(helper, october, days, [], advances: 0, broughtForward: 0).UnpaidLeaveDeduction);
     }
@@ -588,7 +588,7 @@ public class HrTests
         Assert.Equal(("CQZ7232060112", false), (device.SerialNumber, device.IsApproved));
 
         Assert.Throws<DomainException>(() => device.Approve(" ", "Omar"));
-        device.Approve("Kitchen door", "Omar");
+        device.Approve("Key accounts door", "Omar");
         Assert.True(device.IsApproved);
         device.Revoke();
         Assert.False(device.IsApproved);
@@ -599,24 +599,24 @@ public class HrTests
     [Fact]
     public void A_months_pay_is_its_salary_and_additions_less_its_advances_lateness_and_absence()
     {
-        var chef = Chef();
+        var checker = Checker();
         var october = new DateOnly(2026, 10, 1);
         var days = PayrollMonth.Days(october).Select(d =>
-            chef.IsDayOff(d) ? Nothing(d, DayStatus.DayOff)
+            checker.IsDayOff(d) ? Nothing(d, DayStatus.DayOff)
             : d.Day is 5 or 6 ? Nothing(d, DayStatus.Absent)
             : d.Day == 12 ? new DayEvaluation(d, DayStatus.Worked, null, null, 2, 480, 60, 30, 0, 0)
             : d.Day == 13 ? new DayEvaluation(d, DayStatus.Worked, null, null, 2, 660, 0, 0, 0, 120)
             : new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0)).ToList();
-        var voided = new PayrollAdjustment(Guid.NewGuid(), chef.Id, october, AdjustmentKind.Incentive, 999, null, "Omar");
+        var voided = new PayrollAdjustment(Guid.NewGuid(), checker.Id, october, AdjustmentKind.Incentive, 999, null, "Omar");
         voided.Void("Omar");
         PayrollAdjustment[] adjustments =
         [
-            new(Guid.NewGuid(), chef.Id, october, AdjustmentKind.Incentive, 500, "Best month", "Omar"),
-            new(Guid.NewGuid(), chef.Id, october, AdjustmentKind.LeaveAllowance, 180, "Worked the 6th of October", "Omar", forDay: new DateOnly(2026, 10, 6)),
+            new(Guid.NewGuid(), checker.Id, october, AdjustmentKind.Incentive, 500, "Best month", "Omar"),
+            new(Guid.NewGuid(), checker.Id, october, AdjustmentKind.LeaveAllowance, 180, "Worked the 6th of October", "Omar", forDay: new DateOnly(2026, 10, 6)),
             voided,
         ];
 
-        var figures = PayrollCalculator.Calculate(chef, october, days, adjustments, advances: 1_000, broughtForward: 0);
+        var figures = PayrollCalculator.Calculate(checker, october, days, adjustments, advances: 1_000, broughtForward: 0);
 
         Assert.Equal(
             (5_400m, 31, 31, 5_400m, 500m, 180m, 120, 40m, 90, 30m, 2, 360m, 1_000m, 0m),
@@ -629,7 +629,7 @@ public class HrTests
         Assert.Equal((0, 0, 0), (figures.MissingPunchDays, figures.OpenDays, figures.DaysOffWorked));
         Assert.Equal(31 - 5 - 2, figures.DaysWorked);
 
-        var slip = new PayrollSlip(Guid.NewGuid(), chef.Id, october, figures);
+        var slip = new PayrollSlip(Guid.NewGuid(), checker.Id, october, figures);
         slip.Finalize("Omar");
         Assert.Equal((PayrollSlipStatus.Finalized, 4_730m), (slip.Status, slip.NetPayable));
         Assert.Throws<DomainException>(() => slip.Recalculate(figures));
@@ -638,12 +638,12 @@ public class HrTests
     [Fact]
     public void A_month_started_part_way_pays_its_share_and_one_that_owes_more_carries_it_over()
     {
-        var chef = Chef(hiredOn: new DateOnly(2026, 10, 22));
+        var checker = Checker(hiredOn: new DateOnly(2026, 10, 22));
         var october = new DateOnly(2026, 10, 1);
-        var days = PayrollMonth.Days(october).Where(chef.IsEmployedOn)
-            .Select(d => chef.IsDayOff(d) ? Nothing(d, DayStatus.DayOff) : new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0));
+        var days = PayrollMonth.Days(october).Where(checker.IsEmployedOn)
+            .Select(d => checker.IsDayOff(d) ? Nothing(d, DayStatus.DayOff) : new DayEvaluation(d, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0));
 
-        var figures = PayrollCalculator.Calculate(chef, october, days, [], advances: 2_000, broughtForward: 150);
+        var figures = PayrollCalculator.Calculate(checker, october, days, [], advances: 2_000, broughtForward: 150);
 
         // 10 of October's 31 days.
         Assert.Equal((10, 1_741.94m), (figures.DaysEmployed, figures.BaseSalary));
@@ -653,25 +653,25 @@ public class HrTests
     [Fact]
     public void A_slip_is_finalized_only_once_every_day_is_settled()
     {
-        var chef = Chef();
+        var checker = Checker();
         var october = new DateOnly(2026, 10, 1);
-        var allButOne = PayrollMonth.Days(october).Where(d => d.Day != 31).Select(d => Nothing(d, chef.IsDayOff(d) ? DayStatus.DayOff : DayStatus.Absent)).ToList();
+        var allButOne = PayrollMonth.Days(october).Where(d => d.Day != 31).Select(d => Nothing(d, checker.IsDayOff(d) ? DayStatus.DayOff : DayStatus.Absent)).ToList();
 
-        var open = new PayrollSlip(Guid.NewGuid(), chef.Id, october, PayrollCalculator.Calculate(chef, october, allButOne, [], 0, 0));
+        var open = new PayrollSlip(Guid.NewGuid(), checker.Id, october, PayrollCalculator.Calculate(checker, october, allButOne, [], 0, 0));
         Assert.Equal(1, open.Figures.OpenDays);
         Assert.Throws<DomainException>(() => open.Finalize("Omar"));
 
-        var missing = PayrollCalculator.Calculate(chef, october, [.. allButOne, Nothing(new DateOnly(2026, 10, 31), DayStatus.Suspended)], [], 0, 0);
-        var slip = new PayrollSlip(Guid.NewGuid(), chef.Id, october, missing);
+        var missing = PayrollCalculator.Calculate(checker, october, [.. allButOne, Nothing(new DateOnly(2026, 10, 31), DayStatus.Suspended)], [], 0, 0);
+        var slip = new PayrollSlip(Guid.NewGuid(), checker.Id, october, missing);
         Assert.Equal(
             "1 day is suspended, a punch-in with no punch-out: enter the punch-out, or ignore the stray punch, first.",
             Assert.Throws<DomainException>(() => slip.Finalize("Omar")).Message);
 
-        Assert.Throws<DomainException>(() => PayrollCalculator.Calculate(chef, october, [Nothing(new DateOnly(2026, 11, 1), DayStatus.Absent)], [], 0, 0));
+        Assert.Throws<DomainException>(() => PayrollCalculator.Calculate(checker, october, [Nothing(new DateOnly(2026, 11, 1), DayStatus.Absent)], [], 0, 0));
         Assert.Throws<DomainException>(() => PayrollCalculator.Calculate(
-            chef, october, [], [new PayrollAdjustment(Guid.NewGuid(), Guid.NewGuid(), october, AdjustmentKind.Incentive, 1, null, "Omar")], 0, 0));
-        Assert.Throws<DomainException>(() => new PayrollAdjustment(Guid.NewGuid(), chef.Id, new DateOnly(2026, 10, 2), AdjustmentKind.Incentive, 1, null, "Omar"));
-        Assert.Throws<DomainException>(() => new PayrollAdjustment(Guid.NewGuid(), chef.Id, october, AdjustmentKind.Incentive, 0, null, "Omar"));
+            checker, october, [], [new PayrollAdjustment(Guid.NewGuid(), Guid.NewGuid(), october, AdjustmentKind.Incentive, 1, null, "Omar")], 0, 0));
+        Assert.Throws<DomainException>(() => new PayrollAdjustment(Guid.NewGuid(), checker.Id, new DateOnly(2026, 10, 2), AdjustmentKind.Incentive, 1, null, "Omar"));
+        Assert.Throws<DomainException>(() => new PayrollAdjustment(Guid.NewGuid(), checker.Id, october, AdjustmentKind.Incentive, 0, null, "Omar"));
     }
 
     [Fact]

@@ -1,7 +1,7 @@
 # Leave management (نظام أرصدة وموافقات الإجازات)
 
 The kinds of leave, each employee's balance of them a year, and the requests a manager approves or
-rejects. Part of HR & Payroll, in the `hr` schema (migration `LeaveAndPerformance`, with
+rejects. Part of HR & Payroll, in the `hr` schema (migration `InitialCreate`, with
 Performance & Disciplinary). Employees ask in
 the portal; managers decide on HR's Leaves & Holidays tab.
 
@@ -16,7 +16,7 @@ the portal; managers decide on HR's Leaves & Holidays tab.
   Thursday, off on Fridays and Saturdays, is five days; with a holiday on the Tuesday, four.
 - **Managers alone decide**, even for an employee holding the Leaves & Holidays tab: approving,
   rejecting and cancelling, a balance's days, and the types.
-- **The till starts with three types**: Annual (اعتيادي), 21 days, paid, shared for new hires;
+- **The system starts with three types**: Annual (اعتيادي), 21 days, paid, shared for new hires;
   Sick (مرضي), 7 days, paid; Unpaid (بدون راتب), unpaid.
 - **A new hire's share of annual leave**, by the days of the year left from their first day, to
   the half day: joining on 2 July is 183 days of 365, 10.5 of 21. Only a type shared for new hires
@@ -49,7 +49,7 @@ the portal; managers decide on HR's Leaves & Holidays tab.
   - `Status`: `Pending`, then `Approved` or `Rejected`, once; an approved one `Cancelled` if
     cancelled before it began, or cut short (`CancelledFrom`, `CancelledDays` given back,
     `DaysTaken` left). Its decision is the manager's notes
-    (`ManagerNotes`), their till account (`DecidedById`, as `ApprovedById` in the brief; it
+    (`ManagerNotes`), their user account (`DecidedById`, as `ApprovedById` in the brief; it
     records a rejection's maker too), their name, and when. The database checks that a decided
     request says who decided it, and a pending one does not.
 - **Repositories**: the types by name; a balance by employee, type and year, and a year's

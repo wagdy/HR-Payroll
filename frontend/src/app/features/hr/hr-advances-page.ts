@@ -10,31 +10,31 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { Permissions } from '../../core/auth/permissions';
-import { isRequested, SafeVoucherInput } from '../../core/costing/costing.api';
+import { isRequested } from '../../core/approvals/approvals.api';
 import { errorMessage } from '../../core/http/error-message';
-import { AdvanceShare, AdvancesReport, AllocatedAdvance, Employee, HrApi, PendingAdvance } from '../../core/hr/hr.api';
+import { AdvanceShare, AdvancesReport, AllocatedAdvance, Employee, HrAdvanceInput, HrApi, PendingAdvance } from '../../core/hr/hr.api';
 import { HrAccess } from '../../core/hr/hr-access';
 import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals, pendingLabel } from '../costing/approvals';
-import { BusinessDay, isoDay, SafeVoucherDialog, SafeVoucherDialogData } from '../costing/financials';
+import { Approvals, pendingLabel } from '../approvals/approvals';
+import { BusinessDay, isoDay } from '../../core/ui/business-day';
+import { AdvanceDialog, AdvanceDialogData } from './advance-dialog';
 import { DistributeAdvanceData, DistributeAdvanceDialog } from './distribute-advance-dialog';
 
 // HR's advances (السلفيات), a payroll month at a time.
 //
-// Pending (وضع معلق): advances handed out with no one named, from the daily batch or a Financials
-// voucher, each with how much is given out and what is left. A manager gives one out a share each
-// (Distribute), some now and the rest later, and takes a share back while that pay is not
-// finalized. Every one not all given out is listed, whatever its month; those all given out, in
-// their month.
+// Pending (وضع معلق): advances handed out with no one named, each with how much is given out and
+// what is left. A manager gives one out a share each (Distribute), some now and the rest later,
+// and takes a share back while that pay is not finalized. Every one not all given out is listed,
+// whatever its month; those all given out, in their month.
 //
-// Allocated: the month's advances, each off whose pay: paid to them, or their share of a lump sum.
+// Allocated: the month's advances, each off whose pay: an advance to them, or their share of a
+// lump sum.
 //
-// New advance records one paid outside the till (from the owner's own pocket, say), in the same
-// dialog Financials pays one with, less where it is paid from: no cash leaves the safe or a day's
-// takings, and Financials never sees it. It comes off the employee's pay, or, naming no one, is a
-// lump sum to give out here. A manager's is recorded at once, anyone else's asked of a manager; a
-// manager voids one while its pay is not finalized (a lump sum, once no share of it stands).
+// New advance records one, an HR record of its own: it comes off the employee's pay, or, naming
+// no one, is a lump sum to give out here. A manager's is recorded at once, anyone else's asked of
+// a manager; a manager voids one while its pay is not finalized (a lump sum, once no share of it
+// stands).
 @Component({
   selector: 'app-hr-advances-page',
   imports: [DatePipe, MatButtonModule, MatButtonToggleModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MoneyPipe, RouterLink],
@@ -78,23 +78,13 @@ import { DistributeAdvanceData, DistributeAdvanceDialog } from './distribute-adv
     } @else if (report(); as r) {
       @if (view() === 'pending') {
         <p class="muted">
-          Advances handed out with no one named, in the daily batch or a Financials voucher, wait here to be given out, a share each. Each share comes
-          off its employee's pay.
+          Advances handed out with no one named wait here to be given out, a share each. Each share comes off its employee's pay.
         </p>
         @for (p of r.pending; track p.id) {
           <section class="lump" [class.done]="p.fullyAllocated" [attr.aria-label]="'Advances of ' + (p.date | date: 'd MMM')">
             <header>
               <div>
                 <strong>{{ p.amount | money }}</strong> handed out {{ p.date | date: 'd MMM' }}
-                <span class="muted">
-                  · @if (p.outsideTill) {
-                    outside the till
-                  } @else if (p.fromTakingsOf) {
-                    from the takings of {{ p.fromTakingsOf | date: 'd MMM' }}
-                  } @else {
-                    from the safe
-                  }
-                </span>
                 <div class="muted small">{{ p.notes ? p.notes + ' · ' : '' }}entered by {{ p.recordedBy }}</div>
               </div>
               <span class="spacer"></span>
@@ -106,8 +96,8 @@ import { DistributeAdvanceData, DistributeAdvanceDialog } from './distribute-adv
               @if (canDistribute() && !p.fullyAllocated) {
                 <button mat-flat-button (click)="distribute(p)"><mat-icon>call_split</mat-icon> Distribute <span class="inline-ar">توزيع</span></button>
               }
-              @if (canDistribute() && p.outsideTill && !p.shares.length) {
-                <button mat-icon-button class="danger" (click)="voidOutside(p.id, p.amount)" matTooltip="Void" aria-label="Void these advances">
+              @if (canDistribute() && p.allocated === 0) {
+                <button mat-icon-button class="danger" (click)="voidAdvance(p.id, p.amount)" matTooltip="Void" aria-label="Void these advances">
                   <mat-icon>delete</mat-icon>
                 </button>
               }
@@ -175,23 +165,14 @@ import { DistributeAdvanceData, DistributeAdvanceDialog } from './distribute-adv
                     @if (a.origin === 'Share') {
                       Share of the advances of {{ a.date | date: 'd MMM' }}<span class="ar">حصة من سلفة</span>
                     } @else {
-                      Paid to them<span class="ar">سلفة مباشرة</span>
+                      Advance to them<span class="ar">سلفة مباشرة</span>
                     }
-                    <div class="muted small">
-                      @if (a.outsideTill) {
-                        Outside the till · من خارج الخزنة
-                      } @else if (a.fromTakingsOf) {
-                        From the takings of {{ a.fromTakingsOf | date: 'd MMM' }}
-                      } @else {
-                        From the safe
-                      }
-                    </div>
                   </td>
                   <td class="num">{{ a.amount | money }}</td>
                   <td>{{ a.recordedBy }}</td>
                   <td class="num">
-                    @if (canDistribute() && a.origin === 'Outside') {
-                      <button mat-icon-button class="danger" (click)="voidOutside(a.id, a.amount, a)" matTooltip="Void" [attr.aria-label]="'Void the advance to ' + a.employee">
+                    @if (canDistribute() && a.origin === 'Direct') {
+                      <button mat-icon-button class="danger" (click)="voidAdvance(a.id, a.amount, a)" matTooltip="Void" [attr.aria-label]="'Void the advance to ' + a.employee">
                         <mat-icon>delete</mat-icon>
                       </button>
                     }
@@ -220,7 +201,7 @@ import { DistributeAdvanceData, DistributeAdvanceDialog } from './distribute-adv
       }
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .month {
       min-width: 120px;
@@ -234,7 +215,7 @@ import { DistributeAdvanceData, DistributeAdvanceDialog } from './distribute-adv
       padding: 0 6px;
       border-radius: 999px;
       font: var(--mat-sys-label-small);
-      background: var(--till-warn);
+      background: var(--app-warn);
       color: #000;
     }
     .lump {
@@ -277,7 +258,7 @@ import { DistributeAdvanceData, DistributeAdvanceDialog } from './distribute-adv
         background: color-mix(in srgb, #2e7d32 16%, transparent);
       }
       &.left {
-        background: color-mix(in srgb, var(--till-warn) 30%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 30%, transparent);
       }
     }
     .small {
@@ -358,34 +339,28 @@ export class HrAdvancesPage {
     }
   }
 
-  // Paid outside the till: asked for in the dialog Financials pays one with, recorded in HR.
   protected async newAdvance(): Promise<void> {
-    const voucher = await firstValueFrom(
+    const input = await firstValueFrom(
       this.dialog
-        .open<SafeVoucherDialog, SafeVoucherDialogData, SafeVoucherInput>(SafeVoucherDialog, {
-          data: { kind: 'EmployeeAdvance', outsideTill: true, canApprove: this.approvals.canApprove(), today: await this.businessDay.today() },
+        .open<AdvanceDialog, AdvanceDialogData, HrAdvanceInput>(AdvanceDialog, {
+          data: { employees: this.employees(), canApprove: this.approvals.canApprove(), today: await this.businessDay.today() },
           width: '520px',
           maxWidth: '95vw',
         })
         .afterClosed(),
     );
-    if (!voucher) {
+    if (!input) {
       return;
     }
     try {
-      const result = await firstValueFrom(
-        this.api.recordHrAdvance({
-          advanceId: voucher.transactionId, requestId: voucher.requestId, amount: voucher.amount, date: voucher.date ?? (await this.businessDay.today()),
-          employeeId: voucher.employeeId ?? null, notes: voucher.notes,
-        }),
-      );
+      const result = await firstValueFrom(this.api.recordHrAdvance(input));
       if (isRequested(result)) {
         await this.approvals.requested(result);
       } else {
         this.notify.info(
           result.employee
-            ? `${money(result.amount)} recorded outside the till: it comes off ${result.employee}'s pay.`
-            : `${money(result.amount)} recorded outside the till: give it out below.`,
+            ? `${money(result.amount)} recorded: it comes off ${result.employee}'s pay.`
+            : `${money(result.amount)} recorded: give it out below.`,
         );
       }
       await this.load();
@@ -394,7 +369,7 @@ export class HrAdvancesPage {
     }
   }
 
-  protected async voidOutside(id: string, amount: number, advance?: AllocatedAdvance): Promise<void> {
+  protected async voidAdvance(id: string, amount: number, advance?: AllocatedAdvance): Promise<void> {
     try {
       await firstValueFrom(this.api.voidHrAdvance(id));
       this.notify.info(advance ? `The advance to ${advance.employee} is voided: it no longer comes off their pay.` : `${money(amount)} of advances voided.`);
@@ -432,5 +407,5 @@ function round(amount: number): number {
 }
 
 function money(amount: number): string {
-  return `L.E ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

@@ -1,15 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { Router, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { Permissions } from '../../core/auth/permissions';
 import { Employee, HrApi, PayrollFigures, PayrollMonth, PayrollSlip } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
-import { BusinessDay, Treasury } from '../costing/financials';
-import { AdjustmentDialog, FinalizeDialog, PayslipPage } from './payslip-page';
+import { Approvals } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
+import { AdjustmentDialog, FinalizeDialog, PaySalaryDialog, PayslipPage } from './payslip-page';
 import { PayrollPage } from './payroll-page';
 import { HrAccess } from '../../core/hr/hr-access';
 
@@ -22,10 +22,10 @@ const cell = (el: Element): string =>
     .join(' ');
 
 const hassan: Employee = {
-  id: 'hassan', name: 'Hassan', jobTitle: 'Chef', monthlySalary: 5_400, shiftStartsAt: '16:00:00', shiftEndsAt: '01:00:00', daysOff: ['Friday'],
+  id: 'hassan', name: 'Hassan', jobTitle: 'Checker', monthlySalary: 5_400, shiftStartsAt: '16:00:00', shiftEndsAt: '01:00:00', daysOff: ['Friday'],
   deviceUserId: '7', hiredOn: '2026-09-01', leftOn: null, isActive: true, dailyRate: 180, hourlyRate: 20, nationalId: null, mobileNumber: null, idPhoto: null, employmentType: 'Monthly', dailyWage: 0, departmentId: 'general', jobRoleId: null,
 };
-const mona: Employee = { ...hassan, id: 'mona', name: 'Mona', jobTitle: 'Waiter', monthlySalary: 4_050, dailyRate: 135, hourlyRate: 15 };
+const mona: Employee = { ...hassan, id: 'mona', name: 'Mona', jobTitle: 'Warehouse clerk', monthlySalary: 4_050, dailyRate: 135, hourlyRate: 15 };
 
 function figures(extra: Partial<PayrollFigures> = {}): PayrollFigures {
   const f = {
@@ -109,19 +109,19 @@ describe('the monthly payroll', () => {
     expect(payroll).toHaveBeenCalledWith('2026-09-01');
     const rows = [...el.querySelectorAll('tbody tr')].map((r) => [...r.querySelectorAll('td')].map(cell));
     expect(rows[0]).toEqual([
-      'Hassan Chef', 'L.E 5,400.00', 'L.E 500.00', 'L.E 0.00', 'L.E 40.00', 'L.E 200.00', 'L.E 0.00',
-      'L.E 253.67 Late L.E 33.67 Absent L.E 180.00 Penalties L.E 40.00', 'L.E 5,486.33', 'Finalized نهائي L.E 5,000.00 to pay',
+      'Hassan Checker', '5,400.00', '500.00', '0.00', '40.00', '200.00', '0.00',
+      '253.67 Late 33.67 Absent 180.00 Penalties 40.00', '5,486.33', 'Finalized نهائي 5,000.00 to pay',
     ]);
     // Deductions and penalties together, just before what is payable.
     const heads = [...el.querySelectorAll('thead th')].map(cell);
     expect(heads.slice(-3)).toEqual(['− Deductions & penalties خصومات وجزاءات', '= Net payable صافي المستحق', 'Status الحالة']);
     // More owed than paid: nothing is paid, and the rest goes to next month.
-    expect(rows[1][0]).toBe('Mona Waiter · 16 of 30 days');
-    expect(rows[1][7]).toBe('L.E 0.00');
-    expect(rows[1][8]).toBe('L.E 0.00 L.E 840.00 to next month');
+    expect(rows[1][0]).toBe('Mona Warehouse clerk · 16 of 30 days');
+    expect(rows[1][7]).toBe('0.00');
+    expect(rows[1][8]).toBe('0.00 840.00 to next month');
     expect(rows[1][9]).toBe('Not calculated لم يُحتسب 2 days suspended');
-    expect(cell(el.querySelectorAll('tfoot td')[7])).toBe('L.E 253.67');
-    expect(text(el.querySelector('tfoot tr')!)).toContain('L.E 5,486.33');
+    expect(cell(el.querySelectorAll('tfoot td')[7])).toBe('253.67');
+    expect(text(el.querySelector('tfoot tr')!)).toContain('5,486.33');
     expect(el.querySelector('tbody a')!.getAttribute('href')).toBe('/hassan?month=2026-09-01');
   });
 
@@ -130,7 +130,7 @@ describe('the monthly payroll', () => {
 
     const tiles = [...el.querySelectorAll('.tile')].map(cell);
     // 5,400 + 500 + 40 overtime for Hassan, and Mona's 2,160.
-    expect(tiles[0]).toBe('Total salaries · إجمالي الرواتب L.E 8,100.00 earned before anything is deducted');
+    expect(tiles[0]).toBe('Total salaries · إجمالي الرواتب 8,100.00 earned before anything is deducted');
     expect(tiles[1]).toMatch(/^Net payable · صافي المستحق/);
   });
 
@@ -150,8 +150,8 @@ describe('the monthly payroll', () => {
     const { el } = await render();
 
     const leave = el.querySelectorAll('tbody tr')[0].querySelectorAll('td')[3];
-    expect(cell(leave)).toBe('L.E 640.00 2 days off worked 1 holiday worked');
-    expect(cell(el.querySelectorAll('tfoot td')[3])).toBe('L.E 640.00');
+    expect(cell(leave)).toBe('640.00 2 days off worked 1 holiday worked');
+    expect(cell(el.querySelectorAll('tfoot td')[3])).toBe('640.00');
   });
 
   it('exports the month to Excel under its own name, for anyone who sees it', async () => {
@@ -191,8 +191,9 @@ describe('a payslip', () => {
   const finalizeSlip = vi.fn();
   const addAdjustment = vi.fn();
   const voidAdjustment = vi.fn();
+  const recordSalaryPayment = vi.fn();
+  const voidSalaryPayment = vi.fn();
   const open = vi.fn();
-  const enter = vi.fn();
   const notify = { info: vi.fn(), error: vi.fn() };
   const canApprove = signal(true);
 
@@ -200,9 +201,9 @@ describe('a payslip', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: HrApi, useValue: { payroll, finalizeSlip, addAdjustment, voidAdjustment } },
+        { provide: HrApi, useValue: { payroll, finalizeSlip, addAdjustment, voidAdjustment, recordSalaryPayment, voidSalaryPayment } },
         { provide: MatDialog, useValue: { open } },
-        { provide: Treasury, useValue: { enter } },
+        { provide: BusinessDay, useValue: { today: () => Promise.resolve('2026-10-03') } },
         { provide: HrAccess, useValue: { has: () => true, canDecide: () => canApprove() } },
         { provide: AuthService, useValue: { employeeActing: () => false, me: () => null, can: () => true } },
         { provide: Approvals, useValue: { canApprove } },
@@ -220,7 +221,7 @@ describe('a payslip', () => {
   const draft = slip(hassan, {
     status: 'Draft',
     adjustments: [{ id: 'a1', employeeId: 'hassan', month: '2026-09-01', kind: 'Incentive', amount: 500, reason: 'Best month', source: 'Manual', forDay: null, recordedBy: 'Omar', recordedAtUtc: '', voidedAtUtc: null, voidedBy: null }],
-    advances: [{ id: 't1', kind: 'EmployeeAdvance', date: '2026-09-10', amount: 200, fromTakingsOf: null, notes: null, recordedBy: 'Omar', approvedBy: null, voidedAtUtc: null, voidedBy: null }],
+    advances: [{ id: 't1', date: '2026-09-10', amount: 200, notes: null, recordedBy: 'Omar', approvedBy: null, isShare: false }],
   });
 
   beforeEach(() => {
@@ -228,8 +229,9 @@ describe('a payslip', () => {
     finalizeSlip.mockReset().mockReturnValue(of({}));
     addAdjustment.mockReset().mockReturnValue(of({}));
     voidAdjustment.mockReset().mockReturnValue(of({}));
+    recordSalaryPayment.mockReset().mockReturnValue(of({}));
+    voidSalaryPayment.mockReset().mockReturnValue(of({}));
     open.mockReset();
-    enter.mockReset().mockResolvedValue(true);
     canApprove.set(true);
   });
 
@@ -238,20 +240,20 @@ describe('a payslip', () => {
 
     const lines = [...el.querySelectorAll('.breakdown tr')].map((r) => [text(r.querySelector('th')!).split(/\s(?=[؀-ۿ])/)[0], text(r.querySelector('td')!)]);
     expect(lines).toEqual([
-      ['Base salary', 'L.E 5,400.00'],
-      ['+ Incentives', 'L.E 500.00'],
-      ['+ Days off worked', 'L.E 0.00'],
-      ['+ Leave allowances', 'L.E 0.00'],
-      ['+ Overtime', 'L.E 40.00'],
-      ['= Gross pay', 'L.E 5,940.00'],
-      ['− Advances', 'L.E 200.00'],
-      ['− Lateness', 'L.E 33.67'],
-      ['− Absence', 'L.E 180.00'],
-      ['= Net payable', 'L.E 5,526.33'],
+      ['Base salary', '5,400.00'],
+      ['+ Incentives', '500.00'],
+      ['+ Days off worked', '0.00'],
+      ['+ Leave allowances', '0.00'],
+      ['+ Overtime', '40.00'],
+      ['= Gross pay', '5,940.00'],
+      ['− Advances', '200.00'],
+      ['− Lateness', '33.67'],
+      ['− Absence', '180.00'],
+      ['= Net payable', '5,526.33'],
     ]);
-    expect(text(el.querySelectorAll('.breakdown tr')[4].querySelector('.how')!)).toBe('2h 00m at L.E 20.00 an hour');
-    expect(text(el.querySelectorAll('.breakdown tr')[8].querySelector('.how')!)).toBe('1 day at L.E 180.00');
-    expect([...el.querySelectorAll('.lists .line')].map(cell)).toEqual(['Incentive حوافز · Best month L.E 500.00 delete', '10 Sep · from the safe L.E 200.00']);
+    expect(text(el.querySelectorAll('.breakdown tr')[4].querySelector('.how')!)).toBe('2h 00m at 20.00 an hour');
+    expect(text(el.querySelectorAll('.breakdown tr')[8].querySelector('.how')!)).toBe('1 day at 180.00');
+    expect([...el.querySelectorAll('.lists .line')].map(cell)).toEqual(['Incentive حوافز · Best month 500.00 delete', '10 Sep · advance 200.00']);
   });
 
   it('makes a daily worker’s base pay the days worked at their wage, days off as anyone’s, and deducts no absence', async () => {
@@ -262,9 +264,9 @@ describe('a payslip', () => {
 
     const base = el.querySelectorAll('.breakdown tr')[0];
     expect(text(base.querySelector('th')!)).toContain("Days' wages");
-    expect(text(base.querySelector('.how')!)).toBe('19 days worked at L.E 250.00 a day, days off apart');
+    expect(text(base.querySelector('.how')!)).toBe('19 days worked at 250.00 a day, days off apart');
     const dayOff = [...el.querySelectorAll('.breakdown tr')].find((r) => text(r.querySelector('th')!).startsWith('+ Days off worked'))!;
-    expect(text(dayOff.querySelector('.how')!)).toBe("1 day: a day's pay for half a shift or more, the hours for less");
+    expect(text(dayOff.querySelector('.how')!)).toBe("1 day: a day's pay for half a workday or more, the hours for less");
     const absence = [...el.querySelectorAll('.breakdown tr')].find((r) => text(r.querySelector('th')!).startsWith('− Absence'))!;
     expect(text(absence.querySelector('.how')!)).toBe('Daily pay: a day not worked is not paid, nor deducted');
   });
@@ -274,9 +276,9 @@ describe('a payslip', () => {
     const { el } = await render();
 
     const line = [...el.querySelectorAll('.breakdown tr')].find((r) => text(r.querySelector('th')!).startsWith('+ Holidays worked'))!;
-    expect(text(line.querySelector('.how')!)).toBe("2 holidays: a day's pay for half a shift or more, the hours for less");
-    expect(text(line.querySelector('td')!)).toBe('L.E 360.00');
-    expect(text(el.querySelector('.breakdown tr.total td')!)).toBe('L.E 5,886.33');
+    expect(text(line.querySelector('.how')!)).toBe("2 holidays: a day's pay for half a workday or more, the hours for less");
+    expect(text(line.querySelector('td')!)).toBe('360.00');
+    expect(text(el.querySelector('.breakdown tr.total td')!)).toBe('5,886.33');
   });
 
   it('shows a manager’s administrative penalties as their own deduction', async () => {
@@ -284,9 +286,9 @@ describe('a payslip', () => {
     const { el } = await render();
 
     const line = [...el.querySelectorAll('.breakdown tr')].find((r) => text(r.querySelector('th')!).startsWith('− Administrative penalties'))!;
-    expect(text(line.querySelector('.how')!)).toBe('2.5 hours at L.E 20.00');
-    expect(text(line.querySelector('td')!)).toBe('L.E 50.00');
-    expect(text(el.querySelector('.breakdown tr.total td')!)).toBe('L.E 5,476.33');
+    expect(text(line.querySelector('.how')!)).toBe('2.5 hours at 20.00');
+    expect(text(line.querySelector('td')!)).toBe('50.00');
+    expect(text(el.querySelector('.breakdown tr.total td')!)).toBe('5,476.33');
   });
 
   it('points to Corrections when suspended days keep the month from being finalized', async () => {
@@ -313,7 +315,7 @@ describe('a payslip', () => {
     expect(notify.info).toHaveBeenCalledWith('Hassan’s pay is finalized.');
   });
 
-  it('takes incentives and allowances, voids them, and pays what is owed from the safe entry dialog', async () => {
+  it('takes incentives and allowances, voids them, and pays what is owed, in parts too', async () => {
     const { page } = await render();
 
     open.mockReturnValue({ afterClosed: () => of({ kind: 'LeaveAllowance', amount: 180, reason: 'Worked 6 Oct' }) });
@@ -323,8 +325,30 @@ describe('a payslip', () => {
     await page['voidAdjustment'](draft.adjustments[0]);
     expect(voidAdjustment).toHaveBeenCalledWith('a1');
 
+    open.mockReturnValue({ afterClosed: () => of({ amount: 3_000, date: '2026-10-02', notes: 'Bank transfer' }) });
     await page['pay'](slip(hassan, { status: 'Finalized', salaryOwed: 5_526.33 }));
-    expect(enter).toHaveBeenCalledWith('SalaryPayment', { employeeId: 'hassan', payrollMonth: '2026-09-01', amount: 5_526.33 });
+    expect(open.mock.lastCall![0]).toBe(PaySalaryDialog);
+    expect(open.mock.lastCall![1].data).toEqual({ employee: 'Hassan', owed: 5_526.33, today: '2026-10-03' });
+    expect(recordSalaryPayment).toHaveBeenCalledWith({
+      paymentId: expect.any(String), employeeId: 'hassan', month: '2026-09-01', amount: 3_000, date: '2026-10-02', notes: 'Bank transfer',
+    });
+    expect(notify.info).toHaveBeenLastCalledWith('Hassan is paid 3,000.00.');
+
+    await page['voidPayment']({ id: 'p1' });
+    expect(voidSalaryPayment).toHaveBeenCalledWith('p1');
+    expect(notify.info).toHaveBeenLastCalledWith('The payment is voided: it is owed again.');
+  });
+
+  it('pays no more than is owed, dated today or before', () => {
+    TestBed.configureTestingModule({ providers: [{ provide: MAT_DIALOG_DATA, useValue: { employee: 'Hassan', owed: 500, today: '2026-10-03' } }] });
+    const dialog = TestBed.createComponent(PaySalaryDialog).componentInstance as unknown as Record<string, any>;
+    expect(dialog['amount']).toBe(500);
+    expect(dialog['ready']()).toBe(true);
+    dialog['amount'] = 500.01;
+    expect(dialog['ready']()).toBe(false);
+    dialog['amount'] = 200;
+    dialog['date'] = '2026-10-04';
+    expect(dialog['ready']()).toBe(false);
   });
 
   it('offers an accountant nothing to finalize or add', async () => {

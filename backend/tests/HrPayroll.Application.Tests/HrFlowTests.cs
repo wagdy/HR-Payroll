@@ -9,7 +9,7 @@ using HrPayroll.Domain.Payroll;
 
 namespace HrPayroll.Application.Tests;
 
-// The flows HR's records make on their own, nothing of a till behind them: advances recorded,
+// The flows HR's records make on their own, no safe behind them: advances recorded,
 // given out and deducted; a month's pay finalized and paid; an asset broken.
 public class HrFlowTests
 {

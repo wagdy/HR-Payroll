@@ -5,10 +5,10 @@ import { Permission } from './permissions';
 // Shows its element only when the signed-in user has the permission (or any of them, given a
 // list), and takes it away again the moment they do not:
 //
-//   <button *appCan="Permissions.OrderCheckout" ...>Checkout</button>
+//   <button *appCan="Permissions.ApprovalDecide" ...>Approve</button>
 //
 // The permissions are the ones GET /api/auth/me returned, so this hides exactly what the API
-// would refuse. A captain therefore never sees checkout, receipts, points or voids.
+// would refuse. An accountant therefore never sees what only a manager decides.
 @Directive({ selector: '[appCan]' })
 export class CanDirective {
   private readonly auth = inject(AuthService);

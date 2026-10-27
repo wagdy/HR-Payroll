@@ -7,7 +7,7 @@ import { PortalAuth } from '../../core/portal/portal-auth';
 
 // The tabs a manager gave an employee (صلاحيات الموظفين), in the portal: the portal's bar, back to
 // their own profile, and HR & Payroll's or Custody & Assets' own screens under it, only their
-// tabs, nothing else of the till. A change to someone's record, an advance or an asset waits for
+// tabs, nothing else of the system. A change to someone's record, an advance or an asset waits for
 // a manager; the rest of what they change in their tabs is made at once.
 @Component({
   selector: 'app-portal-hr-frame',

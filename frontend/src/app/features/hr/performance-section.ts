@@ -9,7 +9,7 @@ import { Employee } from '../../core/hr/hr.api';
 import { DisciplinaryAction, EmployeePerformance, PerformanceApi, PerformanceKpi, severityLabels } from '../../core/hr/performance.api';
 import { errorMessage } from '../../core/http/error-message';
 import { NotifyService } from '../../core/ui/notify.service';
-import { BusinessDay } from '../costing/financials';
+import { BusinessDay } from '../../core/ui/business-day';
 import { DisciplinaryData, DisciplinaryDialog, EvaluationData, EvaluationDialog, KpiDialog, WithdrawActionDialog } from './performance-dialogs';
 import { PerformanceTimeline } from './performance-timeline';
 

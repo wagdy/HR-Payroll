@@ -40,7 +40,7 @@ const dialogStyles = `
     <mat-dialog-content>
       <mat-form-field class="wide">
         <mat-label>Name · الاسم</mat-label>
-        <input matInput [(ngModel)]="name" maxlength="100" [placeholder]="data.placeholder ?? 'Kitchen, Service, Management'" aria-label="Name" />
+        <input matInput [(ngModel)]="name" maxlength="100" [placeholder]="data.placeholder ?? 'Operations, Sales, Management'" aria-label="Name" />
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -137,7 +137,7 @@ export class DeleteDepartmentDialog {
   protected moveTo = '';
 }
 
-// HR's departments (الأقسام), as a table of what they cost: the kitchen, service, management, each
+// HR's departments (الأقسام), as a table of what they cost: operations, sales, management, each
 // employee in one, and their job roles (الوظائف), a row each with how many hold it and what they
 // cost; then the department's total and its share of the salaries. Monthly salaries and daily
 // wages are said apart, a daily worker's month being the days they work; those who left are not
@@ -282,7 +282,7 @@ export class DeleteDepartmentDialog {
       </p>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .muted {
       color: var(--mat-sys-on-surface-variant);
@@ -373,7 +373,7 @@ export class DepartmentsPage {
     return rows.length ? rows : [{ key: 'none', role: null, label: 'No roles yet', employed: 0, monthly: 0, daily: 0 }];
   }
 
-  // "L.E 5,400.00 a month", and "+ L.E 270.00 a day" beside it, as there are.
+  // "5,400.00 a month", and "+ 270.00 a day" beside it, as there are.
   protected cost(monthly: number, daily: number): { month: string | null; day: string | null } {
     return {
       month: monthly > 0 ? `${this.money.transform(monthly)} a month` : null,
@@ -416,14 +416,14 @@ export class DepartmentsPage {
   }
 
   protected async addRole(d: Department): Promise<void> {
-    const name = await this.askName({ title: `Add a role to ${d.name}`, placeholder: 'Chef, helper, waiter, captain' });
+    const name = await this.askName({ title: `Add a role to ${d.name}`, placeholder: 'Engineer, technician, supervisor' });
     if (name) {
       await this.act(() => this.api.saveRole(d.id, crypto.randomUUID(), name), `${name} added to ${d.name}.`);
     }
   }
 
   protected async renameRole(d: Department, r: JobRole): Promise<void> {
-    const name = await this.askName({ title: `Rename the ${r.name} role`, name: r.name, placeholder: 'Chef, helper, waiter, captain' });
+    const name = await this.askName({ title: `Rename the ${r.name} role`, name: r.name, placeholder: 'Engineer, technician, supervisor' });
     if (name && name !== r.name) {
       await this.act(() => this.api.saveRole(d.id, r.id, name), `Renamed ${name}, for whoever holds it.`);
     }
@@ -448,7 +448,7 @@ export class DepartmentsPage {
     return firstValueFrom(this.dialog.open<DepartmentDialog, NameData, string>(DepartmentDialog, { data, width: '420px' }).afterClosed());
   }
 
-  // Does it, says so, and reads the list again; a refusal is said as the till says it.
+  // Does it, says so, and reads the list again; a refusal is said as the API says it.
   private async act(call: () => Observable<unknown>, done: string): Promise<void> {
     try {
       await firstValueFrom(call());

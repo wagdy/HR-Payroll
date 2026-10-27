@@ -2,8 +2,8 @@ using HrPayroll.Domain.Common;
 
 namespace HrPayroll.Domain.Approvals;
 
-// The records a manager decides about. Numbered as in Otantik POS, where HR began, so its
-// requests can be brought over as they are.
+// The records a manager decides about. Numbered as they were where HR began, so requests kept
+// from then read as they did.
 public enum ApprovalModule
 {
     // An employee added, changed, leaving or coming back.

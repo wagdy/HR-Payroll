@@ -1,13 +1,11 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';
-import { Permission, Permissions } from './permissions';
+import { Permission } from './permissions';
 
-// Where someone lands: the open orders for whoever takes them, the costing for an accountant,
-// who works the back office and takes no orders.
-export function homePath(auth: AuthService): string {
-  return !auth.can(Permissions.OrderViewOwn) && auth.can(Permissions.CostingView) ? '/costing' : '/orders';
-}
+// Where a user lands: HR & Payroll, which sends whoever holds none of its tabs on to Custody &
+// Assets, or to their own account (HrAccess.outside).
+export const homePath = '/hr';
 
 // Signed in, as /api/auth/me confirmed at start-up or sign-in.
 export const signedInGuard: CanActivateFn = () => {
@@ -17,14 +15,7 @@ export const signedInGuard: CanActivateFn = () => {
 
 export const signedOutGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.isSignedIn() ? inject(Router).createUrlTree([homePath(auth)]) : true;
-};
-
-// The open orders, for whoever takes orders; anyone else is sent to their own section.
-export const ordersGuard: CanActivateFn = () => {
-  const auth = inject(AuthService);
-  const home = homePath(auth);
-  return home === '/orders' ? true : inject(Router).createUrlTree([home]);
+  return auth.isSignedIn() ? inject(Router).createUrlTree([homePath]) : true;
 };
 
 // A section only some roles have: its link is hidden from the rest, and this keeps a typed
@@ -32,4 +23,4 @@ export const ordersGuard: CanActivateFn = () => {
 export const permissionGuard =
   (permission: Permission): CanActivateFn =>
   () =>
-    inject(AuthService).can(permission) ? true : inject(Router).createUrlTree([homePath(inject(AuthService))]);
+    inject(AuthService).can(permission) ? true : inject(Router).createUrlTree([homePath]);

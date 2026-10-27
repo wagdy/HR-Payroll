@@ -47,7 +47,7 @@ const maxDays = 10;
       } @else if (days()) {
         <p>{{ days() }} {{ days() === 1 ? 'day' : 'days' }}: {{ dates() }}</p>
       }
-      <p class="muted">Everyone's paid day off. Whoever works it earns a day's pay on top, for half a shift or more.</p>
+      <p class="muted">Everyone's paid day off. Whoever works it earns a day's pay on top, for half a workday or more.</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       @if (data.existing) {

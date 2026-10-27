@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-// Performance & Disciplinary (تقييم الأداء والإنذارات), as the till's API serves it
+// Performance & Disciplinary (تقييم الأداء والإنذارات), as the API serves it
 // (/api/performance): the KPIs, and each employee's evaluations and disciplinary actions with
 // their record. Seen by whoever holds the Employees tab; recorded, issued and withdrawn by a
 // manager alone. Employees see their own in the portal (PortalApi), withdrawn ones left out.

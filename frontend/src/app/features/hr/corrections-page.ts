@@ -15,14 +15,14 @@ import { AdministrativePenalty, AttendanceDay, Employee, EmployeeDay, HrApi, Lat
 import { HrAccess } from '../../core/hr/hr-access';
 import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
-import { BusinessDay, isoDay } from '../costing/financials';
+import { BusinessDay, isoDay } from '../../core/ui/business-day';
 import { IgnorePunchDialog, PenaltyAnswer, PenaltyData, PenaltyDialog, ResolveDayData, ResolveDayDialog } from './attendance-dialogs';
 import { CorrectionsCount } from './corrections-count';
 
 // Corrections (مراجعة وجزاءات): what waits for a manager in the attendance, and the month's
 // administrative penalties.
 //
-// Punches can also come late: the device keeps them while the till is away (the laptop off the
+// Punches can also come late: the device keeps them while the system is away (the laptop off the
 // network) and sends them when it is back, sometimes after their month's pay is finalized. They
 // are kept, the slip stays as it was, and they are listed here until a manager has seen to them,
 // settling in a later month's pay what they change.
@@ -73,7 +73,7 @@ import { CorrectionsCount } from './corrections-count';
               <tr>
                 <th>Day<span class="ar">اليوم</span></th>
                 <th>Employee<span class="ar">الموظف</span></th>
-                <th>Shift<span class="ar">الوردية</span></th>
+                <th>Work schedule<span class="ar">الدوام</span></th>
                 <th>Punches<span class="ar">البصمات</span></th>
                 <th class="num"><span class="visually-hidden">Put right</span></th>
               </tr>
@@ -137,7 +137,7 @@ import { CorrectionsCount } from './corrections-count';
       <section class="late" aria-labelledby="late-title">
         <h2 id="late-title">Punches after the pay was finalized <span class="inline-ar">بصمات بعد اعتماد الرواتب</span></h2>
         <p class="note">
-          The device kept them while the till was away, and sent them after their month's pay was finalized. The payslip stays as it was: if they
+          The device kept them while the system was away, and sent them after their month's pay was finalized. The payslip stays as it was: if they
           change what was owed, settle it in a later month's pay, with an incentive or a penalty, then mark them seen to.
         </p>
         <div class="table-wrap">
@@ -279,7 +279,7 @@ import { CorrectionsCount } from './corrections-count';
       }
     </section>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     h2 {
       margin: 0;
@@ -322,7 +322,7 @@ import { CorrectionsCount } from './corrections-count';
       &.stray {
         padding: 0 8px;
         border-radius: 999px;
-        background: color-mix(in srgb, var(--till-warn) 24%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 24%, transparent);
       }
     }
     td.actions {
@@ -515,7 +515,7 @@ export class CorrectionsPage {
     }
   }
 
-  // Does it, says so, and reads the list again; a refusal is said as the till says it.
+  // Does it, says so, and reads the list again; a refusal is said as the API says it.
   private async act(call: () => Observable<unknown>, done: string, reload: () => Promise<void>): Promise<void> {
     try {
       await firstValueFrom(call());

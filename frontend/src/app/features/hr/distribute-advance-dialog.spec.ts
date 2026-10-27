@@ -9,14 +9,14 @@ const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 
 function employee(id: string, name: string): Employee {
   return {
-    id, name, jobTitle: 'Chef', jobRoleId: null, employmentType: 'Monthly', monthlySalary: 5_000, dailyWage: 0, departmentId: 'general', shiftStartsAt: '10:00:00',
+    id, name, jobTitle: 'Checker', jobRoleId: null, employmentType: 'Monthly', monthlySalary: 5_000, dailyWage: 0, departmentId: 'general', shiftStartsAt: '10:00:00',
     shiftEndsAt: '19:00:00', daysOff: [], deviceUserId: null, hiredOn: '2026-01-01', leftOn: null, isActive: true, dailyRate: 166.67, hourlyRate: 18.52, nationalId: null, mobileNumber: null, idPhoto: null,
   };
 }
 
 const lump: PendingAdvance = {
-  id: 'lump', date: '2026-10-22', amount: 1_000, allocated: 0, remaining: 1_000, fromTakingsOf: '2026-10-22', notes: 'Kitchen', recordedBy: 'Sara',
-  shares: [], fullyAllocated: false, outsideTill: false,
+  id: 'lump', date: '2026-10-22', amount: 1_000, allocated: 0, remaining: 1_000, notes: 'Key accounts', recordedBy: 'Sara',
+  shares: [], fullyAllocated: false,
 };
 
 describe('giving out advances handed out with no one named', () => {
@@ -43,7 +43,7 @@ describe('giving out advances handed out with no one named', () => {
 
   it('splits what is left equally in whole pounds, the odd ones on the first, among those chosen', () => {
     const { fixture, el, page } = render();
-    expect(text(el.querySelector('h2')!)).toBe('Give out L.E 1,000.00 توزيع السلفة');
+    expect(text(el.querySelector('h2')!)).toBe('Give out 1,000.00 توزيع السلفة');
 
     page['set'](0, { employeeId: 'hassan' });
     page['add']();
@@ -61,7 +61,7 @@ describe('giving out advances handed out with no one named', () => {
     expect(page['choosable'](page['rows']()[1]).map((e: Employee) => e.id)).toEqual(['mona']);
   });
 
-  it('gives out part of it, never more than is left, and says what the till refuses', async () => {
+  it('gives out part of it, never more than is left, and says what the system refuses', async () => {
     const { fixture, el, page } = render({ ...lump, allocated: 400, remaining: 600, shares: [] });
 
     page['set'](0, { employeeId: 'hassan', amount: 700 });
@@ -69,9 +69,9 @@ describe('giving out advances handed out with no one named', () => {
     expect(page['holdUp']()).toBe('The shares come to more than is left.');
     expect(el.querySelector('.total')!.classList).toContain('bad');
 
-    page['set'](0, { amount: 250, notes: ' Grill ' });
+    page['set'](0, { amount: 250, notes: ' Gear ' });
     fixture.detectChanges();
-    expect(text(el.querySelector('.total')!)).toBe('Shares L.E 250.00 of L.E 600.00 left · L.E 350.00 stays to give out later');
+    expect(text(el.querySelector('.total')!)).toBe('Shares 250.00 of 600.00 left · 350.00 stays to give out later');
 
     distributeAdvance.mockReturnValueOnce(
       throwError(() => new HttpErrorResponse({ status: 422, error: { errors: ['Hassan was not employed on 22 Oct 2026, when these advances were handed out.'] } })),
@@ -83,7 +83,7 @@ describe('giving out advances handed out with no one named', () => {
     const given = { ...lump, allocated: 650, remaining: 350 };
     distributeAdvance.mockReturnValue(of(given));
     await page['save']();
-    expect(distributeAdvance).toHaveBeenLastCalledWith('lump', [{ employeeId: 'hassan', amount: 250, notes: 'Grill' }]);
+    expect(distributeAdvance).toHaveBeenLastCalledWith('lump', [{ employeeId: 'hassan', amount: 250, notes: 'Gear' }]);
     expect(close).toHaveBeenCalledWith(given);
   });
 });

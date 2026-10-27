@@ -1,15 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-export const tillServerUnreachable =
-  'The till server cannot be reached. Check this device is on the restaurant network.';
+export const serverUnreachable = 'The server cannot be reached. Check this device is connected.';
 
-// What to tell the cashier. The API writes every refusal as ProblemDetails with errors[0] meant
-// to be shown as it is ("Quantity must be between 1 and 100.", "Look the customer up by mobile
-// number before applying points."), the same shape the delivery system's API uses.
+// What to tell whoever is using the app. The API writes every refusal as ProblemDetails, its
+// detail (or errors[0]) meant to be shown as it is ("Enter an amount more than nothing.").
 export function errorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
   if (error instanceof HttpErrorResponse) {
     if (error.status === 0) {
-      return tillServerUnreachable;
+      return serverUnreachable;
     }
     const errors = error.error?.errors;
     if (Array.isArray(errors) && typeof errors[0] === 'string') {

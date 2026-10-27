@@ -2,7 +2,7 @@
 
 Each employee's administrative record: evaluations of their work, and disciplinary actions, a
 penalty deduction among them reaching their pay through Corrections. Part of HR & Payroll, in the
-`hr` schema (migration `LeaveAndPerformance`, with Leave management). A manager records both; employees see their
+`hr` schema (migration `InitialCreate`, with Leave management). A manager records both; employees see their
 own in the portal, read-only.
 
 ## Decided
@@ -24,7 +24,7 @@ own in the portal, read-only.
 - **`PerformanceKpi`** (`hr.PerformanceKpis`): a name (unique) and whether it is still in use.
   One that evaluations have scored is retired, not deleted: they keep its name.
 - **`PerformanceEvaluation`** (`hr.PerformanceEvaluations`):
-  - the employee, the day, the reviewer (`ReviewerId`, their till account, and their name);
+  - the employee, the day, the reviewer (`ReviewerId`, their user account, and their name);
   - the scores (`hr.EvaluationScores`, the brief's `KpiDetails`): a KPI each, scored once, 1 to
     5, with the KPI's name as it was;
   - `TotalScore`, the scores' average as a percent to one decimal place, kept as worked out then
@@ -33,7 +33,7 @@ own in the portal, read-only.
 
   A retired KPI is not scored.
 - **`DisciplinaryAction`** (`hr.DisciplinaryActions`):
-  - the employee, the day, the issuer (`IssuerId`, their till account, and their name), the
+  - the employee, the day, the issuer (`IssuerId`, their user account, and their name), the
     violation as written (negligence, absence, behaviour), and notes;
   - `SeverityLevel`, in the order they escalate: `VerbalWarning`, `FirstWritten`,
     `SecondWritten`, `PenaltyDeduction`, `Termination`;
@@ -80,7 +80,7 @@ penalty is still to come off a payslip not finalized (`PenaltyPending`).
 - **The profile's Performance & Disciplinary** (التقييم والإنذارات), on `/hr/employees/{id}`: the
   record (each level's count, their warnings, the next level), then the evaluations and actions,
   the latest first. A manager has `KPIs`, `+ New evaluation` (each KPI in use scored 1 to 5 or
-  left out, the total shown as the till works it out) and `+ Issue warning` (the next level to
+  left out, the total shown as the system works it out) and `+ Issue warning` (the next level to
   start with, a penalty deduction's amount to the piastre), and withdraws an action, with why:
   not once a penalty deduction's month is finalized. Anyone else holding the Employees tab sees
   it all, withdrawn ones marked, with no buttons. The payslip beside it is read again when an

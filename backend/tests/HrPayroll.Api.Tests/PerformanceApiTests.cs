@@ -35,7 +35,7 @@ public class PerformanceApiTests
         var id = Guid.NewGuid();
         await Json(await manager.PutAsJsonAsync($"/api/hr/employees/{id}", new
         {
-            requestId = Guid.NewGuid(), name, jobTitle = "Chef", monthlySalary = 5_400, shiftStartsAt = "10:00:00", daysOff = Array.Empty<string>(),
+            requestId = Guid.NewGuid(), name, jobTitle = "Checker", monthlySalary = 5_400, shiftStartsAt = "10:00:00", daysOff = Array.Empty<string>(),
             hiredOn = Iso(hiredOn), mobileNumber = mobile,
         }, Cancel));
         if (mobile is not null)
@@ -46,7 +46,7 @@ public class PerformanceApiTests
     private static Task<HttpResponseMessage> IssueAsync(HttpClient client, Guid employee, DateOnly date, string severity, decimal? amount = null, string violation = "Negligence") =>
         client.PostAsJsonAsync($"/api/performance/employees/{employee}/disciplinary", new
         {
-            id = Guid.NewGuid(), date = Iso(date), violationType = violation, severityLevel = severity, notes = "Left the walk-in open", penaltyAmount = amount,
+            id = Guid.NewGuid(), date = Iso(date), violationType = violation, severityLevel = severity, notes = "Left the store room open", penaltyAmount = amount,
         }, Cancel);
 
     [Fact]

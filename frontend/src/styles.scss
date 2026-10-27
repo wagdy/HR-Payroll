@@ -32,9 +32,9 @@ body {
 
 // Status colours used across the till.
 :root {
-  --till-ok: #2e7d32;
-  --till-warn: #b26a00;
-  --till-danger: var(--mat-sys-error);
+  --app-ok: #2e7d32;
+  --app-warn: #b26a00;
+  --app-danger: var(--mat-sys-error);
 }
 
 .snack-error {

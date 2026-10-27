@@ -2,10 +2,9 @@ import { Component } from '@angular/core';
 import { MatTabsModule } from '@angular/material/tabs';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
-// Custody & Assets (العهدة والأصول): what the restaurant owns and whose custody each thing is in.
-// Its categories, the assets themselves (those bought on purchase invoices too, with Link with
-// Financials on), and the vouchers that hand them out and take them back. Whoever sees HR sees
-// it; an accountant's changes go to a manager.
+// Custody & Assets (العهدة والأصول): what the company owns and whose custody each thing is in.
+// Its categories, the assets themselves, and the vouchers that hand them out and take them back.
+// Whoever holds its tab sees it; an accountant's changes go to a manager.
 @Component({
   selector: 'app-custody-shell',
   imports: [MatTabsModule, RouterLink, RouterLinkActive, RouterOutlet],
@@ -24,7 +23,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
       <div class="body"><router-outlet /></div>
     </mat-tab-nav-panel>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .head h1 {
       margin: 0 0 8px;

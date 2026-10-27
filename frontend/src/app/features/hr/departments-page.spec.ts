@@ -4,7 +4,7 @@ import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 import { Department, HrApi } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
+import { Approvals } from '../approvals/approvals';
 import { DeleteDepartmentDialog, DeleteRoleDialog, DepartmentDialog, DepartmentsPage } from './departments-page';
 import { HrAccess } from '../../core/hr/hr-access';
 
@@ -17,7 +17,7 @@ const cell = (el: Element): string =>
     .join(' ');
 
 const general: Department = { id: 'general', name: 'General', isGeneral: true, employed: 1, everyone: 1, roles: [], monthlyCost: 0, dailyCost: 0 };
-const kitchen: Department = { id: 'kitchen', name: 'Kitchen', isGeneral: false, employed: 3, everyone: 4, roles: [], monthlyCost: 0, dailyCost: 0 };
+const accounts: Department = { id: 'accounts', name: 'Key accounts', isGeneral: false, employed: 3, everyone: 4, roles: [], monthlyCost: 0, dailyCost: 0 };
 const empty: Department = { id: 'empty', name: 'Management', isGeneral: false, employed: 0, everyone: 0, roles: [], monthlyCost: 0, dailyCost: 0 };
 
 describe('the departments', () => {
@@ -47,8 +47,8 @@ describe('the departments', () => {
   }
 
   beforeEach(() => {
-    departments.mockReset().mockReturnValue(of([general, kitchen, empty]));
-    saveDepartment.mockReset().mockReturnValue(of(kitchen));
+    departments.mockReset().mockReturnValue(of([general, accounts, empty]));
+    saveDepartment.mockReset().mockReturnValue(of(accounts));
     deleteDepartment.mockReset().mockReturnValue(of(undefined));
     saveRole.mockReset().mockReturnValue(of({}));
     deleteRole.mockReset().mockReturnValue(of(undefined));
@@ -69,87 +69,87 @@ describe('the departments', () => {
     expect(text(groups[0].querySelector('td.name .muted')!)).toBe('Where new employees start · always there');
     expect(text(groups[1].querySelector('td.name')!)).toContain('4 with those who left');
     expect(groups[0].querySelector('button[aria-label^="Delete"]')).toBeNull();
-    expect(groups[1].querySelector('button[aria-label="Delete Kitchen"]')).not.toBeNull();
+    expect(groups[1].querySelector('button[aria-label="Delete Key accounts"]')).not.toBeNull();
   });
 
   it('says what each role and each department costs, monthly salaries and daily wages apart, and its share', async () => {
-    const waiter = { id: 'waiter', departmentId: 'general', name: 'Waiter', employed: 1, monthlyCost: 4_050, dailyCost: 0 };
-    const chef = { id: 'chef', departmentId: 'kitchen', name: 'Chef', employed: 2, monthlyCost: 10_800, dailyCost: 0 };
-    const helper = { id: 'helper', departmentId: 'kitchen', name: 'Helper', employed: 1, monthlyCost: 0, dailyCost: 270 };
+    const clerk = { id: 'clerk', departmentId: 'general', name: 'Warehouse clerk', employed: 1, monthlyCost: 4_050, dailyCost: 0 };
+    const checker = { id: 'checker', departmentId: 'accounts', name: 'Checker', employed: 2, monthlyCost: 10_800, dailyCost: 0 };
+    const helper = { id: 'helper', departmentId: 'accounts', name: 'Helper', employed: 1, monthlyCost: 0, dailyCost: 270 };
     departments.mockReturnValue(of([
-      { ...general, roles: [waiter], monthlyCost: 4_050 },
-      // One of the kitchen holds no role yet.
-      { ...kitchen, employed: 4, roles: [chef, helper], monthlyCost: 16_800, dailyCost: 270 },
+      { ...general, roles: [clerk], monthlyCost: 4_050 },
+      // One in Key accounts holds no role yet.
+      { ...accounts, employed: 4, roles: [checker, helper], monthlyCost: 16_800, dailyCost: 270 },
       empty,
     ]));
     const { el } = await render();
     const [, kitchenRows, management] = [...el.querySelectorAll('tbody.department')];
     const rows = [...kitchenRows.querySelectorAll('tr')];
 
-    expect(rows.map((r) => text(r.querySelector('td.role-cell')!).replace(/editclose/g, '').trim())).toEqual(['Chef', 'Helper', 'No role yet']);
+    expect(rows.map((r) => text(r.querySelector('td.role-cell')!).replace(/editclose/g, '').trim())).toEqual(['Checker', 'Helper', 'No role yet']);
     expect(rows.map((r) => cell(r.querySelector('td.role-cell + td + td')!))).toEqual([
-      'L.E 10,800.00 a month', 'L.E 270.00 a day', 'L.E 6,000.00 a month',
+      '10,800.00 a month', '270.00 a day', '6,000.00 a month',
     ]);
     expect(rows[0].querySelector('td.total')!.getAttribute('rowspan')).toBe('3');
-    expect(cell(rows[0].querySelector('td.total')!)).toBe('L.E 16,800.00 a month + L.E 270.00 a day 81% of the salaries');
+    expect(cell(rows[0].querySelector('td.total')!)).toBe('16,800.00 a month + 270.00 a day 81% of the salaries');
     expect(cell(management.querySelector('td.total')!)).toBe('—');
-    expect(cell(el.querySelector('tfoot tr')!)).toBe('All departments · الإجمالي 5 L.E 20,850.00 a month + L.E 270.00 a day');
+    expect(cell(el.querySelector('tfoot tr')!)).toBe('All departments · الإجمالي 5 20,850.00 a month + 270.00 a day');
   });
 
   it('adds and renames one', async () => {
     const { page } = await render();
 
-    open.mockReturnValue({ afterClosed: () => of('Service') });
+    open.mockReturnValue({ afterClosed: () => of('Sales') });
     await page['add']();
     expect(open.mock.lastCall![0]).toBe(DepartmentDialog);
-    expect(saveDepartment).toHaveBeenCalledWith(expect.any(String), 'Service');
-    expect(notify.info).toHaveBeenCalledWith('Service added.');
+    expect(saveDepartment).toHaveBeenCalledWith(expect.any(String), 'Sales');
+    expect(notify.info).toHaveBeenCalledWith('Sales added.');
 
-    open.mockReturnValue({ afterClosed: () => of('Kitchen & Bar') });
-    await page['rename'](kitchen);
-    expect(open.mock.lastCall![1].data).toEqual({ name: 'Kitchen' });
-    expect(saveDepartment).toHaveBeenLastCalledWith('kitchen', 'Kitchen & Bar');
+    open.mockReturnValue({ afterClosed: () => of('Key accounts & Bar') });
+    await page['rename'](accounts);
+    expect(open.mock.lastCall![1].data).toEqual({ name: 'Key accounts' });
+    expect(saveDepartment).toHaveBeenLastCalledWith('accounts', 'Key accounts & Bar');
   });
 
   it('lists each department’s roles, added, renamed and deleted with their holders moved', async () => {
-    const chef = { id: 'chef', departmentId: 'kitchen', name: 'Chef', employed: 2, monthlyCost: 10_800, dailyCost: 0 };
-    const helper = { id: 'helper', departmentId: 'kitchen', name: 'Helper', employed: 1, monthlyCost: 4_000, dailyCost: 0 };
-    const withRoles = { ...kitchen, roles: [chef, helper], monthlyCost: 14_800 };
+    const checker = { id: 'checker', departmentId: 'accounts', name: 'Checker', employed: 2, monthlyCost: 10_800, dailyCost: 0 };
+    const helper = { id: 'helper', departmentId: 'accounts', name: 'Helper', employed: 1, monthlyCost: 4_000, dailyCost: 0 };
+    const withRoles = { ...accounts, roles: [checker, helper], monthlyCost: 14_800 };
     departments.mockReturnValue(of([empty, withRoles]));
     const { el, page } = await render();
 
     const [none, kitchenRows] = [...el.querySelectorAll('tbody.department')];
-    expect([...kitchenRows.querySelectorAll('.role')].map((r) => text(r).replace(/editclose/g, '').trim())).toEqual(['Chef', 'Helper']);
+    expect([...kitchenRows.querySelectorAll('.role')].map((r) => text(r).replace(/editclose/g, '').trim())).toEqual(['Checker', 'Helper']);
     expect([...kitchenRows.querySelectorAll('tr')].map((r) => text(r.querySelector('td.role-cell + td')!))).toEqual(['2', '1']);
     expect(text(none.querySelector('td.role-cell')!)).toBe('No roles yet');
 
-    open.mockReturnValue({ afterClosed: () => of('Captain') });
+    open.mockReturnValue({ afterClosed: () => of('Carpenter') });
     await page['addRole'](withRoles);
-    expect(open.mock.lastCall![1].data).toEqual({ title: 'Add a role to Kitchen', placeholder: 'Chef, helper, waiter, captain' });
-    expect(saveRole).toHaveBeenCalledWith('kitchen', expect.any(String), 'Captain');
+    expect(open.mock.lastCall![1].data).toEqual({ title: 'Add a role to Key accounts', placeholder: 'Engineer, technician, supervisor' });
+    expect(saveRole).toHaveBeenCalledWith('accounts', expect.any(String), 'Carpenter');
 
-    open.mockReturnValue({ afterClosed: () => of('Head chef') });
-    await page['renameRole'](withRoles, chef);
-    expect(saveRole).toHaveBeenLastCalledWith('kitchen', 'chef', 'Head chef');
-    expect(notify.info).toHaveBeenLastCalledWith('Renamed Head chef, for whoever holds it.');
+    open.mockReturnValue({ afterClosed: () => of('Head checker') });
+    await page['renameRole'](withRoles, checker);
+    expect(saveRole).toHaveBeenLastCalledWith('accounts', 'checker', 'Head checker');
+    expect(notify.info).toHaveBeenLastCalledWith('Renamed Head checker, for whoever holds it.');
 
-    open.mockReturnValue({ afterClosed: () => of({ moveTo: 'chef' }) });
+    open.mockReturnValue({ afterClosed: () => of({ moveTo: 'checker' }) });
     await page['removeRole'](withRoles, helper);
     expect(open.mock.lastCall![0]).toBe(DeleteRoleDialog);
-    expect(open.mock.lastCall![1].data).toEqual({ role: helper, department: 'Kitchen', others: [chef] });
-    expect(deleteRole).toHaveBeenCalledWith('helper', 'chef');
-    expect(notify.info).toHaveBeenLastCalledWith('The Helper role deleted: they are Chef now.');
+    expect(open.mock.lastCall![1].data).toEqual({ role: helper, department: 'Key accounts', others: [checker] });
+    expect(deleteRole).toHaveBeenCalledWith('helper', 'checker');
+    expect(notify.info).toHaveBeenLastCalledWith('The Helper role deleted: they are Checker now.');
   });
 
   it('deletes one, moving its employees to another first', async () => {
     const { page } = await render();
 
     open.mockReturnValue({ afterClosed: () => of({ moveTo: 'general' }) });
-    await page['remove'](kitchen);
+    await page['remove'](accounts);
     expect(open.mock.lastCall![0]).toBe(DeleteDepartmentDialog);
-    expect(open.mock.lastCall![1].data).toEqual({ department: kitchen, others: [general, empty] });
-    expect(deleteDepartment).toHaveBeenCalledWith('kitchen', 'general');
-    expect(notify.info).toHaveBeenCalledWith('Kitchen deleted: its employees are in General now.');
+    expect(open.mock.lastCall![1].data).toEqual({ department: accounts, others: [general, empty] });
+    expect(deleteDepartment).toHaveBeenCalledWith('accounts', 'general');
+    expect(notify.info).toHaveBeenCalledWith('Key accounts deleted: its employees are in General now.');
 
     open.mockReturnValue({ afterClosed: () => of({ moveTo: null }) });
     await page['remove'](empty);
@@ -166,7 +166,7 @@ describe('the departments', () => {
       return fixture.nativeElement as HTMLElement;
     }
 
-    const full = await dialog(kitchen);
+    const full = await dialog(accounts);
     expect(text(full.querySelector('mat-dialog-content p')!)).toBe('Its 4 employees move to another department first, those who left too.');
     expect((full.querySelector('mat-dialog-actions button:last-child') as HTMLButtonElement).disabled).toBe(true);
     const none = await dialog(empty);

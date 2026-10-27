@@ -4,9 +4,9 @@ import { CanActivateFn, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { HrTab, hrTabsOf } from '../hr/hr-tabs';
 
-const SessionKey = 'otantik-portal.session';
+const SessionKey = 'hr-payroll.portal-session';
 
-// An employee signed in to the self-service portal: kept apart from the till's staff sign-in, so
+// An employee signed in to the self-service portal: kept apart from the users' sign-in, so
 // the two never mix on one browser. The token reaches /api/portal alone (authInterceptor).
 export interface PortalSession {
   token: string;

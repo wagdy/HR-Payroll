@@ -35,7 +35,7 @@ export interface CategoryAnswer {
     <mat-dialog-content>
       <mat-form-field class="wide">
         <mat-label>Name · الاسم</mat-label>
-        <input matInput [(ngModel)]="name" maxlength="100" placeholder="Tableware, kitchen tools, devices" aria-label="Name" />
+        <input matInput [(ngModel)]="name" maxlength="100" placeholder="Laptops, tools, uniforms" aria-label="Name" />
       </mat-form-field>
       <mat-checkbox [(ngModel)]="isConsumable">Consumable <span class="inline-ar">مستهلك</span></mat-checkbox>
       <p class="muted small">
@@ -48,7 +48,7 @@ export interface CategoryAnswer {
       <button mat-flat-button [disabled]="!name.trim()" [mat-dialog-close]="{ name: name.trim(), isConsumable }">Save</button>
     </mat-dialog-actions>
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .wide {
       width: 100%;
@@ -125,7 +125,7 @@ export class CategoryDialog {
       </div>
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .narrow {
       max-width: 820px;
@@ -138,7 +138,7 @@ export class CategoryDialog {
       background: var(--mat-sys-surface-container-high);
 
       &.consumable {
-        background: color-mix(in srgb, var(--till-warn) 22%, transparent);
+        background: color-mix(in srgb, var(--app-warn) 22%, transparent);
       }
     }
     .nowrap {

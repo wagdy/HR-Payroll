@@ -13,16 +13,16 @@ public class CustodyTests
     private static readonly Guid Mona = Guid.NewGuid();
 
     private static AssetItem Plates(int quantity = 40, decimal? unitCost = 35) =>
-        new(Guid.NewGuid(), " Dinner plates ", Guid.NewGuid(), unitCost, quantity, "Omar");
+        new(Guid.NewGuid(), " Desk lamps ", Guid.NewGuid(), unitCost, quantity, "Omar");
 
     [Fact]
     public void A_category_is_named_and_consumable_or_a_fixed_asset()
     {
-        var tableware = new AssetCategory(Guid.NewGuid(), " Tableware ", isConsumable: true);
-        Assert.Equal(("Tableware", true), (tableware.Name, tableware.IsConsumable));
-        tableware.SetConsumable(false);
-        Assert.False(tableware.IsConsumable);
-        Assert.Throws<DomainException>(() => tableware.Rename(" "));
+        var technology = new AssetCategory(Guid.NewGuid(), " Technology ", isConsumable: true);
+        Assert.Equal(("Technology", true), (technology.Name, technology.IsConsumable));
+        technology.SetConsumable(false);
+        Assert.False(technology.IsConsumable);
+        Assert.Throws<DomainException>(() => technology.Rename(" "));
         Assert.Throws<DomainException>(() => new AssetCategory(Guid.NewGuid(), new string('x', AssetCategory.MaxNameLength + 1), false));
     }
 
@@ -30,7 +30,7 @@ public class CustodyTests
     public void An_asset_is_a_number_of_one_kind_at_a_cost_a_piece_in_the_store_until_handed_out()
     {
         var plates = Plates(unitCost: 35.555m);
-        Assert.Equal(("Dinner plates", 40, 35.56m, AssetStatus.InStore, (Guid?)null), (plates.Name, plates.Quantity, plates.UnitCost, plates.Status, plates.EmployeeId));
+        Assert.Equal(("Desk lamps", 40, 35.56m, AssetStatus.InStore, (Guid?)null), (plates.Name, plates.Quantity, plates.UnitCost, plates.Status, plates.EmployeeId));
         Assert.Equal(1_422.40m, plates.TotalCost);
         Assert.Null(Plates(unitCost: null).TotalCost);
 
@@ -42,9 +42,9 @@ public class CustodyTests
     public void A_check_in_puts_all_of_it_in_one_employees_custody_and_another_takes_it_only_once_it_is_out()
     {
         var plates = Plates();
-        var voucher = plates.CheckIn(Guid.NewGuid(), Hassan, Monday, " Kitchen ", "Omar");
+        var voucher = plates.CheckIn(Guid.NewGuid(), Hassan, Monday, " Key accounts ", "Omar");
         Assert.Equal((AssetStatus.InCustody, (Guid?)Hassan), (plates.Status, plates.EmployeeId));
-        Assert.Equal((AssetTransactionType.CheckIn, 40, (AssetMovementReason?)null, "Kitchen", 35m, 1_400m), (voucher.Type, voucher.Quantity, voucher.Reason, voucher.Notes, voucher.UnitCost, voucher.Cost));
+        Assert.Equal((AssetTransactionType.CheckIn, 40, (AssetMovementReason?)null, "Key accounts", 35m, 1_400m), (voucher.Type, voucher.Quantity, voucher.Reason, voucher.Notes, voucher.UnitCost, voucher.Cost));
 
         Assert.Contains("in their custody already", Assert.Throws<DomainException>(() => plates.CheckIn(Guid.NewGuid(), Hassan, Monday, null, "Omar")).Message);
         Assert.Contains("someone else's custody", Assert.Throws<DomainException>(() => plates.CheckIn(Guid.NewGuid(), Mona, Monday, null, "Omar")).Message);
@@ -78,7 +78,7 @@ public class CustodyTests
         Assert.Throws<DomainException>(() => plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Lost, 1, Monday, null, "Omar"));
 
         // A knife lost from the store: no one held it.
-        var knife = new AssetItem(Guid.NewGuid(), "Chef's knife", null, 400, 1, "Omar");
+        var knife = new AssetItem(Guid.NewGuid(), "Checker's knife", null, 400, 1, "Omar");
         var lost = knife.CheckOut(Guid.NewGuid(), AssetMovementReason.Lost, 1, Monday, null, "Omar");
         Assert.Equal((AssetStatus.Discarded, (Guid?)null), (knife.Status, lost.EmployeeId));
         Assert.Throws<DomainException>(() => Plates().CheckOut(Guid.NewGuid(), (AssetMovementReason)99, 1, Monday, null, "Omar"));
@@ -87,17 +87,17 @@ public class CustodyTests
     [Fact]
     public void Maintenance_takes_all_of_it_from_its_custodian_and_it_comes_back_by_a_check_in_or_to_the_store()
     {
-        var fryer = new AssetItem(Guid.NewGuid(), "Fryer", null, 9_000, 1, "Omar");
-        fryer.CheckIn(Guid.NewGuid(), Hassan, Monday, null, "Omar");
-        fryer.CheckOut(Guid.NewGuid(), AssetMovementReason.Maintenance, 1, Monday, "Thermostat", "Omar");
-        Assert.Equal((AssetStatus.Maintenance, (Guid?)null), (fryer.Status, fryer.EmployeeId));
-        Assert.Throws<DomainException>(() => fryer.CheckOut(Guid.NewGuid(), AssetMovementReason.Maintenance, 1, Monday, null, "Omar"));
+        var forklift = new AssetItem(Guid.NewGuid(), "Forklift", null, 9_000, 1, "Omar");
+        forklift.CheckIn(Guid.NewGuid(), Hassan, Monday, null, "Omar");
+        forklift.CheckOut(Guid.NewGuid(), AssetMovementReason.Maintenance, 1, Monday, "Thermostat", "Omar");
+        Assert.Equal((AssetStatus.Maintenance, (Guid?)null), (forklift.Status, forklift.EmployeeId));
+        Assert.Throws<DomainException>(() => forklift.CheckOut(Guid.NewGuid(), AssetMovementReason.Maintenance, 1, Monday, null, "Omar"));
 
-        fryer.CheckIn(Guid.NewGuid(), Mona, Monday.AddDays(3), "Repaired", "Omar");
-        Assert.Equal((AssetStatus.InCustody, (Guid?)Mona), (fryer.Status, fryer.EmployeeId));
-        fryer.CheckOut(Guid.NewGuid(), AssetMovementReason.Maintenance, 1, Monday.AddDays(5), null, "Omar");
-        fryer.CheckOut(Guid.NewGuid(), AssetMovementReason.Returned, 1, Monday.AddDays(8), "Back, kept in the store", "Omar");
-        Assert.Equal(AssetStatus.InStore, fryer.Status);
+        forklift.CheckIn(Guid.NewGuid(), Mona, Monday.AddDays(3), "Repaired", "Omar");
+        Assert.Equal((AssetStatus.InCustody, (Guid?)Mona), (forklift.Status, forklift.EmployeeId));
+        forklift.CheckOut(Guid.NewGuid(), AssetMovementReason.Maintenance, 1, Monday.AddDays(5), null, "Omar");
+        forklift.CheckOut(Guid.NewGuid(), AssetMovementReason.Returned, 1, Monday.AddDays(8), "Back, kept in the store", "Omar");
+        Assert.Equal(AssetStatus.InStore, forklift.Status);
     }
 
     [Fact]
@@ -122,30 +122,30 @@ public class CustodyTests
         Assert.Throws<DomainException>(() => Employee.Pin("12a4"));
         Assert.Throws<DomainException>(() => Employee.Pin(null));
 
-        var chef = new Employee(Guid.NewGuid(), "Hassan", "Chef", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
-        Assert.False(chef.HasPin);
+        var checker = new Employee(Guid.NewGuid(), "Hassan", "Checker", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
+        Assert.False(checker.HasPin);
         // They sign in with their mobile: a PIN waits for one.
-        Assert.Contains("mobile number first", Assert.Throws<DomainException>(() => chef.SetPinHash("hash")).Message);
-        chef.SetMobileNumber("01012345678");
-        chef.SetPinHash("hash");
-        Assert.True(chef.HasPin);
-        Assert.NotNull(chef.PinSetAtUtc);
+        Assert.Contains("mobile number first", Assert.Throws<DomainException>(() => checker.SetPinHash("hash")).Message);
+        checker.SetMobileNumber("01012345678");
+        checker.SetPinHash("hash");
+        Assert.True(checker.HasPin);
+        Assert.NotNull(checker.PinSetAtUtc);
 
         var now = new DateTime(2026, 10, 26, 12, 0, 0, DateTimeKind.Utc);
         for (var i = 0; i < Employee.MaxFailedPinAttempts - 1; i++)
-            chef.PinRefused(now);
-        Assert.Equal((4, false), (chef.FailedPinAttempts, chef.IsPinLockedAt(now)));
-        chef.PinRefused(now);
-        Assert.Equal((0, true), (chef.FailedPinAttempts, chef.IsPinLockedAt(now)));
-        Assert.False(chef.IsPinLockedAt(now + Employee.PinLockout));
+            checker.PinRefused(now);
+        Assert.Equal((4, false), (checker.FailedPinAttempts, checker.IsPinLockedAt(now)));
+        checker.PinRefused(now);
+        Assert.Equal((0, true), (checker.FailedPinAttempts, checker.IsPinLockedAt(now)));
+        Assert.False(checker.IsPinLockedAt(now + Employee.PinLockout));
 
         // A manager setting a new one lets them straight back in.
-        chef.SetPinHash("new hash");
-        Assert.Equal((false, "new hash"), (chef.IsPinLockedAt(now), chef.PinHash));
-        chef.PinRefused(now);
-        chef.PinAccepted("rehashed");
-        Assert.Equal((0, "rehashed"), (chef.FailedPinAttempts, chef.PinHash));
-        chef.ClearPin();
-        Assert.Equal((false, (string?)null), (chef.HasPin, chef.PinHash));
+        checker.SetPinHash("new hash");
+        Assert.Equal((false, "new hash"), (checker.IsPinLockedAt(now), checker.PinHash));
+        checker.PinRefused(now);
+        checker.PinAccepted("rehashed");
+        Assert.Equal((0, "rehashed"), (checker.FailedPinAttempts, checker.PinHash));
+        checker.ClearPin();
+        Assert.Equal((false, (string?)null), (checker.HasPin, checker.PinHash));
     }
 }

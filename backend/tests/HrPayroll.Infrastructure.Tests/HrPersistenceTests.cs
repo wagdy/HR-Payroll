@@ -24,33 +24,33 @@ public class HrPersistenceTests
     public async Task Employees_their_punches_days_and_pay_are_kept_as_they_were()
     {
         await using var app = await TestSystem.StartAsync();
-        var chef = new Employee(Guid.NewGuid(), "حسن", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday | WeekDays.Saturday, new DateOnly(2026, 1, 1), "7");
-        var day = Timesheet.Evaluate(chef, Monday, [PunchIn, PunchIn.AddHours(9)], null, AttendancePolicy.Default, new DateTime(2026, 10, 20)) with { PenaltyHours = 1.5m };
+        var checker = new Employee(Guid.NewGuid(), "حسن", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday | WeekDays.Saturday, new DateOnly(2026, 1, 1), "7");
+        var day = Timesheet.Evaluate(checker, Monday, [PunchIn, PunchIn.AddHours(9)], null, AttendancePolicy.Default, new DateTime(2026, 10, 20)) with { PenaltyHours = 1.5m };
         // Armed Forces Day, Tuesday 6 October, worked.
         var armedForcesDay = new DateOnly(2026, 10, 6);
         var holiday = Timesheet.Evaluate(
-            chef, armedForcesDay, [armedForcesDay.ToDateTime(new TimeOnly(10, 0)), armedForcesDay.ToDateTime(new TimeOnly(19, 0))], null,
+            checker, armedForcesDay, [armedForcesDay.ToDateTime(new TimeOnly(10, 0)), armedForcesDay.ToDateTime(new TimeOnly(19, 0))], null,
             AttendancePolicy.Default, new DateTime(2026, 10, 20), holiday: true);
-        var incentive = new PayrollAdjustment(Guid.NewGuid(), chef.Id, October, AdjustmentKind.Incentive, 500, "Best month", "Omar");
-        var figures = PayrollCalculator.Calculate(chef, October, [day, holiday], [incentive], advances: 300, broughtForward: 0);
+        var incentive = new PayrollAdjustment(Guid.NewGuid(), checker.Id, October, AdjustmentKind.Incentive, 500, "Best month", "Omar");
+        var figures = PayrollCalculator.Calculate(checker, October, [day, holiday], [incentive], advances: 300, broughtForward: 0);
         await app.Db(async db =>
         {
-            db.Employees.Add(chef);
+            db.Employees.Add(checker);
             var device = AttendanceDevice.FirstSeen(Serial, DateTime.UtcNow, "192.168.1.40");
             device.Approve("Main entrance", "Omar");
             device.Acknowledge("9999");
             db.AttendanceDevices.Add(device);
-            db.AttendanceLogs.Add(AttendanceLog.FromDevice(Serial, "7", PunchIn, 0, 1, chef.Id));
+            db.AttendanceLogs.Add(AttendanceLog.FromDevice(Serial, "7", PunchIn, 0, 1, checker.Id));
             db.AttendanceLogs.Add(AttendanceLog.FromDevice(Serial, "99", PunchIn, 0, 15, null));
-            db.DayMarks.Add(new DayMark(chef.Id, Monday.AddDays(1), DayMarkKind.Leave, "Wedding", "Omar"));
-            db.AdministrativePenalties.Add(new AdministrativePenalty(chef.Id, Monday, 1.5m, "Left the store open", "Omar"));
-            db.DailyRecords.Add(new DailyRecord(chef.Id, day));
-            db.DailyRecords.Add(new DailyRecord(chef.Id, holiday));
+            db.DayMarks.Add(new DayMark(checker.Id, Monday.AddDays(1), DayMarkKind.Leave, "Wedding", "Omar"));
+            db.AdministrativePenalties.Add(new AdministrativePenalty(checker.Id, Monday, 1.5m, "Left the store open", "Omar"));
+            db.DailyRecords.Add(new DailyRecord(checker.Id, day));
+            db.DailyRecords.Add(new DailyRecord(checker.Id, holiday));
             db.PublicHolidays.Add(new PublicHoliday(Guid.NewGuid(), "Armed Forces Day", armedForcesDay, armedForcesDay, "Omar"));
             db.PayrollAdjustments.Add(incentive);
-            db.HrAdvances.Add(new HrAdvance(Guid.NewGuid(), 300, Monday, chef.Id, October, "Rent", "Omar"));
-            db.SalaryPayments.Add(new SalaryPayment(Guid.NewGuid(), chef.Id, October, new DateOnly(2026, 11, 1), 1_000, "Transfer", "Omar"));
-            db.PayrollSlips.Add(new PayrollSlip(Guid.NewGuid(), chef.Id, October, figures));
+            db.HrAdvances.Add(new HrAdvance(Guid.NewGuid(), 300, Monday, checker.Id, October, "Rent", "Omar"));
+            db.SalaryPayments.Add(new SalaryPayment(Guid.NewGuid(), checker.Id, October, new DateOnly(2026, 11, 1), 1_000, "Transfer", "Omar"));
+            db.PayrollSlips.Add(new PayrollSlip(Guid.NewGuid(), checker.Id, October, figures));
             db.HrSettings.Add(new HrSettings { GraceMinutes = 10 });
             return await db.SaveChangesAsync();
         });
@@ -61,7 +61,7 @@ public class HrPersistenceTests
             Assert.Equal(("حسن", WeekDays.Friday | WeekDays.Saturday, "7", new TimeOnly(10, 0)), (employee.Name, employee.DaysOff, employee.DeviceUserId, employee.ShiftStartsAt));
 
             var logs = await db.AttendanceLogs.OrderBy(l => l.DeviceUserId).ToListAsync();
-            Assert.Equal([("7", (Guid?)chef.Id), ("99", null)], logs.Select(l => (l.DeviceUserId!, l.EmployeeId)));
+            Assert.Equal([("7", (Guid?)checker.Id), ("99", null)], logs.Select(l => (l.DeviceUserId!, l.EmployeeId)));
             // The device's wall clock, as it was: no time zone to shift it.
             Assert.Equal((PunchIn, DateTimeKind.Unspecified), (logs[0].PunchedAt, logs[0].PunchedAt.Kind));
 
@@ -87,9 +87,9 @@ public class HrPersistenceTests
             Assert.Equal((PayrollSlipStatus.Draft, figures.NetPayable, figures.WagesCost), (slip.Status, slip.NetPayable, slip.WagesCost));
 
             var advance = await db.HrAdvances.SingleAsync();
-            Assert.Equal((300m, (Guid?)chef.Id, (DateOnly?)October, "Rent"), (advance.Amount, advance.EmployeeId, advance.PayrollMonth, advance.Notes));
+            Assert.Equal((300m, (Guid?)checker.Id, (DateOnly?)October, "Rent"), (advance.Amount, advance.EmployeeId, advance.PayrollMonth, advance.Notes));
             var payment = await db.SalaryPayments.SingleAsync();
-            Assert.Equal((1_000m, chef.Id, October, "Transfer", false), (payment.Amount, payment.EmployeeId, payment.PayrollMonth, payment.Notes, payment.IsVoided));
+            Assert.Equal((1_000m, checker.Id, October, "Transfer", false), (payment.Amount, payment.EmployeeId, payment.PayrollMonth, payment.Notes, payment.IsVoided));
             Assert.Equal(new AttendancePolicy(10, 3), (await db.HrSettings.SingleAsync()).ToPolicy());
             return 0;
         });
@@ -99,11 +99,11 @@ public class HrPersistenceTests
     public async Task Flexible_hours_device_commands_and_users_and_a_settled_late_punch_are_kept()
     {
         await using var app = await TestSystem.StartAsync();
-        var waiter = new Employee(Guid.NewGuid(), "Mona", "Sales Representative", 4_050, null, WeekDays.Friday, new DateOnly(2026, 1, 1), "12");
+        var clerk = new Employee(Guid.NewGuid(), "Mona", "Sales Representative", 4_050, null, WeekDays.Friday, new DateOnly(2026, 1, 1), "12");
         var service = new Department(Guid.NewGuid(), "Service");
-        waiter.SetPay(EmploymentType.Daily, 250);
-        waiter.MoveTo(service.Id);
-        var punch = AttendanceLog.FromDevice(Serial, "12", PunchIn, 0, 1, waiter.Id);
+        clerk.SetPay(EmploymentType.Daily, 250);
+        clerk.MoveTo(service.Id);
+        var punch = AttendanceLog.FromDevice(Serial, "12", PunchIn, 0, 1, clerk.Id);
         punch.SettleLate("Omar");
         var command = DeviceCommand.ReadUsers(Serial, 1, "Omar");
         command.Sent(DateTime.UtcNow);
@@ -111,7 +111,7 @@ public class HrPersistenceTests
         await app.Db(async db =>
         {
             db.Departments.Add(service);
-            db.Employees.Add(waiter);
+            db.Employees.Add(clerk);
             db.AttendanceLogs.Add(punch);
             db.DeviceCommands.Add(command);
             db.DeviceUsers.Add(new DeviceUser(Serial, "12", "منى", DateTime.UtcNow));
@@ -148,15 +148,15 @@ public class HrPersistenceTests
     public async Task An_employees_id_card_and_how_to_reach_them_are_kept_and_a_card_is_one_employees()
     {
         await using var app = await TestSystem.StartAsync();
-        var chef = new Employee(Guid.NewGuid(), "حسن محمود علي", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
-        chef.SetNationalId("29001010123456");
-        chef.SetMobileNumber("01012345678");
-        chef.AttachIdPhoto("card.png", "image/png", 4, "Omar");
+        var checker = new Employee(Guid.NewGuid(), "حسن محمود علي", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
+        checker.SetNationalId("29001010123456");
+        checker.SetMobileNumber("01012345678");
+        checker.AttachIdPhoto("card.png", "image/png", 4, "Omar");
         byte[] png = [0x89, 0x50, 0x4E, 0x47];
         await app.Db(async db =>
         {
-            db.Employees.Add(chef);
-            db.EmployeeIdPhotos.Add(new EmployeeIdPhoto { EmployeeId = chef.Id, Content = png });
+            db.Employees.Add(checker);
+            db.EmployeeIdPhotos.Add(new EmployeeIdPhoto { EmployeeId = checker.Id, Content = png });
             return await db.SaveChangesAsync();
         });
 
@@ -190,17 +190,17 @@ public class HrPersistenceTests
     public async Task Custody_its_vouchers_and_the_portal_pin_are_kept_and_the_database_refuses_what_the_rules_forbid()
     {
         await using var app = await TestSystem.StartAsync();
-        var chef = new Employee(Guid.NewGuid(), "Hassan", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
-        chef.SetMobileNumber("01012345678");
-        chef.SetPinHash("AQAAAAIAAYagAAAAEH...");
-        var tableware = new AssetCategory(Guid.NewGuid(), "Tableware", isConsumable: true);
-        var plates = new AssetItem(Guid.NewGuid(), "Dinner plates", tableware.Id, 35, 40, "Omar");
-        var handed = plates.CheckIn(Guid.NewGuid(), chef.Id, Monday, "Kitchen", "Omar");
+        var checker = new Employee(Guid.NewGuid(), "Hassan", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
+        checker.SetMobileNumber("01012345678");
+        checker.SetPinHash("AQAAAAIAAYagAAAAEH...");
+        var technology = new AssetCategory(Guid.NewGuid(), "Technology", isConsumable: true);
+        var plates = new AssetItem(Guid.NewGuid(), "Desk lamps", technology.Id, 35, 40, "Omar");
+        var handed = plates.CheckIn(Guid.NewGuid(), checker.Id, Monday, "Key accounts", "Omar");
         var broken = plates.CheckOut(Guid.NewGuid(), AssetMovementReason.Breakage, 3, Monday, "Dropped a tray", "Omar");
         await app.Db(async db =>
         {
-            db.Employees.Add(chef);
-            db.AssetCategories.Add(tableware);
+            db.Employees.Add(checker);
+            db.AssetCategories.Add(technology);
             db.AssetItems.Add(plates);
             db.AssetTransactions.AddRange(handed, broken);
             return await db.SaveChangesAsync();
@@ -212,7 +212,7 @@ public class HrPersistenceTests
             Assert.Equal(("AQAAAAIAAYagAAAAEH...", 0, true), (employee.PinHash, employee.FailedPinAttempts, employee.HasPin));
             Assert.True((await db.AssetCategories.SingleAsync()).IsConsumable);
             var item = await db.AssetItems.SingleAsync();
-            Assert.Equal((37, AssetStatus.InCustody, (Guid?)chef.Id, (decimal?)35m), (item.Quantity, item.Status, item.EmployeeId, item.UnitCost));
+            Assert.Equal((37, AssetStatus.InCustody, (Guid?)checker.Id, (decimal?)35m), (item.Quantity, item.Status, item.EmployeeId, item.UnitCost));
             var vouchers = await db.AssetTransactions.OrderBy(t => t.Type).ToListAsync();
             Assert.Equal(
                 [(AssetTransactionType.CheckIn, 40, (AssetMovementReason?)null, (decimal?)1_400m), (AssetTransactionType.CheckOut, 3, AssetMovementReason.Breakage, 105m)],
@@ -223,15 +223,15 @@ public class HrPersistenceTests
         // One employee to a mobile number: the portal signs in by it.
         await Assert.ThrowsAsync<ConflictException>(() => app.Db(async db =>
         {
-            var waiter = new Employee(Guid.NewGuid(), "Mona", "Sales Representative", 4_000, new TimeOnly(12, 0), WeekDays.Sunday, new DateOnly(2026, 1, 1));
-            waiter.SetMobileNumber("01012345678");
-            db.Employees.Add(waiter);
+            var clerk = new Employee(Guid.NewGuid(), "Mona", "Sales Representative", 4_000, new TimeOnly(12, 0), WeekDays.Sunday, new DateOnly(2026, 1, 1));
+            clerk.SetMobileNumber("01012345678");
+            db.Employees.Add(clerk);
             return await db.SaveChangesAsync();
         }));
         // Two categories of a name.
         await Assert.ThrowsAsync<ConflictException>(() => app.Db(async db =>
         {
-            db.AssetCategories.Add(new AssetCategory(Guid.NewGuid(), "Tableware", false));
+            db.AssetCategories.Add(new AssetCategory(Guid.NewGuid(), "Technology", false));
             return await db.SaveChangesAsync();
         }));
         // The database's own checks: a quantity is never below nothing; a check-out says why.
@@ -249,17 +249,17 @@ public class HrPersistenceTests
     public async Task Leave_types_balances_and_requests_are_kept_and_the_database_refuses_what_the_rules_forbid()
     {
         await using var app = await TestSystem.StartAsync();
-        var chef = new Employee(Guid.NewGuid(), "Hassan", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
+        var checker = new Employee(Guid.NewGuid(), "Hassan", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
         var annual = new LeaveType(Guid.NewGuid(), "Annual", isPaid: true, defaultDaysPerYear: 21);
         var unpaid = new LeaveType(Guid.NewGuid(), "Unpaid", isPaid: false, defaultDaysPerYear: 0);
-        var balance = EmployeeLeaveBalance.Open(chef, annual, 2026);
+        var balance = EmployeeLeaveBalance.Open(checker, annual, 2026);
         balance.Use(4);
-        var approved = new LeaveRequest(Guid.NewGuid(), chef.Id, annual.Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 5), 4, "Wedding", "Hassan");
+        var approved = new LeaveRequest(Guid.NewGuid(), checker.Id, annual.Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 5), 4, "Wedding", "Hassan");
         approved.Approve("staff-omar", "Omar", "Enjoy it");
-        var waiting = new LeaveRequest(Guid.NewGuid(), chef.Id, unpaid.Id, new DateOnly(2026, 12, 1), new DateOnly(2026, 12, 1), 1, null, "Hassan");
+        var waiting = new LeaveRequest(Guid.NewGuid(), checker.Id, unpaid.Id, new DateOnly(2026, 12, 1), new DateOnly(2026, 12, 1), 1, null, "Hassan");
         await app.Db(async db =>
         {
-            db.Employees.Add(chef);
+            db.Employees.Add(checker);
             db.LeaveTypes.AddRange(annual, unpaid);
             db.EmployeeLeaveBalances.Add(balance);
             db.LeaveRequests.AddRange(approved, waiting);
@@ -268,19 +268,19 @@ public class HrPersistenceTests
 
         using (var scope = app.Scope())
         {
-            var kept = await app.Service<HrPayroll.Domain.IEmployeeLeaveBalanceRepository>(scope).GetAsync(chef.Id, annual.Id, 2026);
+            var kept = await app.Service<HrPayroll.Domain.IEmployeeLeaveBalanceRepository>(scope).GetAsync(checker.Id, annual.Id, 2026);
             Assert.Equal((21m, 4m, 17m, 2026), (kept!.TotalAllocatedDays, kept.UsedDays, kept.RemainingDays, kept.Year));
             var requests = app.Service<HrPayroll.Domain.ILeaveRequestRepository>(scope);
             Assert.Equal([waiting.Id], (await requests.GetPendingAsync()).Select(r => r.Id));
-            Assert.Equal([waiting.Id, approved.Id], (await requests.GetForEmployeeAsync(chef.Id)).Select(r => r.Id));
-            var read = (await requests.GetForEmployeeAsync(chef.Id)).Single(r => r.Id == approved.Id);
+            Assert.Equal([waiting.Id, approved.Id], (await requests.GetForEmployeeAsync(checker.Id)).Select(r => r.Id));
+            var read = (await requests.GetForEmployeeAsync(checker.Id)).Single(r => r.Id == approved.Id);
             Assert.Equal((LeaveRequestStatus.Approved, "staff-omar", "Enjoy it", 4), (read.Status, read.DecidedById, read.ManagerNotes, read.TotalDaysRequested));
             // A day asked for once: what meets those dates, waiting or approved.
-            Assert.Equal([approved.Id], (await requests.GetOverlappingAsync(chef.Id, new DateOnly(2026, 11, 5), new DateOnly(2026, 11, 9))).Select(r => r.Id));
-            Assert.Empty(await requests.GetOverlappingAsync(chef.Id, new DateOnly(2026, 11, 6), new DateOnly(2026, 11, 9)));
+            Assert.Equal([approved.Id], (await requests.GetOverlappingAsync(checker.Id, new DateOnly(2026, 11, 5), new DateOnly(2026, 11, 9))).Select(r => r.Id));
+            Assert.Empty(await requests.GetOverlappingAsync(checker.Id, new DateOnly(2026, 11, 6), new DateOnly(2026, 11, 9)));
             Assert.True(await requests.AnyForTypeAsync(unpaid.Id));
             Assert.True(await app.Service<HrPayroll.Domain.IEmployeeLeaveBalanceRepository>(scope).AnyForTypeAsync(annual.Id));
-            // Beside the three the till starts with.
+            // Beside the three the system starts with.
             Assert.Equal(["Annual", "Annual (اعتيادي)", "Sick (مرضي)", "Unpaid", "Unpaid (بدون راتب)"],
                 (await app.Service<HrPayroll.Domain.ILeaveTypeRepository>(scope).GetAllAsync()).Select(t => t.Name).Order(StringComparer.Ordinal));
         }
@@ -293,7 +293,7 @@ public class HrPersistenceTests
         }));
         await Assert.ThrowsAsync<ConflictException>(() => app.Db(async db =>
         {
-            db.EmployeeLeaveBalances.Add(new EmployeeLeaveBalance(chef.Id, annual.Id, 2026, 30, "Omar"));
+            db.EmployeeLeaveBalances.Add(new EmployeeLeaveBalance(checker.Id, annual.Id, 2026, 30, "Omar"));
             return await db.SaveChangesAsync();
         }));
         // The database's own checks: more taken than given; unpaid leave with days a year; a leave
@@ -316,40 +316,40 @@ public class HrPersistenceTests
     public async Task Evaluations_and_disciplinary_actions_are_kept_and_a_penalty_deduction_is_its_own_beside_a_managers()
     {
         await using var app = await TestSystem.StartAsync();
-        var chef = new Employee(Guid.NewGuid(), "Hassan", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
+        var checker = new Employee(Guid.NewGuid(), "Hassan", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
         var punctuality = new PerformanceKpi(Guid.NewGuid(), "Punctuality");
         var hygiene = new PerformanceKpi(Guid.NewGuid(), "Hygiene");
-        var evaluation = new PerformanceEvaluation(Guid.NewGuid(), chef.Id, Monday, [(punctuality, 5), (hygiene, 3)], "Good month", "staff-omar", "Omar");
-        var warning = new DisciplinaryAction(Guid.NewGuid(), chef.Id, Monday, "Negligence", SeverityLevel.FirstWritten, null, null, "staff-omar", "Omar");
-        var deduction = new DisciplinaryAction(Guid.NewGuid(), chef.Id, Monday, "Absence", SeverityLevel.PenaltyDeduction, "Third time", 250, "staff-omar", "Omar");
+        var evaluation = new PerformanceEvaluation(Guid.NewGuid(), checker.Id, Monday, [(punctuality, 5), (hygiene, 3)], "Good month", "staff-omar", "Omar");
+        var warning = new DisciplinaryAction(Guid.NewGuid(), checker.Id, Monday, "Negligence", SeverityLevel.FirstWritten, null, null, "staff-omar", "Omar");
+        var deduction = new DisciplinaryAction(Guid.NewGuid(), checker.Id, Monday, "Absence", SeverityLevel.PenaltyDeduction, "Third time", 250, "staff-omar", "Omar");
         // The manager's own hours on the same day, and the deduction's penalty beside them.
-        var own = new AdministrativePenalty(chef.Id, Monday, 2, "Late again", "Omar");
+        var own = new AdministrativePenalty(checker.Id, Monday, 2, "Late again", "Omar");
         var day = new DayEvaluation(Monday, DayStatus.Worked, null, null, 2, 540, 0, 0, 0, 0, PenaltyHours: 2, PenaltyAmount: 250);
         await app.Db(async db =>
         {
-            db.Employees.Add(chef);
+            db.Employees.Add(checker);
             db.PerformanceKpis.AddRange(punctuality, hygiene);
             db.PerformanceEvaluations.Add(evaluation);
             db.DisciplinaryActions.AddRange(warning, deduction);
             db.AdministrativePenalties.AddRange(own, deduction.Penalty()!);
-            db.DailyRecords.Add(new DailyRecord(chef.Id, day));
+            db.DailyRecords.Add(new DailyRecord(checker.Id, day));
             return await db.SaveChangesAsync();
         });
 
         using (var scope = app.Scope())
         {
-            var kept = (await app.Service<HrPayroll.Domain.IPerformanceEvaluationRepository>(scope).GetForEmployeeAsync(chef.Id)).Single();
+            var kept = (await app.Service<HrPayroll.Domain.IPerformanceEvaluationRepository>(scope).GetForEmployeeAsync(checker.Id)).Single();
             Assert.Equal((80.0m, "Omar", "Good month"), (kept.TotalScore, kept.ReviewerName, kept.Notes));
             Assert.Equal([("Punctuality", 5), ("Hygiene", 3)], kept.Scores.OrderByDescending(s => s.Score).Select(s => (s.KpiName, s.Score)));
             Assert.True(await app.Service<HrPayroll.Domain.IPerformanceEvaluationRepository>(scope).AnyForKpiAsync(hygiene.Id));
             Assert.Equal(["Hygiene", "Punctuality"], (await app.Service<HrPayroll.Domain.IPerformanceKpiRepository>(scope).GetAllAsync()).Select(k => k.Name));
 
-            var actions = await app.Service<HrPayroll.Domain.IDisciplinaryActionRepository>(scope).GetForEmployeeAsync(chef.Id);
+            var actions = await app.Service<HrPayroll.Domain.IDisciplinaryActionRepository>(scope).GetForEmployeeAsync(checker.Id);
             Assert.Equal((1, 1, SeverityLevel.PenaltyDeduction), (DisciplinaryRecord.Of(actions).FirstWritten, DisciplinaryRecord.Of(actions).PenaltyDeductions, DisciplinaryRecord.Of(actions).Next));
             Assert.Equal((decimal?)250m, actions.Single(a => a.Id == deduction.Id).PenaltyAmount);
 
             var penalties = app.Service<HrPayroll.Domain.IAdministrativePenaltyRepository>(scope);
-            Assert.Equal(own.Id, (await penalties.GetAsync(chef.Id, Monday))!.Id);
+            Assert.Equal(own.Id, (await penalties.GetAsync(checker.Id, Monday))!.Id);
             Assert.Equal((decimal?)250m, (await penalties.GetForDisciplinaryActionAsync(deduction.Id))!.Amount);
             Assert.Equal(2, (await penalties.GetBetweenAsync(Monday, Monday)).Count);
         }
@@ -368,12 +368,12 @@ public class HrPersistenceTests
         }));
         await Assert.ThrowsAsync<ConflictException>(() => app.Db(async db =>
         {
-            db.AdministrativePenalties.Add(AdministrativePenalty.ForAmount(chef.Id, Monday.AddDays(1), 100, "Again", "Omar", deduction.Id));
+            db.AdministrativePenalties.Add(AdministrativePenalty.ForAmount(checker.Id, Monday.AddDays(1), 100, "Again", "Omar", deduction.Id));
             return await db.SaveChangesAsync();
         }));
         await Assert.ThrowsAsync<ConflictException>(() => app.Db(async db =>
         {
-            db.AdministrativePenalties.Add(AdministrativePenalty.ForAmount(chef.Id, Monday, 100, "Again", "Omar"));
+            db.AdministrativePenalties.Add(AdministrativePenalty.ForAmount(checker.Id, Monday, 100, "Again", "Omar"));
             return await db.SaveChangesAsync();
         }));
         // The database's own checks: hours and an amount at once; a warning with an amount; a score past 5.
@@ -425,24 +425,24 @@ public class HrPersistenceTests
     public async Task A_punch_sent_twice_is_kept_once_and_a_device_number_is_one_employees()
     {
         await using var app = await TestSystem.StartAsync();
-        var chef = new Employee(Guid.NewGuid(), "Hassan", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1), "7");
+        var checker = new Employee(Guid.NewGuid(), "Hassan", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1), "7");
         await app.Db(async db =>
         {
-            db.Employees.Add(chef);
-            db.AttendanceLogs.Add(AttendanceLog.FromDevice(Serial, "7", PunchIn, 0, 1, chef.Id));
+            db.Employees.Add(checker);
+            db.AttendanceLogs.Add(AttendanceLog.FromDevice(Serial, "7", PunchIn, 0, 1, checker.Id));
             return await db.SaveChangesAsync();
         });
 
         await Assert.ThrowsAsync<ConflictException>(() => app.Db(async db =>
         {
-            db.AttendanceLogs.Add(AttendanceLog.FromDevice(Serial, "7", PunchIn, 1, 1, chef.Id));
+            db.AttendanceLogs.Add(AttendanceLog.FromDevice(Serial, "7", PunchIn, 1, 1, checker.Id));
             return await db.SaveChangesAsync();
         }));
         // The same moment from another device, or entered by hand, is another punch.
         await app.Db(async db =>
         {
-            db.AttendanceLogs.Add(AttendanceLog.FromDevice("CQZ7232060999", "7", PunchIn, 0, 1, chef.Id));
-            db.AttendanceLogs.Add(AttendanceLog.Manual(Guid.NewGuid(), chef.Id, PunchIn, "Forgot to scan", "Omar"));
+            db.AttendanceLogs.Add(AttendanceLog.FromDevice("CQZ7232060999", "7", PunchIn, 0, 1, checker.Id));
+            db.AttendanceLogs.Add(AttendanceLog.Manual(Guid.NewGuid(), checker.Id, PunchIn, "Forgot to scan", "Omar"));
             return await db.SaveChangesAsync();
         });
         Assert.Equal(3, await app.Db(db => db.AttendanceLogs.CountAsync()));

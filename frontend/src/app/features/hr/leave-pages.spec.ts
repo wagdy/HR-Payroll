@@ -9,7 +9,7 @@ import { HrAccess } from '../../core/hr/hr-access';
 import { Employee, HrApi } from '../../core/hr/hr.api';
 import { LeaveBalance, LeaveRequest, LeaveType, LeavesApi } from '../../core/hr/leaves.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { BusinessDay } from '../costing/financials';
+import { BusinessDay } from '../../core/ui/business-day';
 import { LeaveBalancesPage } from './leave-balances-page';
 import { CancelLeaveDialog, LeaveBalanceDialog, LeaveRequestDialog, LeaveTypeDialog, RejectLeaveDialog } from './leave-dialogs';
 import { LeaveRequestsPage } from './leave-requests-page';
@@ -167,7 +167,7 @@ describe('the leave requests', () => {
     expect(notify.info).toHaveBeenCalledWith('Hassan’s leave cut short from Wed 4 Nov: 2 days given back.');
   });
 
-  it('asks for leave for an active employee, through the till’s leave API', async () => {
+  it('asks for leave for an active employee, through the system’s leave API', async () => {
     api.types.mockReturnValue(of([{ id: 'annual', name: 'Annual', isPaid: true }]));
     api.submit.mockReturnValue(of(request('r9')));
     const { page } = await render(LeaveRequestsPage);
@@ -201,7 +201,11 @@ describe('the leave balances', () => {
     balance('mona', 'Mona', 'sick', 'Sick', { allocatedDays: 7, usedDays: 1, remainingDays: 6 }),
   ];
 
-  beforeEach(() => api.balances.mockReturnValue(of(list)));
+  beforeEach(() => {
+
+    api.balances.mockReturnValue(of(list));
+
+  });
 
   it('lays the year out an employee a row, a paid type a column, and a manager changes one', async () => {
     const { el, page, refresh } = await render(LeaveBalancesPage);

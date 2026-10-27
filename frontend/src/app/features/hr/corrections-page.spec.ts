@@ -5,8 +5,8 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { AdministrativePenalty, AttendanceDay, Employee, EmployeeDay, HrApi, LatePunch, Punch } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
-import { Approvals } from '../costing/approvals';
-import { BusinessDay } from '../costing/financials';
+import { Approvals } from '../approvals/approvals';
+import { BusinessDay } from '../../core/ui/business-day';
 import { IgnorePunchDialog, PenaltyDialog, ResolveDayDialog } from './attendance-dialogs';
 import { CorrectionsPage } from './corrections-page';
 import { CorrectionsCount } from './corrections-count';
@@ -18,7 +18,7 @@ const parts = (el: Element) => [...el.children].map(text);
 
 function employee(id: string, name: string, extra: Partial<Employee> = {}): Employee {
   return {
-    id, name, jobTitle: 'Chef', monthlySalary: 5_400, shiftStartsAt: '16:00:00', shiftEndsAt: '01:00:00', daysOff: ['Friday'], deviceUserId: '7',
+    id, name, jobTitle: 'Checker', monthlySalary: 5_400, shiftStartsAt: '16:00:00', shiftEndsAt: '01:00:00', daysOff: ['Friday'], deviceUserId: '7',
     hiredOn: '2026-09-01', leftOn: null, isActive: true, dailyRate: 180, hourlyRate: 20, nationalId: null, mobileNumber: null, idPhoto: null, employmentType: 'Monthly', dailyWage: 0, departmentId: 'general', jobRoleId: null, ...extra,
   };
 }
@@ -55,7 +55,7 @@ const waiting: EmployeeDay[] = [
 
 const penalties: AdministrativePenalty[] = [
   {
-    employeeId: 'hassan', employeeName: 'Hassan', date: '2026-10-05', hours: 2, hourlyRate: 20, amount: 40, reason: 'Left the walk-in open', setBy: 'Omar',
+    employeeId: 'hassan', employeeName: 'Hassan', date: '2026-10-05', hours: 2, hourlyRate: 20, amount: 40, reason: 'Left the store room open', setBy: 'Omar',
     setAtUtc: '2026-10-05T20:00:00Z',
   },
   {
@@ -126,7 +126,7 @@ describe('the corrections', () => {
     expect(count.refresh).toHaveBeenCalled();
     const days = rows('suspended');
     expect(days.map((r) => text(r.querySelector('td')!))).toEqual(['Mon 12 Oct', 'Mon 19 Oct']);
-    expect([text(days[0].querySelector('td:nth-child(2) strong')!), text(days[0].querySelector('td:nth-child(2) .muted')!)]).toEqual(['Hassan', 'Chef']);
+    expect([text(days[0].querySelector('td:nth-child(2) strong')!), text(days[0].querySelector('td:nth-child(2) .muted')!)]).toEqual(['Hassan', 'Checker']);
     expect(text(days[0].querySelectorAll('td')[2])).toBe('16:00–01:00 +1');
     expect(parts(days[0].querySelector('.punch.stray')!)).toEqual(['fingerprint', '16:05', 'in, never out']);
     // The stray punch is the last that counts, not one ignored after it.
@@ -186,10 +186,10 @@ describe('the corrections', () => {
 
     expect(penaltiesOf).toHaveBeenCalledWith('2026-10-01');
     expect(rows('penalties').map((r) => [...r.querySelectorAll('td')].slice(0, 7).map(text))).toEqual([
-      ['Mon 5 Oct', 'Hassan', '2h', 'L.E 20.00', 'L.E 40.00', 'Left the walk-in open', 'Omar'],
-      ['Fri 9 Oct', 'Mona', '1.5h', 'L.E 25.00', 'L.E 37.50', 'Late twice this week', 'Omar'],
+      ['Mon 5 Oct', 'Hassan', '2h', '20.00', '40.00', 'Left the store room open', 'Omar'],
+      ['Fri 9 Oct', 'Mona', '1.5h', '25.00', '37.50', 'Late twice this week', 'Omar'],
     ]);
-    expect([...el.querySelectorAll('.penalties tfoot td')].map(text).slice(0, 4)).toEqual(['Total · الإجمالي', '3.5h', '', 'L.E 77.50']);
+    expect([...el.querySelectorAll('.penalties tfoot td')].map(text).slice(0, 4)).toEqual(['Total · الإجمالي', '3.5h', '', '77.50']);
   });
 
   it('lists a disciplinary action’s penalty deduction as money beside the hours, linked to the action and changed only there', async () => {
@@ -202,13 +202,13 @@ describe('the corrections', () => {
 
     const row = rows('penalties')[1];
     expect(row.classList).toContain('disciplinary');
-    expect([...row.querySelectorAll('td')].slice(0, 5).map(text)).toEqual(['Mon 5 Oct', 'Hassan', '—', '—', 'L.E 200.00']);
+    expect([...row.querySelectorAll('td')].slice(0, 5).map(text)).toEqual(['Mon 5 Oct', 'Hassan', '—', '—', '200.00']);
     expect(text(row.querySelectorAll('td')[5])).toBe('Disciplinaryتأديبي Penalty deduction: Absence open_in_new The disciplinary action');
     expect(row.querySelector('a')!.getAttribute('href')).toBe('/hr/employees/hassan#performance');
     // Withdrawn with its action, on the profile: no pencil here; the manager’s own on the same day keeps theirs.
     expect(row.querySelector('button')).toBeNull();
     expect(rows('penalties')[0].querySelector('button')).not.toBeNull();
-    expect([...el.querySelectorAll('.penalties tfoot td')].map(text).slice(0, 5)).toEqual(['Total · الإجمالي', '3.5h', '', 'L.E 277.50', '']);
+    expect([...el.querySelectorAll('.penalties tfoot td')].map(text).slice(0, 5)).toEqual(['Total · الإجمالي', '3.5h', '', '277.50', '']);
 
     // A day holds the manager’s own penalty and an action’s beside it: only the manager’s is one a day.
     open.mockReturnValue({ afterClosed: () => of(undefined) });
@@ -237,7 +237,7 @@ describe('the corrections', () => {
     open.mockReturnValue({ afterClosed: () => of({ employeeId: 'hassan', date: '2026-10-05', hours: null, reason: null }) });
     await page['changePenalty'](penalties[0]);
     expect(open.mock.lastCall![1].data).toEqual({
-      employee: { id: 'hassan', name: 'Hassan', hourlyRate: 20 }, date: '2026-10-05', hours: 2, reason: 'Left the walk-in open',
+      employee: { id: 'hassan', name: 'Hassan', hourlyRate: 20 }, date: '2026-10-05', hours: 2, reason: 'Left the store room open',
     });
     expect(setPenalty).toHaveBeenLastCalledWith('hassan', '2026-10-05', null, null);
     expect(notify.info).toHaveBeenLastCalledWith('Penalty taken off.');

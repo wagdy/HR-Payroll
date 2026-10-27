@@ -21,16 +21,16 @@ const states: Record<PresenceState, { en: string; ar: string; tone: string }> = 
   Off: { en: 'Off today', ar: 'إجازة اليوم', tone: 'off' },
 };
 
-// Now (الآن): who is in the restaurant right now, from the attendance device's punches as they
-// come in. Each employee on their own day, so a shift past midnight is still on: in (green) since
-// their last scan, left (grey), not arrived yet (yellow) or late (red) once their shift and its
+// Now (الآن): who is in right now, from the attendance device's punches as they
+// come in. Each employee on their own day, so a work schedule past midnight is still on: in (green) since
+// their last scan, left (grey), not arrived yet (yellow) or late (red) once their work schedule and its
 // grace have started, or off today. Grouped by department. Each card changes in place the moment
-// the till pushes it (EmployeeStatusChanged), lit up for a moment; the whole page is read again
+// the system pushes it (EmployeeStatusChanged), lit up for a moment; the whole page is read again
 // every minute for the clock, and after the connection was lost.
 //
-// Punches come as they are made only while the device calls the till over ADMS: when it has not
+// Punches come as they are made only while the device calls the system over ADMS: when it has not
 // for a few minutes, the page says so, and where to point it. A device whose punches come stamped
-// ahead of the till's clock is said too: they count at the wrong times.
+// ahead of the system's clock is said too: they count at the wrong times.
 @Component({
   selector: 'app-now-page',
   imports: [DatePipe, MatIconModule, MatProgressBarModule, RouterLink],
@@ -54,7 +54,7 @@ const states: Record<PresenceState, { en: string; ar: string; tone: string }> = 
         <mat-icon>wifi_off</mat-icon>
         <span>
           <strong>{{ quietNames() }} {{ quiet().length === 1 ? 'is' : 'are' }} not calling in over ADMS</strong>@if (quiet()[0].lastCalledInAtUtc; as last) {
-            since {{ last | date: 'd MMM, HH:mm' }}}: punches reach the till only when someone presses Sync.
+            since {{ last | date: 'd MMM, HH:mm' }}}: punches reach the system only when someone presses Sync.
           @if (pointAt(); as at) {
             On the device, set Cloud Server Setting to <strong>{{ at }}</strong>.
           }
@@ -69,7 +69,7 @@ const states: Record<PresenceState, { en: string; ar: string; tone: string }> = 
         <mat-icon>schedule</mat-icon>
         <span>
           <strong>{{ d.name ?? d.serialNumber }}'s clock is {{ ahead(d.clockAheadMinutes!) }} ahead</strong>: its punches are stamped later than
-          they happen, and count at the wrong times. The till sends it the restaurant's time zone each time it starts: restart the device to set
+          they happen, and count at the wrong times. The system sends it the company's time zone each time it starts: restart the device to set
           its clock, and ignore those punches on the Attendance tab.
           @if (access.has('Devices')) {
             <a routerLink="/hr/devices">Attendance devices</a>
@@ -110,7 +110,7 @@ const states: Record<PresenceState, { en: string; ar: string; tone: string }> = 
       }
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     :host {
       --in: #2e7d32;
@@ -291,7 +291,7 @@ export class NowPage {
   // The cards just changed by a push, lit up for a moment.
   protected readonly fresh = signal<ReadonlySet<string>>(new Set());
 
-  // Approved devices not calling the till over ADMS, and where they should call.
+  // Approved devices not calling the system over ADMS, and where they should call.
   protected readonly quiet = signal<AttendanceDevice[]>([]);
   protected readonly fast = signal<AttendanceDevice[]>([]);
   protected readonly ahead = aheadBy;
@@ -344,7 +344,7 @@ export class NowPage {
   constructor() {
     const destroyRef = inject(DestroyRef);
     // Read whole at first, after the connection was lost, and every minute, for whoever has
-    // become late; each card as the till pushes it.
+    // become late; each card as the system pushes it.
     effect(() => {
       this.punches.changes();
       untracked(() => void this.load());

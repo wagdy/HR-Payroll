@@ -22,7 +22,7 @@ const cell = (el: Element): string =>
     .filter(Boolean)
     .join(' ');
 
-describe('the portal’s sign-in, kept apart from the till’s', () => {
+describe('the portal’s sign-in, kept apart from the system’s', () => {
   const staffSignOut = vi.fn();
 
   function setUp() {
@@ -49,12 +49,12 @@ describe('the portal’s sign-in, kept apart from the till’s', () => {
     const signing = portal.signIn('01012345678', '2468');
     const login = backend.expectOne('/api/auth/employee-login');
     expect(login.request.body).toEqual({ mobileNumber: '01012345678', pinCode: '2468' });
-    // Never the till's token on the portal's sign-in.
+    // Never the system's token on the portal's sign-in.
     expect(login.request.headers.has('Authorization')).toBe(false);
     login.flush({ token: 'employee-token', expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(), employeeId: 'hassan', name: 'Hassan', role: 'Employee' });
     await signing;
     expect(portal.isSignedIn()).toBe(true);
-    expect(JSON.parse(localStorage.getItem('otantik-portal.session')!)).toMatchObject({ employeeId: 'hassan', name: 'Hassan' });
+    expect(JSON.parse(localStorage.getItem('hr-payroll.portal-session')!)).toMatchObject({ employeeId: 'hassan', name: 'Hassan' });
 
     http.get('/api/portal/me').subscribe();
     expect(backend.expectOne('/api/portal/me').request.headers.get('Authorization')).toBe('Bearer employee-token');
@@ -63,8 +63,8 @@ describe('the portal’s sign-in, kept apart from the till’s', () => {
     backend.verify();
   });
 
-  it('signs the employee out of the portal on a 401 there, and leaves the till signed in', async () => {
-    localStorage.setItem('otantik-portal.session', JSON.stringify({ token: 'old', expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(), employeeId: 'hassan', name: 'Hassan' }));
+  it('signs the employee out of the portal on a 401 there, and leaves the system signed in', async () => {
+    localStorage.setItem('hr-payroll.portal-session', JSON.stringify({ token: 'old', expiresAtUtc: new Date(Date.now() + 3_600_000).toISOString(), employeeId: 'hassan', name: 'Hassan' }));
     const { http, backend, portal } = setUp();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     expect(portal.isSignedIn()).toBe(true);
@@ -72,13 +72,13 @@ describe('the portal’s sign-in, kept apart from the till’s', () => {
     http.get('/api/portal/me').subscribe({ error: () => undefined });
     backend.expectOne('/api/portal/me').flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(portal.isSignedIn()).toBe(false);
-    expect(localStorage.getItem('otantik-portal.session')).toBeNull();
+    expect(localStorage.getItem('hr-payroll.portal-session')).toBeNull();
     expect(navigate).toHaveBeenCalledWith(['/portal'], { queryParams: { reason: 'expired' } });
     expect(staffSignOut).not.toHaveBeenCalled();
   });
 
   it('counts a session that has run out as signed out', () => {
-    localStorage.setItem('otantik-portal.session', JSON.stringify({ token: 'old', expiresAtUtc: '2020-01-01T00:00:00Z', employeeId: 'hassan', name: 'Hassan' }));
+    localStorage.setItem('hr-payroll.portal-session', JSON.stringify({ token: 'old', expiresAtUtc: '2020-01-01T00:00:00Z', employeeId: 'hassan', name: 'Hassan' }));
     const { portal } = setUp();
     expect(portal.isSignedIn()).toBe(false);
   });
@@ -106,13 +106,17 @@ describe('the portal’s sign-in screen', () => {
     return { el, refresh, page: fixture.componentInstance as unknown as Record<string, any> };
   }
 
-  beforeEach(() => signIn.mockReset());
+  beforeEach(() => {
+
+    signIn.mockReset();
+
+  });
 
   it('signs in and opens their profile; a refusal says why and clears the PIN', async () => {
     const { el, page, refresh } = await render();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     expect(text(el.querySelector('h1')!)).toBe('My profile ملفي');
-    // Nothing of the till here.
+    // Nothing of the system here.
     expect(el.querySelector('nav, mat-toolbar')).toBeNull();
 
     // Nothing typed yet: said so, nothing sent.
@@ -155,13 +159,13 @@ describe('an employee’s own profile in the portal', () => {
   const hrTabs = signal<string[]>([]);
 
   const profile: PortalProfile = {
-    id: 'hassan', name: 'Hassan Mahmoud Ali', jobTitle: 'Chef', department: 'Kitchen', employmentType: 'Monthly', hiredOn: '2026-01-05',
+    id: 'hassan', name: 'Hassan Mahmoud Ali', jobTitle: 'Checker', department: 'Key accounts', employmentType: 'Monthly', hiredOn: '2026-01-05',
     nationalId: '29001010123456', mobileNumber: '01012345678', idPhoto: null, shiftStartsAt: '10:00:00', shiftEndsAt: '19:00:00', daysOff: ['Friday'],
   };
 
   function slip(month: string, status: PayrollSlip['status']): PayrollSlip {
     return {
-      employee: { id: 'hassan', name: 'Hassan Mahmoud Ali', jobTitle: 'Chef', hourlyRate: 20, dailyRate: 180 }, month, status,
+      employee: { id: 'hassan', name: 'Hassan Mahmoud Ali', jobTitle: 'Checker', hourlyRate: 20, dailyRate: 180 }, month, status,
       figures: {
         monthlySalary: 5_400, daysInMonth: 31, daysEmployed: 31, baseSalary: 5_400, incentives: 0, leaveAllowances: 0, overtimeMinutes: 0, overtimePay: 0,
         shortMinutes: 0, latenessPenalty: 0, absentDays: 0, absencePenalty: 0, advances: 0, broughtForward: 0, daysWorked: 20, daysOffWorked: 0,
@@ -198,8 +202,8 @@ describe('an employee’s own profile in the portal', () => {
     months.mockReset().mockReturnValue(of(['2026-10-01', '2026-09-01']));
     payslip.mockReset().mockImplementation((month: string) => of(slip(month, month === '2026-10-01' ? 'Draft' : 'Finalized')));
     custody.mockReset().mockReturnValue(of([
-      { name: 'Dinner plates', category: 'Tableware', quantity: 37 },
-      { name: 'Knife set', category: null, quantity: 1 },
+      { name: 'Desk lamps', category: 'Technology', quantity: 37 },
+      { name: 'Keyboard set', category: null, quantity: 1 },
     ]));
     leaves.mockReset().mockReturnValue(of({ year: 2026, balances: [], requests: [], types: [] }));
     performance.mockReset().mockReturnValue(
@@ -209,7 +213,7 @@ describe('an employee’s own profile in the portal', () => {
     hrTabs.set([]);
   });
 
-  it('shows their details, this month’s draft payslip and their custody, with nothing of the till', async () => {
+  it('shows their details, this month’s draft payslip and their custody, with nothing of the system', async () => {
     const { el } = await render();
 
     expect(cell(el.querySelector('.bar')!)).toBe('badge My profile ملفي Hassan Mahmoud Ali logout Sign out');
@@ -218,8 +222,8 @@ describe('an employee’s own profile in the portal', () => {
     expect(details).toMatchObject({
       'Full name الاسم بالكامل': 'Hassan Mahmoud Ali',
       'National ID رقم البطاقة': '29001010123456',
-      'Job الوظيفة': 'Chef · Kitchen',
-      'Shift الوردية': '10:00–19:00 · off Fri',
+      'Job الوظيفة': 'Checker · Key accounts',
+      'Work schedule الدوام': '10:00–19:00 · off Fri',
     });
     expect(payslip).toHaveBeenCalledWith('2026-10-01');
     expect(text(el.querySelector('.draft-note')!)).toContain('A draft');
@@ -229,10 +233,10 @@ describe('an employee’s own profile in the portal', () => {
     // Name, category and how many: nothing of what it cost.
     expect(cell(el.querySelector('.custody thead')!)).toBe('Asset الصنف Category الفئة Quantity العدد');
     expect([...el.querySelectorAll('.custody .held')].map((r) => [...r.querySelectorAll('td')].map(cell))).toEqual([
-      ['Dinner plates', 'Tableware', '37'],
-      ['Knife set', '—', '1'],
+      ['Desk lamps', 'Technology', '37'],
+      ['Keyboard set', '—', '1'],
     ]);
-    expect(text(el.querySelector('.custody')!)).not.toContain('L.E');
+    expect(text(el.querySelector('.custody')!)).not.toMatch(/\d\.\d{2}/);
     // Their leaves and their record beside them.
     expect(leaves).toHaveBeenCalled();
     expect(performance).toHaveBeenCalled();

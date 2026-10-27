@@ -14,7 +14,7 @@ import { HrApi, PayrollFigures, PayrollMonth, PayrollSlip } from '../../core/hr/
 import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
 import { saveBlob } from '../../core/ui/save-blob';
-import { isoDay } from '../costing/financials';
+import { isoDay } from '../../core/ui/business-day';
 import { DailyCostPage } from './daily-cost-page';
 
 // Payroll in two views (?view=daily for the second): the month's, and a day's labour cost
@@ -87,7 +87,7 @@ import { DailyCostPage } from './daily-cost-page';
           <div class="tile">
             <span class="label">Wages cost · تكلفة الأجور</span>
             <strong>{{ p.totals.wagesCost | money }}</strong>
-            <small class="muted">what the month's work cost: in the KPIs once finalized</small>
+            <small class="muted">what the month's work cost</small>
           </div>
         </div>
 
@@ -180,15 +180,15 @@ import { DailyCostPage } from './daily-cost-page';
           </table>
         </div>
         <p class="note">
-          A day costs the salary over 30, an hour a day's over 9: lateness (late, leaving early, away during the shift) and absence are
-          deducted at that rate, and overtime paid at it. A day off worked earns a leave allowance by itself: a day's pay for half a shift
+          A day costs the salary over 30, an hour a day's over 9: lateness (late, leaving early, away during the work schedule) and absence are
+          deducted at that rate, and overtime paid at it. A day off worked earns a leave allowance by itself: a day's pay for half a workday
           or more, its hours for less; a day off swapped for another is marked a working day on the attendance, and earns none. When the deductions are more than the pay, nothing is paid and the rest comes off
           next month's. Open a payslip to add incentives and leave allowances, finalize it, and pay it.
         </p>
       }
     }
   `,
-  styleUrl: '../costing/costing.scss',
+  styleUrl: '../shared/pages.scss',
   styles: `
     .views {
       margin: 0 0 12px;
@@ -258,7 +258,7 @@ import { DailyCostPage } from './daily-cost-page';
       color: var(--mat-sys-error);
     }
     .warn {
-      color: var(--till-warn);
+      color: var(--app-warn);
     }
   `,
 })
@@ -305,7 +305,7 @@ export class PayrollPage {
     void this.router.navigate([], { queryParams: { view: view === 'daily' ? 'daily' : null }, queryParamsHandling: 'merge', replaceUrl: true });
   }
 
-  // What the deductions and penalties are made of, those there are: "Late L.E 33.67".
+  // What the deductions and penalties are made of, those there are: "Late 33.67".
   protected deductionParts(f: PayrollFigures): { label: string; amount: number }[] {
     return [
       { label: 'Late', amount: f.latenessPenalty },
