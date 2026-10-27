@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Company;
 using HrPayroll.Domain.Access;
 using HrPayroll.Domain.Attendance;
 using HrPayroll.Domain.Custody;
@@ -149,7 +150,7 @@ public class HrPersistenceTests
     {
         await using var app = await TestSystem.StartAsync();
         var checker = new Employee(Guid.NewGuid(), "حسن محمود علي", "Technician", 5_400, new TimeOnly(10, 0), WeekDays.Friday, new DateOnly(2026, 1, 1));
-        checker.SetNationalId("29001010123456");
+        checker.SetNationalId("29001010123456", Country.Egypt);
         checker.SetMobileNumber("01012345678");
         checker.AttachIdPhoto("card.png", "image/png", 4, "Omar");
         byte[] png = [0x89, 0x50, 0x4E, 0x47];
@@ -174,7 +175,7 @@ public class HrPersistenceTests
         await Assert.ThrowsAsync<ConflictException>(() => app.Db(async db =>
         {
             var copy = new Employee(Guid.NewGuid(), "Karim", "Sales Representative", 4_000, new TimeOnly(12, 0), WeekDays.Sunday, new DateOnly(2026, 1, 1));
-            copy.SetNationalId("29001010123456");
+            copy.SetNationalId("29001010123456", Country.Egypt);
             db.Employees.Add(copy);
             return await db.SaveChangesAsync();
         }));

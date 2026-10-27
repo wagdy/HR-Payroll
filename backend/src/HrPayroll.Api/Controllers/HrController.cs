@@ -200,10 +200,11 @@ public sealed class HrController(ISender sender) : ControllerBase
     // The spreadsheet to bring employees in from: the columns, with the departments and roles.
     [HttpGet("employees/template")]
     [HrTab(HrTabs.Employees, Manage = true)]
-    public async Task<IActionResult> GetEmployeesTemplate(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetEmployeesTemplate([FromServices] ICompanyProfile company, CancellationToken cancellationToken)
     {
         var departments = await sender.Send(new GetDepartmentsQuery(), cancellationToken);
-        return File(EmployeeWorkbook.Template(departments), EmployeeWorkbook.ContentType, EmployeeWorkbook.TemplateFileName);
+        var template = EmployeeWorkbook.Template(departments, company.Current.Money, Employees.DaysOf(company.Current.Weekends));
+        return File(template, EmployeeWorkbook.ContentType, EmployeeWorkbook.TemplateFileName);
     }
 
     // A filled-in template: each good row an employee, added for a manager and asked of one for
@@ -223,22 +224,24 @@ public sealed class HrController(ISender sender) : ControllerBase
     // Everyone employed now, in the template's columns: to file, or to add to and import again.
     [HttpGet("employees/export")]
     [HrTab(HrTabs.Employees)]
-    public async Task<IActionResult> ExportEmployees([FromServices] IWorkClock calendar, CancellationToken cancellationToken)
+    public async Task<IActionResult> ExportEmployees([FromServices] IWorkClock calendar, [FromServices] ICompanyProfile company, CancellationToken cancellationToken)
     {
         var employees = (await sender.Send(new GetEmployeesQuery(), cancellationToken)).Where(e => e.IsActive).ToList();
         var departments = await sender.Send(new GetDepartmentsQuery(), cancellationToken);
         var today = calendar.WorkdayOf(DateTime.UtcNow).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        return File(EmployeeWorkbook.Export(employees, departments), EmployeeWorkbook.ContentType, $"employees-{today}.xlsx");
+        return File(EmployeeWorkbook.Export(employees, departments, company.Current.Money), EmployeeWorkbook.ContentType, $"employees-{today}.xlsx");
     }
 
     // The month's payroll as the Payroll tab shows it, with its totals.
     [HttpGet("payroll/export")]
     [HrTab(HrTabs.Payroll)]
-    public async Task<IActionResult> ExportPayroll([FromQuery] DateOnly month, [FromServices] IWorkClock calendar, CancellationToken cancellationToken)
+    public async Task<IActionResult> ExportPayroll(
+        [FromQuery] DateOnly month, [FromServices] IWorkClock calendar, [FromServices] ICompanyProfile company, CancellationToken cancellationToken)
     {
         var payroll = await sender.Send(new GetPayrollQuery(month), cancellationToken);
         var departments = (await sender.Send(new GetDepartmentsQuery(), cancellationToken)).ToDictionary(d => d.Id, d => d.Name);
-        return File(PayrollWorkbook.Export(payroll, departments, calendar.WorkdayOf(DateTime.UtcNow)), PayrollWorkbook.ContentType, PayrollWorkbook.FileName(month));
+        var sheet = PayrollWorkbook.Export(payroll, departments, calendar.WorkdayOf(DateTime.UtcNow), company.Current.Money);
+        return File(sheet, PayrollWorkbook.ContentType, PayrollWorkbook.FileName(month));
     }
 
     private const int MaxImportBytes = 5 * 1024 * 1024;

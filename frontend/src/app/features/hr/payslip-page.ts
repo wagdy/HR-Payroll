@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,6 +18,7 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
 import { BusinessDay, isoDay } from '../../core/ui/business-day';
 import { PayslipSheet } from './payslip-sheet';
+import { Company } from '../../core/settings/company';
 
 export interface AdjustmentInput {
   kind: AdjustmentKind;
@@ -28,7 +29,7 @@ export interface AdjustmentInput {
 // An incentive or a leave allowance for the month: how much, and why.
 @Component({
   selector: 'app-adjustment-dialog',
-  imports: [DecimalPipe, FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatRadioModule],
+  imports: [FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatRadioModule, MoneyPipe],
   template: `
     <h2 mat-dialog-title>Add to {{ data.employee }}’s pay <span class="ar">إضافة للراتب</span></h2>
     <mat-dialog-content>
@@ -40,7 +41,7 @@ export interface AdjustmentInput {
         <mat-label>Amount · المبلغ</mat-label>
         <input matInput type="number" min="0" step="any" [(ngModel)]="amount" aria-label="Amount" />
         @if (kind === 'LeaveAllowance') {
-          <mat-hint>A day’s pay is {{ data.dailyRate | number: '1.2-2' }}. Days off worked are counted by themselves.</mat-hint>
+          <mat-hint>A day’s pay is {{ data.dailyRate | money }}. Days off worked are counted by themselves.</mat-hint>
         }
       </mat-form-field>
       <mat-form-field class="wide">
@@ -251,6 +252,7 @@ export class PayslipPage {
   private readonly dialog = inject(MatDialog);
   private readonly notify = inject(NotifyService);
   private readonly businessDay = inject(BusinessDay);
+  private readonly company = inject(Company);
 
   readonly employeeId = input.required<string>();
   readonly startMonth = input<string>(undefined, { alias: 'month' });
@@ -331,7 +333,7 @@ export class PayslipPage {
     );
     if (answer) {
       const payment = { paymentId: crypto.randomUUID(), employeeId: s.employee.id, month: this.month(), ...answer };
-      await this.act(() => firstValueFrom(this.api.recordSalaryPayment(payment)), `${s.employee.name} is paid ${money(answer.amount)}.`);
+      await this.act(() => firstValueFrom(this.api.recordSalaryPayment(payment)), `${s.employee.name} is paid ${this.company.money(answer.amount)}.`);
     }
   }
 
@@ -365,8 +367,4 @@ export class PayslipPage {
       this.loading.set(false);
     }
   }
-}
-
-function money(amount: number): string {
-  return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using HrPayroll.Domain.Common;
 using HrPayroll.Domain.Access;
+using HrPayroll.Domain.Company;
 
 namespace HrPayroll.Domain.Employees;
 
@@ -105,8 +106,8 @@ public sealed partial class Employee : AggregateRoot
     // Their full name (الاسم بالكامل), as on their ID card.
     public string Name { get; private set; } = string.Empty;
 
-    // The number on their ID card (رقم البطاقة): an Egyptian national ID's 14 digits, or a
-    // passport's letters and digits. None until it is entered.
+    // The number on their ID card (رقم البطاقة): a national ID as the company's country writes
+    // one, or a passport's letters and digits. None until it is entered.
     public string? NationalId { get; private set; }
 
     // Their mobile (رقم الموبايل), digits only, a leading + for an international one.
@@ -258,9 +259,12 @@ public sealed partial class Employee : AggregateRoot
         DeviceUserId = trimmed;
     }
 
-    // Arabic-Indic digits as their ASCII ones, spaces and dashes aside. Fourteen digits is an
-    // Egyptian national ID; letters and digits, a passport's number. Null: not entered.
-    public void SetNationalId(string? nationalId)
+    // Arabic-Indic digits as their ASCII ones, spaces and dashes aside: a national ID as the
+    // company's country writes one (NationalIds), or a passport's letters and digits. Null: not
+    // entered.
+    // One already kept (theirs, or `kept` for a draft of them) stays, whatever the country is
+    // now: changing the country is not changing them.
+    public void SetNationalId(string? nationalId, Country country, string? kept = null)
     {
         var number = Digits(nationalId)?.ToUpperInvariant();
         if (number is null)
@@ -269,8 +273,13 @@ public sealed partial class Employee : AggregateRoot
             return;
         }
 
-        if (number.All(char.IsAsciiDigit) ? number.Length != 14 : number.Length is < 5 or > MaxNationalIdLength || !PassportPattern().IsMatch(number))
-            throw new DomainException("A national ID is the card's 14 digits; a passport's number, its letters and digits.");
+        if (number == NationalId || number == kept)
+        {
+            NationalId = number;
+            return;
+        }
+        if (NationalIds.Problem(number, country) is { } problem)
+            throw new DomainException(problem);
         NationalId = number;
     }
 
@@ -435,9 +444,6 @@ public sealed partial class Employee : AggregateRoot
 
     [GeneratedRegex("^[A-Za-z0-9]+$")]
     private static partial Regex DeviceUserIdPattern();
-
-    [GeneratedRegex("^[A-Z0-9]+$")]
-    private static partial Regex PassportPattern();
 
     [GeneratedRegex("^\\+?[0-9]{7,15}$")]
     private static partial Regex MobilePattern();

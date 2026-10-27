@@ -171,7 +171,7 @@ public sealed record IssueDisciplinaryActionCommand(
 
 internal sealed class IssueDisciplinaryActionHandler(
     IEmployeeRepository employees, IDisciplinaryActionRepository actions, IAdministrativePenaltyRepository penalties, IPayrollSlipRepository slips,
-    IWorkClock clock, IUnitOfWork unitOfWork)
+    IWorkClock clock, ICompanyProfile company, IUnitOfWork unitOfWork)
     : IRequestHandler<IssueDisciplinaryActionCommand, DisciplinaryActionDto>
 {
     public async Task<DisciplinaryActionDto> Handle(IssueDisciplinaryActionCommand request, CancellationToken cancellationToken)
@@ -182,7 +182,7 @@ internal sealed class IssueDisciplinaryActionHandler(
         Performances.EnsureDay(employee, request.Date, clock);
         var action = new DisciplinaryAction(
             request.Id, employee.Id, request.Date, request.ViolationType, request.SeverityLevel, request.Notes, request.PenaltyAmount, request.StaffId,
-            request.StaffName);
+            request.StaffName, company.Current.Money);
         if (action.Penalty() is { } penalty)
         {
             await slips.EnsureOpenAsync(employee, action.Date, cancellationToken);

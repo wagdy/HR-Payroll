@@ -94,7 +94,8 @@ public static class Employees
 // Checks, describes and makes an employee's change: for a manager's own and for an approval
 // alike. What it makes is added for the caller to save.
 internal sealed class EmployeeWriter(
-    IEmployeeRepository employees, IAttendanceLogRepository punches, IDepartmentRepository departments, IJobRoleRepository roles)
+    IEmployeeRepository employees, IAttendanceLogRepository punches, IDepartmentRepository departments, IJobRoleRepository roles,
+    ICompanyProfile company)
 {
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
 
@@ -109,7 +110,7 @@ internal sealed class EmployeeWriter(
                 employeeId, details.Name, details.JobTitle, 0, details.ShiftStartsAt, Employees.Flags(details.DaysOff), details.HiredOn,
                 details.DeviceUserId);
             draft.SetPay(details.EmploymentType, details.Pay);
-            draft.SetNationalId(details.NationalId);
+            draft.SetNationalId(details.NationalId, company.Current.Country, existing?.NationalId);
             draft.SetMobileNumber(details.MobileNumber);
             if (await departments.GetByIdAsync(details.Department, cancellationToken) is null)
                 throw new DomainException("Choose the employee's department: that one is not there any more.");
@@ -161,7 +162,7 @@ internal sealed class EmployeeWriter(
                 employee.SetPay(d.EmploymentType, d.Pay);
                 employee.MoveTo(d.Department);
                 employee.AssignRole(await RoleAsync(d, cancellationToken));
-                employee.SetNationalId(d.NationalId);
+                employee.SetNationalId(d.NationalId, company.Current.Country);
                 employee.SetMobileNumber(d.MobileNumber);
                 employees.Add(employee);
             }
@@ -176,7 +177,7 @@ internal sealed class EmployeeWriter(
                 employee.SetDaysOff(Employees.Flags(d.DaysOff));
                 employee.ChangeStart(d.HiredOn);
                 employee.LinkDevice(d.DeviceUserId);
-                employee.SetNationalId(d.NationalId);
+                employee.SetNationalId(d.NationalId, company.Current.Country);
                 employee.SetMobileNumber(d.MobileNumber);
             }
 
@@ -219,7 +220,7 @@ internal sealed class EmployeeWriter(
         return role;
     }
 
-    // "New employee · Hassan · Accountant · 5,400.00 a month", and what it changes, line by line.
+    // "New employee · Hassan · Accountant · L.E 5,400.00 a month", and what it changes, line by line.
     public async Task<(string Summary, ApprovalAction Action, IReadOnlyList<ApprovalChange> Changes)> DescribeAsync(
         Guid employeeId, EmployeeRequest request, CancellationToken cancellationToken)
     {
@@ -253,7 +254,7 @@ internal sealed class EmployeeWriter(
         Line("Attendance device number", existing?.DeviceUserId ?? "—", string.IsNullOrWhiteSpace(d.DeviceUserId) ? "—" : d.DeviceUserId.Trim());
         // As they will be kept: "٠١٠ ١٢٣" is 010123. Said for someone new only when entered.
         var draft = new Employee(employeeId, "draft", "draft", 0, null, WeekDays.None, d.HiredOn);
-        draft.SetNationalId(d.NationalId);
+        draft.SetNationalId(d.NationalId, company.Current.Country, existing?.NationalId);
         draft.SetMobileNumber(d.MobileNumber);
         if (existing is not null || draft.NationalId is not null)
             Line("National ID", existing?.NationalId ?? "—", draft.NationalId ?? "—");
@@ -270,10 +271,8 @@ internal sealed class EmployeeWriter(
     private static string DaysOff(WeekDays days) =>
         days == WeekDays.None ? "None" : string.Join(", ", Employees.DaysOf(days).Select(d => Invariant.DateTimeFormat.GetAbbreviatedDayName(d)));
 
-    private static string Money(decimal value) => value.ToString("N2", Invariant);
-
-    // "5,400.00 a month", or "250.00 a day" for daily pay.
-    private static string Pay(EmploymentType type, decimal amount) => $"{Money(amount)} {(type == EmploymentType.Daily ? "a day" : "a month")}";
+    // "L.E 5,400.00 a month", or "L.E 250.00 a day" for daily pay, in the company's money.
+    private string Pay(EmploymentType type, decimal amount) => $"{company.Current.Money.Format(amount)} {(type == EmploymentType.Daily ? "a day" : "a month")}";
 
     private static string Day(DateOnly day) => day.ToString("d MMM yyyy", Invariant);
 }

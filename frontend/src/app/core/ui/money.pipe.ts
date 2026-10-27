@@ -1,11 +1,13 @@
-import { Pipe, PipeTransform } from '@angular/core';
+import { Pipe, PipeTransform, inject } from '@angular/core';
+import { Company } from '../settings/company';
 
-const formatter = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-// Amounts as the API writes them in its messages: "153.90", "5,400.00".
-@Pipe({ name: 'money' })
+// Amounts as the company writes them (Company Settings): "L.E 153.90", "153.90 SAR". Not pure, so
+// a currency saved on the Settings page shows at once; formatting a number is cheap.
+@Pipe({ name: 'money', pure: false })
 export class MoneyPipe implements PipeTransform {
-  transform(value: number | null | undefined): string {
-    return formatter.format(value ?? 0);
+  private readonly company = inject(Company);
+
+  transform(value: number | null | undefined, digits = 2): string {
+    return this.company.money(value ?? 0, digits);
   }
 }

@@ -1,4 +1,5 @@
 using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Company;
 using HrPayroll.Domain;
 using HrPayroll.Domain.Access;
 using HrPayroll.Domain.Attendance;
@@ -16,6 +17,7 @@ namespace HrPayroll.Application.Tests;
 public sealed class HrStore
 {
     public EmployeeStore Employees { get; } = new();
+    public CompanySettingsMemory CompanySettings { get; } = new();
     public DepartmentStore Departments { get; } = new();
     public JobRoleStore Roles { get; } = new();
     public DeviceStore Devices { get; } = new();
@@ -411,4 +413,23 @@ public sealed class DisciplinaryStore : ListStore<DisciplinaryAction>, IDiscipli
 {
     public Task<IReadOnlyList<DisciplinaryAction>> GetForEmployeeAsync(Guid employeeId, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<DisciplinaryAction>>(Items.Where(a => a.EmployeeId == employeeId).OrderByDescending(a => a.Date).ToList());
+}
+
+// The company's settings row and its logo, kept in memory.
+public sealed class CompanySettingsMemory : ICompanySettingsStore
+{
+    public CompanySettings? Row { get; private set; }
+    public byte[]? Logo { get; private set; }
+
+    public Task<CompanySettings?> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(Row);
+
+    public void Add(CompanySettings settings) => Row = settings;
+
+    public Task PutLogoAsync(byte[]? content, CancellationToken cancellationToken = default)
+    {
+        Logo = content;
+        return Task.CompletedTask;
+    }
+
+    public Task<byte[]?> GetLogoAsync(CancellationToken cancellationToken = default) => Task.FromResult(Logo);
 }

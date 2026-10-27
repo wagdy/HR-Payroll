@@ -19,6 +19,15 @@
   font: var(--mat-sys-title-medium);
 }
 
+// The company's logo, as tall as the icon beside it would be.
+.logo {
+  height: 28px;
+  max-width: 96px;
+  margin-right: 8px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
 nav .active {
   background: color-mix(in srgb, var(--mat-sys-on-primary) 16%, transparent);
 }

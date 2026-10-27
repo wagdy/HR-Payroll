@@ -30,7 +30,7 @@ public class HrFlowTests
         var input = new HrAdvanceInput(500, new DateOnly(2026, 10, 20), hassan.Id, "Rent");
 
         var asked = await hr.Send(new RecordHrAdvanceCommand(Guid.NewGuid(), Guid.NewGuid(), input, "user-2", "Sara", CanApprove: false));
-        Assert.Equal((ApprovalOutcome.Requested, "Advance · Hassan Ali · 500.00"), (asked.Outcome, asked.Request!.Summary));
+        Assert.Equal((ApprovalOutcome.Requested, "Advance · Hassan Ali · L.E 500.00"), (asked.Outcome, asked.Request!.Summary));
         Assert.Empty(hr.Hr.HrAdvances.All);
 
         await hr.Send(new ApproveRequestCommand(asked.Request.Id, "Omar"));

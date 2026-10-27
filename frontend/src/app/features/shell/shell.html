@@ -1,7 +1,11 @@
 <mat-toolbar class="toolbar">
-  <a mat-button class="brand" routerLink="/hr" aria-label="HR & Payroll: home">
-    <mat-icon>groups</mat-icon>
-    <span class="brand-text">HR &amp; Payroll</span>
+  <a mat-button class="brand" routerLink="/hr" [attr.aria-label]="company.name() + ': home'">
+    @if (company.logoUrl(); as logo) {
+      <img class="logo" [src]="logo" alt="" />
+    } @else {
+      <mat-icon>groups</mat-icon>
+    }
+    <span class="brand-text">{{ company.name() }}</span>
   </a>
 
   <nav>
@@ -27,6 +31,10 @@
     <a *appCan="Permissions.UsersManage" mat-button routerLink="/users" routerLinkActive="active" aria-label="Users" matTooltip="Users · المستخدمون" [matTooltipDisabled]="!compactNav()">
       <mat-icon>manage_accounts</mat-icon>
       <span class="nav-text">Users</span>
+    </a>
+    <a *appCan="Permissions.SettingsManage" mat-button routerLink="/settings" routerLinkActive="active" aria-label="Settings" matTooltip="Company settings · إعدادات الشركة" [matTooltipDisabled]="!compactNav()">
+      <mat-icon>settings</mat-icon>
+      <span class="nav-text">Settings</span>
     </a>
   </nav>
 

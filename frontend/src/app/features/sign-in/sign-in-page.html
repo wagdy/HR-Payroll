@@ -1,8 +1,17 @@
 <main class="sign-in">
   <mat-card class="panel" appearance="outlined">
     <header>
-      <mat-icon class="logo">groups</mat-icon>
-      <h1>HR &amp; Payroll</h1>
+      @if (company.logoUrl(); as logo) {
+        <img class="company-logo" [src]="logo" alt="" />
+      } @else {
+        <mat-icon class="logo">groups</mat-icon>
+      }
+      <div>
+        <h1>{{ company.name() }}</h1>
+        @if (company.settings().name) {
+          <p class="system">HR &amp; Payroll · الموارد البشرية والرواتب</p>
+        }
+      </div>
     </header>
 
     @if (reason() === 'expired') {

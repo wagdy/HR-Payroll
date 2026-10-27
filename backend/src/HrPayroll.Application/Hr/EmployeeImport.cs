@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using MediatR;
 using HrPayroll.Domain.Common;
 using HrPayroll.Domain;
@@ -40,6 +41,7 @@ internal sealed class ImportEmployeesHandler(
     IDepartmentRepository departments,
     IJobRoleRepository roles,
     IApprovalRequestRepository requests,
+    ICompanyProfile company,
     IUnitOfWork unitOfWork) : IRequestHandler<ImportEmployeesCommand, EmployeeImportResult>
 {
     // A business's staff are tens, or hundreds.
@@ -146,7 +148,8 @@ internal sealed class ImportEmployeesHandler(
                 shift = start;
             }
 
-            if (!EmployeeCells.Days(row.DaysOff, out var daysOff, out var notADay))
+            // Blank: the company's weekends, as a new employee on the form starts with.
+            if (!EmployeeCells.Days(row.DaysOff, Employees.DaysOf(company.Current.Weekends), out var daysOff, out var notADay))
             {
                 Skip($"Days off: \"{notADay}\" is not a day of the week. Write them as Friday, Saturday or الجمعة، السبت.");
                 continue;
@@ -251,8 +254,12 @@ internal sealed class ImportEmployeesHandler(
 
 // How the sheet's cells read: the words for monthly and daily pay, times, days and dates, in
 // English or Arabic, Western or Arabic digits.
-internal static class EmployeeCells
+internal static partial class EmployeeCells
 {
+    // Letters and currency signs: "SAR", "جنيه", "$", "€".
+    [GeneratedRegex(@"[\p{L}\p{Sc}]+")]
+    private static partial Regex CurrencyMarks();
+
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
 
     private static readonly Dictionary<string, DayOfWeek> DayNames = new()
@@ -278,13 +285,15 @@ internal static class EmployeeCells
         _ => null,
     };
 
-    // "5,400", "5400 L.E", "٥٤٠٠ جنيه".
+    // "5,400", "5400 L.E", "٥٤٠٠ جنيه", "SAR 5,400", "$5,400": whatever currency is written beside
+    // it, its letters and signs left out.
     public static decimal? Money(string text)
     {
         var plain = text;
-        foreach (var currency in new[] { "L.E.", "L.E", "LE", "EGP", "E£", "£", "جنيه", "ج.م", "ج" })
+        foreach (var currency in new[] { "L.E.", "L.E", "ج.م", "ر.س", "د.إ" })
             plain = plain.Replace(currency, string.Empty, StringComparison.OrdinalIgnoreCase);
-        return SheetText.Amount(plain.Trim());
+        plain = CurrencyMarks().Replace(plain, string.Empty);
+        return SheetText.Amount(plain.Trim().Trim('.').Trim());
     }
 
     public static bool Flexible(string text) =>
@@ -315,14 +324,20 @@ internal static class EmployeeCells
         return TimeOnly.TryParseExact(t, formats, Invariant, DateTimeStyles.AllowWhiteSpaces, out var time) ? time : null;
     }
 
-    // "Friday, Saturday", "Fri/Sat", "الجمعة والسبت"; none for blank or "None".
-    public static bool Days(string? text, out IReadOnlyList<DayOfWeek> days, out string? notADay)
+    // "Friday, Saturday", "Fri/Sat", "الجمعة والسبت"; none for "None"; blank, the days given.
+    public static bool Days(string? text, IReadOnlyList<DayOfWeek> blank, out IReadOnlyList<DayOfWeek> days, out string? notADay)
     {
         var found = new List<DayOfWeek>();
         days = found;
         notADay = null;
         var key = SheetText.Key(text ?? string.Empty);
-        if (key is "" or "NONE" or "NO" or "-" or "لا يوجد" or "لا" or "بدون")
+        if (key is "")
+        {
+            days = blank;
+            return true;
+        }
+
+        if (key is "NONE" or "NO" or "-" or "لا يوجد" or "لا" or "بدون")
             return true;
         foreach (var written in text!.Split([',', '،', ';', '/', '|', '+', '&', '-', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {

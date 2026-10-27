@@ -11,7 +11,9 @@ built: the domain, every endpoint below, the ADMS receiver, and the screens.
   dates. They are not the system's users: most never sign in to it, but to their own portal.
 - **Their profile** (ملف الموظف):
   - Their name is their full name (الاسم بالكامل), as on their ID card: no field apart.
-  - National ID (رقم البطاقة): an Egyptian card's 14 digits, or a passport's letters and digits;
+  - National ID (رقم البطاقة): as the company's country writes one (Egypt's card 14 digits,
+    Saudi Arabia's ID or Iqama 10 digits starting 1 or 2; see Company Settings), or a
+    passport's letters and digits;
     one employee to a card (a unique index). Mobile (رقم الموبايل): 7 to 15 digits, a leading +
     from abroad. Both kept as digits however they are typed: Arabic digits, spaces and dashes
     are fine. Optional, and changed as the rest is: an accountant's change goes to a manager.
@@ -502,10 +504,10 @@ Corrections, Payroll, Advances, Holidays and Devices, and Custody & Assets besid
     changes or takes one off.
   - Accountants see both, with nothing to change.
 - Holidays (العطلات الرسمية), a year at a time: the holidays entered, each changed or taken off
-  by a manager; and Egypt's fixed-date holidays not entered yet (the seven fixed dates, and Sham
-  El-Nessim, the Monday after Coptic Easter), each added once checked against the government's
-  announcement. The Eids, Arafat, the Hijri New Year and the Prophet's Birthday follow the moon,
-  and are added once announced. Attendance names the holiday on its days, and the payroll and
+  by a manager; and the fixed-date holidays of the company's country not entered yet (Egypt's
+  seven fixed dates and Sham El-Nessim, the Monday after Coptic Easter; Saudi Arabia's Founding
+  Day and National Day), each added once checked against the official announcement. The holidays
+  that follow the moon (the Eids among them) are added once announced. Attendance names the holiday on its days, and the payroll and
   payslip show the holidays worked.
 - Payroll: the month's slips, each part of the formula a column, with totals.
   - Calculate drafts saves them.

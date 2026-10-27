@@ -578,6 +578,73 @@ namespace HrPayroll.Infrastructure.Persistence.Migrations
                     b.ToTable("PublicHolidays", "hr");
                 });
 
+            modelBuilder.Entity("HrPayroll.Domain.Company.CompanySettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("CurrencyPosition")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("CurrencySymbol")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<int?>("LogoBytes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LogoContentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("LogoFileName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("LogoUpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Weekends")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("WorkdayStartsAtHour")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CompanySettings", "hr", t =>
+                        {
+                            t.HasCheckConstraint("CK_CompanySettings_Single", "\"Id\" = 1");
+                        });
+                });
+
             modelBuilder.Entity("HrPayroll.Domain.Custody.AssetCategory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1669,6 +1736,20 @@ namespace HrPayroll.Infrastructure.Persistence.Migrations
                     b.ToTable("PerformanceKpis", "hr");
                 });
 
+            modelBuilder.Entity("HrPayroll.Infrastructure.Company.CompanyLogo", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CompanyLogos", "hr");
+                });
+
             modelBuilder.Entity("HrPayroll.Infrastructure.Hr.EmployeeIdPhoto", b =>
                 {
                     b.Property<Guid>("EmployeeId")
@@ -1993,6 +2074,15 @@ namespace HrPayroll.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Scores");
+                });
+
+            modelBuilder.Entity("HrPayroll.Infrastructure.Company.CompanyLogo", b =>
+                {
+                    b.HasOne("HrPayroll.Domain.Company.CompanySettings", null)
+                        .WithOne()
+                        .HasForeignKey("HrPayroll.Infrastructure.Company.CompanyLogo", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("HrPayroll.Infrastructure.Hr.EmployeeIdPhoto", b =>

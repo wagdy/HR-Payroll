@@ -2,7 +2,9 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
-import { HrApi, PublicHoliday, egyptFixedHolidays, shamElNessim } from '../../core/hr/hr.api';
+import { HrApi, PublicHoliday, egyptFixedHolidays, fixedHolidays, shamElNessim } from '../../core/hr/hr.api';
+import { Company, CompanySettings } from '../../core/settings/company';
+import { aCompany } from '../../../testing/fixtures';
 import { NotifyService } from '../../core/ui/notify.service';
 import { Approvals } from '../approvals/approvals';
 import { BusinessDay } from '../../core/ui/business-day';
@@ -16,12 +18,17 @@ function holiday(id: string, name: string, firstDay: string, lastDay = firstDay,
   return { id, name, firstDay, lastDay, days, setBy: 'Omar', setAtUtc: '2026-01-02T10:00:00Z' };
 }
 
-describe('Egypt’s fixed-date holidays', () => {
+describe('the fixed-date holidays of each country', () => {
   it('fall on their dates, and Sham El-Nessim on the Monday after Coptic Easter', () => {
     expect([2024, 2025, 2026, 2027].map(shamElNessim)).toEqual(['2024-05-06', '2025-04-21', '2026-04-13', '2027-05-03']);
     expect(egyptFixedHolidays(2026).map((h) => h.day)).toEqual([
       '2026-01-07', '2026-01-25', '2026-04-13', '2026-04-25', '2026-05-01', '2026-06-30', '2026-07-23', '2026-10-06',
     ]);
+  });
+
+  it('in Saudi Arabia are Founding Day and the National Day', () => {
+    expect(fixedHolidays('SaudiArabia', 2027).map((h) => [h.name, h.day])).toEqual([['Founding Day', '2027-02-22'], ['Saudi National Day', '2027-09-23']]);
+    expect(fixedHolidays('Egypt', 2026)).toEqual(egyptFixedHolidays(2026));
   });
 });
 
@@ -40,7 +47,7 @@ describe('the holidays', () => {
     holiday('h3', 'Armed Forces Day', '2026-10-08'),
   ];
 
-  async function render() {
+  async function render(company?: CompanySettings) {
     TestBed.configureTestingModule({
       providers: [
         { provide: HrApi, useValue: { holidays, saveHoliday, deleteHoliday } },
@@ -51,6 +58,9 @@ describe('the holidays', () => {
         { provide: BusinessDay, useValue: { today: () => Promise.resolve('2026-10-21') } },
       ],
     });
+    if (company) {
+      TestBed.inject(Company).settings.set(company);
+    }
     const fixture = TestBed.createComponent(HolidaysPage);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -80,6 +90,14 @@ describe('the holidays', () => {
     expect([...el.querySelectorAll('.suggested li strong')].map(text)).toEqual([
       'January 25 Revolution and Police Day', 'Sham El-Nessim', 'Sinai Liberation Day', 'Labour Day', 'June 30 Revolution', 'July 23 Revolution',
     ]);
+  });
+
+  it('offers the fixed-date holidays of the company’s country', async () => {
+    const { el } = await render(aCompany({ country: 'SaudiArabia' }));
+
+    expect(text(el.querySelector('#suggested-title')!)).toBe("Saudi Arabia's fixed-date holidays not entered yet العطلات الثابتة");
+    expect([...el.querySelectorAll('.suggested li strong')].map(text)).toEqual(['Founding Day', 'Saudi National Day']);
+    expect(text(el.querySelector('.suggested .note')!)).toContain('Eid al-Fitr and Eid al-Adha follow the moon');
   });
 
   it('adds a suggested holiday as the manager confirms it, and changes or takes one off', async () => {

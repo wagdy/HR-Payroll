@@ -48,7 +48,7 @@ describe('the top bar', () => {
   it('gives a manager every section, with what waits for them counted', async () => {
     const el = await render(managerMe, true, 2);
 
-    expect(nav(el)).toEqual(['HR & Payroll', 'Custody & Assets', 'Approvals', 'Users']);
+    expect(nav(el)).toEqual(['HR & Payroll', 'Custody & Assets', 'Approvals', 'Users', 'Settings']);
     expect(text(el.querySelector('nav .count')!)).toBe('2');
     expect(text(el.querySelector('.user-name')!)).toBe('Omar');
     expect(start).toHaveBeenCalled();

@@ -80,8 +80,6 @@ internal static class Advances
         return month;
     }
 
-    public static string Money(decimal amount) => amount.ToString("N2", Invariant);
-
     public static string Day(DateOnly day) => day.ToString("d MMM yyyy", Invariant);
 
     public static string MonthName(DateOnly month) => month.ToString("MMMM yyyy", Invariant);
@@ -136,6 +134,7 @@ internal sealed class DistributeAdvanceHandler(
     IAdvanceAllocationRepository allocations,
     IEmployeeRepository employees,
     IPayrollSlipRepository slips,
+    ICompanyProfile company,
     IUnitOfWork unitOfWork) : IRequestHandler<DistributeAdvanceCommand, PendingAdvanceDto>
 {
     public async Task<PendingAdvanceDto> Handle(DistributeAdvanceCommand request, CancellationToken cancellationToken)
@@ -155,8 +154,11 @@ internal sealed class DistributeAdvanceHandler(
         if (remaining <= 0)
             throw new DomainException("These advances are all given out already.");
         if (total > remaining)
+        {
+            var money = company.Current.Money;
             throw new DomainException(
-                $"{Advances.Money(remaining)} of these advances is left to give out, and the shares come to {Advances.Money(total)}: give out that much or less.");
+                $"{money.Format(remaining)} of these advances is left to give out, and the shares come to {money.Format(total)}: give out that much or less.");
+        }
 
         foreach (var share in request.Shares)
         {
@@ -216,7 +218,7 @@ public sealed record HrAdvanceDto(
 public sealed record HrAdvanceResultDto(ApprovalOutcome Outcome, HrAdvanceDto? Advance, ApprovalRequestDto? Request);
 
 // Checks, describes and makes an advance: for a manager's own and for an approval alike. What it makes is added for the caller to save.
-internal sealed class HrAdvanceWriter(IHrAdvanceRepository advances, IEmployeeRepository employees, IPayrollSlipRepository slips)
+internal sealed class HrAdvanceWriter(IHrAdvanceRepository advances, IEmployeeRepository employees, IPayrollSlipRepository slips, ICompanyProfile company)
 {
     public async Task CheckAsync(HrAdvanceInput input, CancellationToken cancellationToken)
     {
@@ -232,10 +234,10 @@ internal sealed class HrAdvanceWriter(IHrAdvanceRepository advances, IEmployeeRe
         }
     }
 
-    // "Advance · Hassan · 500.00", and what it is, line by line.
+    // "Advance · Hassan · L.E 500.00", in the company's money, and what it is, line by line.
     public async Task<(string Summary, IReadOnlyList<ApprovalChange> Changes)> DescribeAsync(HrAdvanceInput input, CancellationToken cancellationToken)
     {
-        var amount = Advances.Money(Math.Round(input.Amount, 2, MidpointRounding.AwayFromZero));
+        var amount = company.Current.Money.Format(Math.Round(input.Amount, 2, MidpointRounding.AwayFromZero));
         if (input.EmployeeId is not { } id)
             return ($"Advances not given out yet · {amount}",
                 [new ApprovalChange("Employee", null, "None yet: a manager gives it out on HR → Advances")]);

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApprovalResult } from '../approvals/approvals.api';
+import type { Country } from '../settings/company';
 import { HrTab } from './hr-tabs';
 
 // HR & Payroll (الموارد البشرية والرواتب), as the API serves it (/api/hr). Times of day are
@@ -671,6 +672,20 @@ export function egyptFixedHolidays(year: number): { name: string; ar: string; da
     { name: 'July 23 Revolution', ar: 'ثورة 23 يوليو', day: on(7, 23) },
     { name: 'Armed Forces Day', ar: 'عيد القوات المسلحة', day: on(10, 6) },
   ].sort((a, b) => a.day.localeCompare(b.day));
+}
+
+// Saudi Arabia's official holidays that fall on the same date each year: Founding Day and the
+// National Day. Eid al-Fitr and Eid al-Adha follow the moon, and are entered once announced.
+export function saudiFixedHolidays(year: number): { name: string; ar: string; day: string }[] {
+  return [
+    { name: 'Founding Day', ar: 'يوم التأسيس', day: `${year}-02-22` },
+    { name: 'Saudi National Day', ar: 'اليوم الوطني', day: `${year}-09-23` },
+  ];
+}
+
+// The fixed-date holidays offered for a year, by the company's country.
+export function fixedHolidays(country: Country, year: number): { name: string; ar: string; day: string }[] {
+  return country === 'SaudiArabia' ? saudiFixedHolidays(year) : egyptFixedHolidays(year);
 }
 
 // The Monday after Orthodox Easter: Easter by the Julian calendar (Meeus), moved to the Gregorian

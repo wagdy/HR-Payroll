@@ -234,7 +234,8 @@ internal sealed class CustodyWriter(
     IAssetCategoryRepository categories,
     IAssetTransactionRepository vouchers,
     IEmployeeRepository employees,
-    IWorkClock clock)
+    IWorkClock clock,
+    ICompanyProfile company)
 {
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
 
@@ -382,7 +383,8 @@ internal sealed class CustodyWriter(
         _ => reason.ToString(),
     };
 
-    private static string Cost(decimal? cost) => cost is { } c ? c.ToString("N2", Invariant) : "Not known";
+    // In the company's money: "L.E 35.00".
+    private string Cost(decimal? cost) => cost is { } c ? company.Current.Money.Format(c) : "Not known";
 
     private static string Day(DateOnly day) => day.ToString("d MMM yyyy", Invariant);
 }

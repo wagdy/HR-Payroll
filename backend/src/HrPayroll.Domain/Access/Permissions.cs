@@ -24,7 +24,10 @@ public static class Permissions
     // The system's users: added, changed, deactivated, their passwords reset.
     public const string UsersManage = "users.manage";
 
-    public static IReadOnlyList<string> All { get; } = [HrView, HrManage, ApprovalDecide, UsersManage];
+    // Company Settings: the name and logo, the currency, the country, the time zone, the weekends.
+    public const string SettingsManage = "settings.manage";
+
+    public static IReadOnlyList<string> All { get; } = [HrView, HrManage, ApprovalDecide, UsersManage, SettingsManage];
 }
 
 // What each role may do. Fail closed: a role missing here gets nothing.

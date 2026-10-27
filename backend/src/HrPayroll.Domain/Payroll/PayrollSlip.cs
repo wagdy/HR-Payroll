@@ -14,7 +14,7 @@ public enum PayrollSlipStatus
 }
 
 // One employee's pay for one month (مسير الرواتب), every figure it is made of. The minutes and days
-// are the timesheet's; the money is rounded to the piastre.
+// are the timesheet's; the money is rounded to two decimal places.
 //
 // Net = base salary + incentives + leave allowances + days off worked + holidays worked
 //     + overtime − advances − last month's shortfall − lateness − absence − administrative

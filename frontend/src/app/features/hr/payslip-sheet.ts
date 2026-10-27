@@ -1,10 +1,11 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, input, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { PayrollAdjustment, PayrollSlip, PayslipPenalty, SalaryPayment, adjustmentLabels, duration } from '../../core/hr/hr.api';
 import { MoneyPipe } from '../../core/ui/money.pipe';
+import { Company } from '../../core/settings/company';
 
 // A payslip as it reads (قسيمة الراتب): the formula line by line, from the base salary to the net
 // payable, its unpaid leave and disciplinary penalties day by day; the days it was worked out
@@ -19,6 +20,12 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
     @let s = slip();
     @let f = s.figures;
     <article class="slip">
+      <div class="company">
+        @if (company.logoUrl(); as logo) {
+          <img [src]="logo" alt="" />
+        }
+        <span>{{ company.name() }}</span>
+      </div>
       <header>
         <div>
           <h2>{{ s.employee.name }}</h2>
@@ -220,6 +227,20 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
   `,
   styleUrl: '../shared/pages.scss',
   styles: `
+    .company {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font: var(--mat-sys-title-small);
+      color: var(--mat-sys-on-surface-variant);
+
+      img {
+        max-height: 32px;
+        max-width: 96px;
+        object-fit: contain;
+      }
+    }
     .slip {
       max-width: 640px;
       padding: 16px 20px;
@@ -367,6 +388,7 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
   `,
 })
 export class PayslipSheet {
+  protected readonly company = inject(Company);
   readonly slip = input.required<PayrollSlip>();
   // Its month's first day.
   readonly month = input.required<string>();

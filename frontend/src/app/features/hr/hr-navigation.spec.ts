@@ -58,7 +58,7 @@ describe('the HR navigation', () => {
     expect(system.children!.find((r) => r.path === 'holidays')!.redirectTo).toBe('leaves/holidays');
   });
 
-  it('gives the system Custody, a manager’s Approvals and Users, and each user their account', () => {
+  it('gives the system Custody, a manager’s Approvals, Users and Settings, and each user their account', () => {
     const shell = routes.find((r) => r.path === '' && r.children)!;
     expect(shell.children!.map((r) => [r.path, r.canActivate?.length ?? 0])).toEqual([
       ['', 0],
@@ -66,6 +66,7 @@ describe('the HR navigation', () => {
       ['custody', 1],
       ['approvals', 1],
       ['users', 1],
+      ['settings', 1],
       ['account', 0],
     ]);
     expect(shell.children!.find((r) => r.path === 'custody')!.children!.map((r) => r.path)).toEqual(['', 'categories', 'assets', 'vouchers']);

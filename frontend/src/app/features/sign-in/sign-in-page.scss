@@ -30,6 +30,18 @@ header {
   transform: scale(1.4);
 }
 
+.company-logo {
+  max-height: 56px;
+  max-width: 140px;
+  object-fit: contain;
+}
+
+.system {
+  margin: 2px 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
 .notice {
   display: flex;
   align-items: center;

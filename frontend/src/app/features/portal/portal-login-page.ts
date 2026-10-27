@@ -8,6 +8,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Router } from '@angular/router';
 import { errorMessage } from '../../core/http/error-message';
 import { PortalAuth } from '../../core/portal/portal-auth';
+import { Company } from '../../core/settings/company';
 
 // The employee portal's sign-in (بوابة الموظف): their mobile number and the PIN a manager gave
 // them. Apart from the system's: nothing of the system is here, and it opens nothing of the system.
@@ -18,8 +19,13 @@ import { PortalAuth } from '../../core/portal/portal-auth';
     <main class="page">
       <form class="card" (ngSubmit)="signIn()">
         <header>
-          <mat-icon>badge</mat-icon>
+          @if (company.logoUrl(); as logo) {
+            <img class="logo" [src]="logo" [alt]="company.name()" />
+          } @else {
+            <mat-icon>badge</mat-icon>
+          }
           <div>
+            <p class="company">{{ company.name() }}</p>
             <h1>My profile <span class="ar">ملفي</span></h1>
             <p class="muted">Your details, your payslips and your custody. <span class="ar">بياناتك وقسيمة راتبك وعهدتك</span></p>
           </div>
@@ -91,6 +97,16 @@ import { PortalAuth } from '../../core/portal/portal-auth';
       p {
         margin: 4px 0 0;
       }
+      .logo {
+        max-height: 48px;
+        max-width: 120px;
+        object-fit: contain;
+      }
+      .company {
+        margin: 0 0 2px;
+        color: var(--mat-sys-on-surface-variant);
+        font: var(--mat-sys-label-large);
+      }
     }
     .wide {
       width: 100%;
@@ -121,6 +137,7 @@ import { PortalAuth } from '../../core/portal/portal-auth';
   `,
 })
 export class PortalLoginPage {
+  protected readonly company = inject(Company);
   private readonly auth = inject(PortalAuth);
   private readonly router = inject(Router);
 

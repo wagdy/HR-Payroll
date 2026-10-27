@@ -1,4 +1,5 @@
 using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Company;
 
 namespace HrPayroll.Domain.Attendance;
 
@@ -23,10 +24,12 @@ public sealed class AdministrativePenalty : AggregateRoot
     }
 
     // An amount of money instead of hours; and the disciplinary action it is the deduction of.
-    public static AdministrativePenalty ForAmount(Guid employeeId, DateOnly date, decimal amount, string reason, string setBy, Guid? disciplinaryActionId = null)
+    // The limit is said in the company's money (MoneyFormat).
+    public static AdministrativePenalty ForAmount(
+        Guid employeeId, DateOnly date, decimal amount, string reason, string setBy, Guid? disciplinaryActionId = null, MoneyFormat? money = null)
     {
         var penalty = new AdministrativePenalty { EmployeeId = employeeId, Date = date, DisciplinaryActionId = disciplinaryActionId };
-        penalty.ChangeAmount(amount, reason, setBy);
+        penalty.ChangeAmount(amount, reason, setBy, money);
         return penalty;
     }
 
@@ -62,14 +65,14 @@ public sealed class AdministrativePenalty : AggregateRoot
         SetAtUtc = DateTime.UtcNow;
     }
 
-    public void ChangeAmount(decimal amount, string reason, string setBy)
+    public void ChangeAmount(decimal amount, string reason, string setBy, MoneyFormat? money = null)
     {
         if (Hours != 0)
             throw new DomainException("This penalty is hours, not an amount of money.");
         if (amount <= 0 || amount > MaxAmount)
-            throw new DomainException($"A penalty's amount is more than nothing and at most {MaxAmount:N0}.");
+            throw new DomainException($"A penalty's amount is more than nothing and at most {(money ?? MoneyFormat.Plain).Format(MaxAmount, "N0")}.");
         if (decimal.Round(amount, 2) != amount)
-            throw new DomainException("Give the penalty's amount to the piastre at most: 150.50.");
+            throw new DomainException("Give the penalty's amount to two decimal places at most: 150.50.");
         Amount = amount;
         Reason = Reasoned(reason);
         SetBy = setBy;

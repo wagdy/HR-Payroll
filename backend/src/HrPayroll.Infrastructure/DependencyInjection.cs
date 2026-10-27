@@ -25,6 +25,7 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException($"Connection string '{ConnectionStringName}' is not configured.");
 
         services.Configure<CompanyOptions>(configuration.GetSection(CompanyOptions.Section));
+        services.AddSingleton<ICompanyProfile, CompanyProfileStore>();
         services.AddSingleton<WorkClock>();
         services.AddSingleton<IWorkClock>(sp => sp.GetRequiredService<WorkClock>());
         services.TryAddSingleton(TimeProvider.System);
@@ -32,6 +33,9 @@ public static class DependencyInjection
         services.AddDbContext<HrDbContext>(o => o.UseNpgsql(connectionString, HrDbContext.ConfigureNpgsql));
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<HrDbContext>());
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(RetryOnConflictBehavior<,>));
+
+        // Company Settings.
+        services.AddScoped<ICompanySettingsStore, Company.CompanySettingsStore>();
 
         // Approvals.
         services.AddScoped<IApprovalRequestRepository, ApprovalRequestRepository>();

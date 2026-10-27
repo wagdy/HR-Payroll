@@ -10,6 +10,8 @@ export const Permissions = {
   ApprovalDecide: 'approval.decide',
   // The system's users: added, changed, deactivated, their passwords reset.
   UsersManage: 'users.manage',
+  // Company Settings: the name and logo, the currency, the country, the time zone, the weekends.
+  SettingsManage: 'settings.manage',
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];

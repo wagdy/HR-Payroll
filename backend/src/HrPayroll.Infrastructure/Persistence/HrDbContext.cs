@@ -61,6 +61,8 @@ public sealed class HrDbContext(DbContextOptions<HrDbContext> options) : DbConte
     public DbSet<AssetTransaction> AssetTransactions => Set<AssetTransaction>();
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<HrSettings> HrSettings => Set<HrSettings>();
+    public DbSet<Domain.Company.CompanySettings> CompanySettings => Set<Domain.Company.CompanySettings>();
+    public DbSet<Company.CompanyLogo> CompanyLogos => Set<Company.CompanyLogo>();
 
     public DbSet<UserAccount> Users => Set<UserAccount>();
 
@@ -83,7 +85,7 @@ public sealed class HrDbContext(DbContextOptions<HrDbContext> options) : DbConte
         }
     }
 
-    // Money, to the piastre (cent).
+    // Money, to two decimal places.
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
         configurationBuilder.Properties<decimal>().HavePrecision(10, 2);
 

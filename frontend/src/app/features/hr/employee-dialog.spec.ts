@@ -4,6 +4,8 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { of, throwError } from 'rxjs';
 import { Department, Employee, EmployeeInput, HrApi } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
+import { Company, CompanySettings } from '../../core/settings/company';
+import { aCompany } from '../../../testing/fixtures';
 import { EmployeeDialog, EmployeeDialogData } from './employee-dialog';
 import { EmploymentDialog, EmploymentDialogData } from './employment-dialog';
 
@@ -28,7 +30,8 @@ describe('the employee form', () => {
   const close = vi.fn();
   const notify = { info: vi.fn(), error: vi.fn() };
 
-  async function render(data: Omit<EmployeeDialogData, 'departments'> & { departments?: Department[] }) {
+  // The company's settings as the app has them, when a test says.
+  async function render(data: Omit<EmployeeDialogData, 'departments'> & { departments?: Department[] }, company?: CompanySettings) {
     TestBed.configureTestingModule({
       providers: [
         { provide: HrApi, useValue: { saveEmployee } },
@@ -37,6 +40,9 @@ describe('the employee form', () => {
         { provide: MAT_DIALOG_DATA, useValue: { departments, ...data } },
       ],
     });
+    if (company) {
+      TestBed.inject(Company).settings.set(company);
+    }
     const fixture = TestBed.createComponent(EmployeeDialog);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -107,6 +113,30 @@ describe('the employee form', () => {
     Object.assign(page, { nationalId: ' ٢٩٠٠١٠١ ٠١٢٣٤٥٦ ', mobileNumber: '٠١٠ ١٢٣٤-٥٦٧٨' });
     await page['save']();
     expect(saveEmployee.mock.lastCall![1]).toMatchObject({ name: 'Mona Adel Hassan', nationalId: '٢٩٠٠١٠١ ٠١٢٣٤٥٦', mobileNumber: '٠١٠ ١٢٣٤-٥٦٧٨' });
+  });
+
+  it('takes a Saudi ID or Iqama in Saudi Arabia, starts someone new on its weekends, and keeps an ID they have', async () => {
+    const saudi = aCompany({ country: 'SaudiArabia', weekends: ['Friday', 'Saturday'] });
+    const { el, page, refresh } = await render({ canApprove: true, today: '2026-10-20' }, saudi);
+    expect(page['daysOff']).toEqual(['Friday', 'Saturday']);
+    expect([...el.querySelectorAll('mat-hint')].map(text)).toContain('10 digits (ID 1…, Iqama 2…), or a passport no.');
+    Object.assign(page, { name: 'Faisal', jobTitle: 'Warehouse clerk', salary: 6_000, nationalId: '3012345678' });
+
+    await page['save']();
+    await refresh();
+    expect(saveEmployee).not.toHaveBeenCalled();
+    expect([...el.querySelectorAll('mat-error')].map(text)).toEqual(['An ID starts 1, an Iqama 2']);
+    page['nationalId'] = '2012345678';
+    await page['save']();
+    expect(saveEmployee.mock.lastCall![1]).toMatchObject({ nationalId: '2012345678', daysOff: ['Friday', 'Saturday'] });
+
+    // Hassan's Egyptian card stays, and so do his own days off.
+    TestBed.resetTestingModule();
+    saveEmployee.mockClear();
+    const edit = await render({ employee: { ...hassan, nationalId: '29001010123456' }, canApprove: true, today: '2026-10-20' }, saudi);
+    expect(edit.page['daysOff']).toEqual(['Friday']);
+    await edit.page['save']();
+    expect(saveEmployee.mock.lastCall![1]).toMatchObject({ nationalId: '29001010123456', daysOff: ['Friday'] });
   });
 
   it('keeps the national ID and mobile they have when something else is changed, and a passport’s number is fine', async () => {

@@ -20,6 +20,7 @@ import { Approvals, pendingLabel } from '../approvals/approvals';
 import { BusinessDay, isoDay } from '../../core/ui/business-day';
 import { AdvanceDialog, AdvanceDialogData } from './advance-dialog';
 import { DistributeAdvanceData, DistributeAdvanceDialog } from './distribute-advance-dialog';
+import { Company } from '../../core/settings/company';
 
 // HR's advances (السلفيات), a payroll month at a time.
 //
@@ -284,6 +285,7 @@ export class HrAdvancesPage {
   private readonly auth = inject(AuthService);
   protected readonly access = inject(HrAccess);
   private readonly businessDay = inject(BusinessDay);
+  private readonly company = inject(Company);
 
   // A manager's, or an employee's holding the tab in the portal.
   protected readonly canDistribute = computed(() => this.access.canDecide('Advances'));
@@ -332,8 +334,8 @@ export class HrAdvancesPage {
     if (given) {
       this.notify.info(
         given.fullyAllocated
-          ? `All ${money(given.amount)} given out: each share comes off its employee's pay.`
-          : `Given out: ${money(given.remaining)} of it is left to give out.`,
+          ? `All ${this.company.money(given.amount)} given out: each share comes off its employee's pay.`
+          : `Given out: ${this.company.money(given.remaining)} of it is left to give out.`,
       );
       await this.load();
     }
@@ -359,8 +361,8 @@ export class HrAdvancesPage {
       } else {
         this.notify.info(
           result.employee
-            ? `${money(result.amount)} recorded: it comes off ${result.employee}'s pay.`
-            : `${money(result.amount)} recorded: give it out below.`,
+            ? `${this.company.money(result.amount)} recorded: it comes off ${result.employee}'s pay.`
+            : `${this.company.money(result.amount)} recorded: give it out below.`,
         );
       }
       await this.load();
@@ -372,7 +374,7 @@ export class HrAdvancesPage {
   protected async voidAdvance(id: string, amount: number, advance?: AllocatedAdvance): Promise<void> {
     try {
       await firstValueFrom(this.api.voidHrAdvance(id));
-      this.notify.info(advance ? `The advance to ${advance.employee} is voided: it no longer comes off their pay.` : `${money(amount)} of advances voided.`);
+      this.notify.info(advance ? `The advance to ${advance.employee} is voided: it no longer comes off their pay.` : `${this.company.money(amount)} of advances voided.`);
       await this.load();
     } catch (error) {
       this.notify.error(error, 'The advance could not be voided.');
@@ -382,7 +384,7 @@ export class HrAdvancesPage {
   protected async takeBack(share: AdvanceShare): Promise<void> {
     try {
       await firstValueFrom(this.api.takeBackAdvanceShare(share.id));
-      this.notify.info(`${share.employee}'s ${money(share.amount)} is taken back, to give out again.`);
+      this.notify.info(`${share.employee}'s ${this.company.money(share.amount)} is taken back, to give out again.`);
       await this.load();
     } catch (error) {
       this.notify.error(error, 'The share could not be taken back.');
@@ -404,8 +406,4 @@ export class HrAdvancesPage {
 
 function round(amount: number): number {
   return Math.round(amount * 100) / 100;
-}
-
-function money(amount: number): string {
-  return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

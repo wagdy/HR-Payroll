@@ -179,6 +179,13 @@ export const routes: Routes = [
         loadComponent: () => import('./features/users/users-page').then((m) => m.UsersPage),
       },
       {
+        // Company Settings: the name and logo, the currency, the country, the time zone, the
+        // weekends; a manager's.
+        path: 'settings',
+        canActivate: [permissionGuard(Permissions.SettingsManage)],
+        loadComponent: () => import('./features/settings/settings-page').then((m) => m.SettingsPage),
+      },
+      {
         // Their own account and password; where a user holding no tab lands.
         path: 'account',
         loadComponent: () => import('./features/account/account-page').then((m) => m.AccountPage),

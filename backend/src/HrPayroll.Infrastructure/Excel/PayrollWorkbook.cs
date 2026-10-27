@@ -1,5 +1,6 @@
 using System.Globalization;
 using ClosedXML.Excel;
+using HrPayroll.Domain.Company;
 using HrPayroll.Domain.Employees;
 using HrPayroll.Domain.Payroll;
 using HrPayroll.Application.Hr;
@@ -13,7 +14,6 @@ public static class PayrollWorkbook
 {
     public const string ContentType = EmployeeWorkbook.ContentType;
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
-    private const string Money = "#,##0.00";
     private const int HeaderRow = 4;
 
     public static string FileName(DateOnly month) => $"payroll-{month.ToString("yyyy-MM", Invariant)}.xlsx";
@@ -44,8 +44,10 @@ public static class PayrollWorkbook
         ("Still to pay · المتبقي", 14, true),
     ];
 
-    public static Stream Export(PayrollMonthDto payroll, IReadOnlyDictionary<Guid, string> departments, DateOnly exportedOn)
+    // Amounts in the company's money (MoneyFormat), each cell holding the number.
+    public static Stream Export(PayrollMonthDto payroll, IReadOnlyDictionary<Guid, string> departments, DateOnly exportedOn, MoneyFormat money)
     {
+        var moneyCells = EmployeeWorkbook.MoneyCells(money);
         using var workbook = new XLWorkbook();
         var sheet = workbook.Worksheets.Add("Payroll");
         var title = sheet.Cell(1, 1);
@@ -113,7 +115,7 @@ public static class PayrollWorkbook
         var last = row - 1;
         for (var i = 0; i < Columns.Length; i++)
             if (Columns[i].IsMoney)
-                sheet.Range(HeaderRow + 1, i + 1, last + 1, i + 1).Style.NumberFormat.Format = Money;
+                sheet.Range(HeaderRow + 1, i + 1, last + 1, i + 1).Style.NumberFormat.Format = moneyCells;
 
         // The month's totals under the slips: a sum of each amount.
         var table = sheet.Range(HeaderRow, 1, last, Columns.Length).CreateTable("Payroll");

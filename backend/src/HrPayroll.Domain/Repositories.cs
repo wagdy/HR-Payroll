@@ -1,6 +1,7 @@
 using HrPayroll.Domain.Common;
 using HrPayroll.Domain.Access;
 using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Company;
 using HrPayroll.Domain.Custody;
 using HrPayroll.Domain.Employees;
 using HrPayroll.Domain.Leaves;
@@ -282,4 +283,19 @@ public interface IDisciplinaryActionRepository : IRepository<DisciplinaryAction>
 {
     // One employee's, the latest first: their record, and what the next escalates from.
     Task<IReadOnlyList<DisciplinaryAction>> GetForEmployeeAsync(Guid employeeId, CancellationToken cancellationToken = default);
+}
+
+// The company's settings, one row, and its logo's bytes apart from it (so reading the settings
+// never loads the picture). Tracked: changed and saved in the same unit of work.
+public interface ICompanySettingsStore
+{
+    // None until the first start has made it.
+    Task<CompanySettings?> GetAsync(CancellationToken cancellationToken = default);
+
+    void Add(CompanySettings settings);
+
+    // Replaces the logo there was; null takes it off.
+    Task PutLogoAsync(byte[]? content, CancellationToken cancellationToken = default);
+
+    Task<byte[]?> GetLogoAsync(CancellationToken cancellationToken = default);
 }

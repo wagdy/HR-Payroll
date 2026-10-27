@@ -288,7 +288,8 @@ public sealed record RecordSalaryPaymentCommand(
     Guid PaymentId, Guid EmployeeId, DateOnly Month, DateOnly Date, decimal Amount, string? Notes, string StaffName)
     : IRequest<SalaryPaymentDto>, IRetryOnConflict;
 
-internal sealed class RecordSalaryPaymentHandler(PayrollWorker payroll, ISalaryPaymentRepository payments, IWorkClock clock, IUnitOfWork unitOfWork)
+internal sealed class RecordSalaryPaymentHandler(
+    PayrollWorker payroll, ISalaryPaymentRepository payments, IWorkClock clock, ICompanyProfile company, IUnitOfWork unitOfWork)
     : IRequestHandler<RecordSalaryPaymentCommand, SalaryPaymentDto>
 {
     public async Task<SalaryPaymentDto> Handle(RecordSalaryPaymentCommand request, CancellationToken cancellationToken)
@@ -305,7 +306,7 @@ internal sealed class RecordSalaryPaymentHandler(PayrollWorker payroll, ISalaryP
         var owed = worked.Figures.NetPayable - worked.Payments.Where(p => !p.IsVoided).Sum(p => p.Amount);
         if (Math.Round(request.Amount, 2, MidpointRounding.AwayFromZero) > owed)
             throw new DomainException(owed > 0
-                ? $"{owed:N2} of their pay is still owed: pay that much or less."
+                ? $"{company.Current.Money.Format(owed)} of their pay is still owed: pay that much or less."
                 : "Their pay for this month is paid in full.");
         var payment = new SalaryPayment(request.PaymentId, worked.Employee.Id, month, request.Date, request.Amount, request.Notes, request.StaffName);
         payments.Add(payment);

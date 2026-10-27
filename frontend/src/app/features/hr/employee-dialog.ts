@@ -1,4 +1,3 @@
-import { DecimalPipe } from '@angular/common';
 import { Component, ElementRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -15,6 +14,8 @@ import { errorMessage } from '../../core/http/error-message';
 import { Department, Employee, EmployeeInput, EmploymentType, HrApi, JobRole, WeekDay, weekDays } from '../../core/hr/hr.api';
 import { NotifyService } from '../../core/ui/notify.service';
 import { FormChecks, FormProblem } from '../../core/ui/form-checks';
+import { MoneyPipe } from '../../core/ui/money.pipe';
+import { Company, Country } from '../../core/settings/company';
 
 export interface EmployeeDialogData {
   // The one changed; none for a new one.
@@ -40,17 +41,31 @@ export function idDigits(text: string, also = ''): string {
     .join('');
 }
 
-// What is wrong with a national ID as typed: an Egyptian card's 14 digits, or a passport's letters
-// and digits. Null when it is right, or left empty.
-export function nationalIdProblem(text: string): string | null {
+// What is wrong with a national ID as typed, as the company's country writes one (an Egyptian
+// card's 14 digits; a Saudi ID's or Iqama's 10, starting 1 or 2), or a passport's letters and
+// digits. Null when it is right, left empty, or the one they have (kept), whatever the country
+// is now.
+export function nationalIdProblem(text: string, country: Country, kept: string | null = null): string | null {
   const number = idDigits(text).toUpperCase();
-  if (!number) {
+  if (!number || number === kept) {
     return null;
   }
   if (/^\d+$/.test(number)) {
+    if (country === 'SaudiArabia') {
+      return number.length !== 10
+        ? `the ID or Iqama has 10 digits, not ${number.length}`
+        : /^[12]/.test(number)
+          ? null
+          : 'an ID starts 1, an Iqama 2';
+    }
     return number.length === 14 ? null : `the card has 14 digits, not ${number.length}`;
   }
   return /^[A-Z0-9]{5,20}$/.test(number) ? null : "only a passport's letters and digits";
+}
+
+// What the national ID field says it takes, in the company's country.
+export function nationalIdHint(country: Country): string {
+  return country === 'SaudiArabia' ? '10 digits (ID 1…, Iqama 2…), or a passport no.' : '14 digits, or a passport no.';
 }
 
 export function mobileProblem(text: string): string | null {
@@ -67,7 +82,6 @@ export function mobileProblem(text: string): string | null {
 @Component({
   selector: 'app-employee-dialog',
   imports: [
-    DecimalPipe,
     FormsModule,
     MatAutocompleteModule,
     MatButtonModule,
@@ -77,6 +91,7 @@ export function mobileProblem(text: string): string | null {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    MoneyPipe,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -97,7 +112,7 @@ export function mobileProblem(text: string): string | null {
         <mat-form-field>
           <mat-label>National ID · رقم البطاقة</mat-label>
           <input matInput [(ngModel)]="nationalId" maxlength="40" inputmode="numeric" aria-label="National ID" [errorStateMatcher]="checks.field('National ID')" />
-          <mat-hint>14 digits, or a passport no.</mat-hint>
+          <mat-hint>{{ idHint }}</mat-hint>
           <mat-error>{{ checks.message('National ID') }}</mat-error>
         </mat-form-field>
         <mat-form-field>
@@ -154,12 +169,12 @@ export function mobileProblem(text: string): string | null {
           <input matInput type="number" min="0" step="any" [(ngModel)]="salary" aria-label="Base salary" [errorStateMatcher]="checks.field('Base salary')" />
           @if (employmentType === 'Daily') {
             @if (salary !== null && salary > 0) {
-              <mat-hint>A day worked: {{ salary / 9 | number: '1.2-2' }} an hour; nothing for a day not worked</mat-hint>
+              <mat-hint>A day worked: {{ salary / 9 | money }} an hour; nothing for a day not worked</mat-hint>
             } @else {
               <mat-hint>A day worked</mat-hint>
             }
           } @else if (salary !== null && salary > 0) {
-            <mat-hint>A month: {{ salary / 30 | number: '1.2-2' }} a day · {{ salary / 270 | number: '1.2-2' }} an hour</mat-hint>
+            <mat-hint>A month: {{ salary / 30 | money }} a day · {{ salary / 270 | money }} an hour</mat-hint>
           } @else {
             <mat-hint>A month</mat-hint>
           }
@@ -305,6 +320,8 @@ export function mobileProblem(text: string): string | null {
 export class EmployeeDialog {
   private readonly api = inject(HrApi);
   private readonly notify = inject(NotifyService);
+  private readonly company = inject(Company);
+  protected readonly idHint = nationalIdHint(this.company.settings().country);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly ref = inject<MatDialogRef<EmployeeDialog, Employee | ApprovalResult>>(MatDialogRef);
   protected readonly data = inject<EmployeeDialogData>(MAT_DIALOG_DATA);
@@ -329,7 +346,8 @@ export class EmployeeDialog {
   protected departmentId = this.data.employee?.departmentId ?? this.data.departments.find((d) => d.isGeneral)?.id ?? '';
   protected flexible = !!this.data.employee && this.data.employee.shiftStartsAt === null;
   protected shiftStart = (this.data.employee?.shiftStartsAt ?? '10:00:00').slice(0, 5);
-  protected daysOff: WeekDay[] = [...(this.data.employee?.daysOff ?? [])];
+  // Someone new starts with the company's weekends; anyone else keeps their own.
+  protected daysOff: WeekDay[] = [...(this.data.employee?.daysOff ?? this.company.settings().weekends)];
   protected hiredOn = this.data.employee?.hiredOn ?? this.data.today;
   protected deviceUserId = this.data.employee?.deviceUserId ?? this.data.fromDevice?.deviceUserId ?? '';
   protected nationalId = this.data.employee?.nationalId ?? '';
@@ -371,7 +389,7 @@ export class EmployeeDialog {
     if (!this.name.trim()) {
       add('Full name', 'enter their full name');
     }
-    const card = nationalIdProblem(this.nationalId);
+    const card = nationalIdProblem(this.nationalId, this.company.settings().country, this.data.employee?.nationalId ?? null);
     if (card) {
       add('National ID', card);
     }

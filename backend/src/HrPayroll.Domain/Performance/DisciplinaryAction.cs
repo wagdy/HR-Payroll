@@ -1,5 +1,6 @@
 using HrPayroll.Domain.Common;
 using HrPayroll.Domain.Attendance;
+using HrPayroll.Domain.Company;
 
 namespace HrPayroll.Domain.Performance;
 
@@ -36,9 +37,10 @@ public sealed class DisciplinaryAction : AggregateRoot
 
     private DisciplinaryAction() { }
 
+    // A penalty deduction's limit is said in the company's money (MoneyFormat).
     public DisciplinaryAction(
         Guid id, Guid employeeId, DateOnly date, string violationType, SeverityLevel severityLevel, string? notes, decimal? penaltyAmount,
-        string issuerId, string issuerName)
+        string issuerId, string issuerName, MoneyFormat? money = null)
     {
         var violation = violationType?.Trim() ?? string.Empty;
         if (violation.Length == 0)
@@ -52,9 +54,9 @@ public sealed class DisciplinaryAction : AggregateRoot
             if (penaltyAmount is not > 0)
                 throw new DomainException("A penalty deduction has its amount.");
             if (penaltyAmount > AdministrativePenalty.MaxAmount)
-                throw new DomainException($"A penalty deduction is at most {AdministrativePenalty.MaxAmount:N0}.");
+                throw new DomainException($"A penalty deduction is at most {(money ?? MoneyFormat.Plain).Format(AdministrativePenalty.MaxAmount, "N0")}.");
             if (decimal.Round(penaltyAmount.Value, 2) != penaltyAmount)
-                throw new DomainException("Give the penalty's amount to the piastre at most: 150.50.");
+                throw new DomainException("Give the penalty's amount to two decimal places at most: 150.50.");
         }
         else if (penaltyAmount is not null)
         {

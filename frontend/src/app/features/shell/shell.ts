@@ -14,6 +14,7 @@ import { Permissions } from '../../core/auth/permissions';
 import { ConnectivityService } from '../../core/connectivity/connectivity.service';
 import { HrAccess } from '../../core/hr/hr-access';
 import { HrHubService } from '../../core/realtime/hr-hub.service';
+import { Company } from '../../core/settings/company';
 import { Approvals } from '../approvals/approvals';
 
 // Everything after sign-in: the toolbar with its sections and the connection's state, the banner
@@ -33,6 +34,8 @@ export class Shell implements OnInit, OnDestroy {
   // The Approvals link's count of what waits for a manager.
   protected readonly approvals = inject(Approvals);
   protected readonly Permissions = Permissions;
+  // The company's name and logo, beside the sections.
+  protected readonly company = inject(Company);
   private readonly hub = inject(HrHubService);
 
   // Narrower than this, the nav shows its icons only (shell.scss), and tooltips name them.

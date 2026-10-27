@@ -6,9 +6,9 @@ using System.Text.Json;
 
 namespace HrPayroll.Api.Tests;
 
-// Custody & Assets through the API: categories, assets and their vouchers, a consumable's
-// breakage in Costing → Waste, the assets bought on invoices; and the employee portal, its
-// sign-in, what it shows, what it never reaches, and its own port.
+// Custody & Assets through the API: categories, assets and their vouchers, what breaks or is lost
+// leaving the asset; and the employee portal, its sign-in, what it shows, what it never reaches,
+// and its own port.
 public class CustodyApiTests
 {
     private static CancellationToken Cancel => TestContext.Current.CancellationToken;
@@ -87,7 +87,7 @@ public class CustodyApiTests
         // An accountant's waits for a manager, and is not there until approved.
         var forklift = Guid.NewGuid();
         var askedFryer = await Json(await accountant.PutAsJsonAsync($"/api/custody/assets/{forklift}", Asset("Forklift", devices, 9_000, 1), Cancel));
-        Assert.Equal(("Requested", "New asset · Forklift × 1 · 9,000.00 a piece"),
+        Assert.Equal(("Requested", "New asset · Forklift × 1 · L.E 9,000.00 a piece"),
             (askedFryer.GetProperty("outcome").GetString(), askedFryer.GetProperty("request").GetProperty("summary").GetString()));
         Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"/api/custody/assets/{forklift}", Cancel)).StatusCode);
         await ApproveAsync(manager, askedFryer);

@@ -1,4 +1,5 @@
 using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Company;
 using HrPayroll.Domain.Attendance;
 using HrPayroll.Domain.Employees;
 using HrPayroll.Domain.Payroll;
@@ -388,23 +389,45 @@ public class HrTests
         Assert.Equal(((string?)null, (string?)null), (checker.NationalId, checker.MobileNumber));
 
         // Arabic digits, spaces and dashes: the card's 14 digits.
-        checker.SetNationalId(" ٢٩٠٠١٠١ ٠١٢٣٤-٥٦ ");
+        checker.SetNationalId(" ٢٩٠٠١٠١ ٠١٢٣٤-٥٦ ", Country.Egypt);
         checker.SetMobileNumber("٠١٠ ١٢٣٤-٥٦٧٨");
         Assert.Equal(("29001010123456", "01012345678"), (checker.NationalId, checker.MobileNumber));
 
         // A passport's number, in capitals; a number from abroad, with its +.
-        checker.SetNationalId("a1234567");
+        checker.SetNationalId("a1234567", Country.Egypt);
         checker.SetMobileNumber("+20 (101) 234 5678");
         Assert.Equal(("A1234567", "+201012345678"), (checker.NationalId, checker.MobileNumber));
 
-        Assert.Throws<DomainException>(() => checker.SetNationalId("2900101012345"));
-        Assert.Throws<DomainException>(() => checker.SetNationalId("A12/45"));
+        Assert.Throws<DomainException>(() => checker.SetNationalId("2900101012345", Country.Egypt));
+        Assert.Throws<DomainException>(() => checker.SetNationalId("A12/45", Country.Egypt));
         Assert.Throws<DomainException>(() => checker.SetMobileNumber("010-CALL-ME"));
         Assert.Throws<DomainException>(() => checker.SetMobileNumber("12345"));
 
-        checker.SetNationalId(" ");
+        checker.SetNationalId(" ", Country.Egypt);
         checker.SetMobileNumber(null);
         Assert.Equal(((string?)null, (string?)null), (checker.NationalId, checker.MobileNumber));
+    }
+
+    [Fact]
+    public void A_national_id_is_as_the_companys_country_writes_one_and_a_kept_one_stays_when_the_country_changes()
+    {
+        var checker = Checker();
+
+        // Saudi Arabia: 10 digits, 1 for a citizen and 2 for a resident's Iqama.
+        checker.SetNationalId("1012345678", Country.SaudiArabia);
+        Assert.Equal("1012345678", checker.NationalId);
+        checker.SetNationalId("٢٠١٢٣٤٥٦٧٨", Country.SaudiArabia);
+        Assert.Equal("2012345678", checker.NationalId);
+        Assert.Contains("10 digits", Assert.Throws<DomainException>(() => checker.SetNationalId("3012345678", Country.SaudiArabia)).Message);
+        Assert.Throws<DomainException>(() => checker.SetNationalId("29001010123456", Country.SaudiArabia));
+        // A passport anywhere.
+        checker.SetNationalId("A1234567", Country.SaudiArabia);
+
+        // Egypt's 14 digits, kept; the company then in Saudi Arabia, saving them again changes nothing.
+        checker.SetNationalId("29001010123456", Country.Egypt);
+        checker.SetNationalId("2900-1010-1234-56", Country.SaudiArabia);
+        Assert.Equal("29001010123456", checker.NationalId);
+        Assert.Throws<DomainException>(() => checker.SetNationalId("29001010123457", Country.SaudiArabia));
     }
 
     [Fact]

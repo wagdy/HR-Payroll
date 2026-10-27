@@ -11,6 +11,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { homePath } from '../../core/auth/guards';
 import { errorMessage } from '../../core/http/error-message';
+import { Company } from '../../core/settings/company';
 
 // A user's email and password: a manager or an accountant. Employees sign in to their own
 // portal instead, with their mobile number and PIN.
@@ -21,6 +22,7 @@ import { errorMessage } from '../../core/http/error-message';
   styleUrl: './sign-in-page.scss',
 })
 export class SignInPage {
+  protected readonly company = inject(Company);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 

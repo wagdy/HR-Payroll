@@ -85,7 +85,7 @@ public class HrApiTests
         var monaId = Guid.NewGuid();
         var asked = await Json(await accountant.PutAsJsonAsync($"/api/hr/employees/{monaId}", Employee("Mona", "Warehouse clerk", 4_000, start, shift: "12:00:00"), Cancel));
         Assert.Equal("Requested", asked.GetProperty("outcome").GetString());
-        Assert.Equal("New employee · Mona · Warehouse clerk · 4,000.00 a month, from 12:00", asked.GetProperty("request").GetProperty("summary").GetString());
+        Assert.Equal("New employee · Mona · Warehouse clerk · L.E 4,000.00 a month, from 12:00", asked.GetProperty("request").GetProperty("summary").GetString());
         Assert.Single(Listed(await Json(await manager.GetAsync("/api/hr/employees", Cancel))));
         await ApproveAsync(manager, asked);
         Assert.Equal(["Hassan", "Mona"], Listed(await Json(await manager.GetAsync("/api/hr/employees", Cancel))).Select(e => e.GetProperty("name").GetString()));
@@ -93,7 +93,7 @@ public class HrApiTests
         // A change asked for says what it changes, and locks the employee until it is decided.
         var raise = await Json(await accountant.PutAsJsonAsync($"/api/hr/employees/{monaId}", Employee("Mona", "Warehouse clerk", 4_500, start, shift: "12:00:00"), Cancel));
         Assert.Equal(
-            [("Pay", "4,000.00 a month", "4,500.00 a month")],
+            [("Pay", "L.E 4,000.00 a month", "L.E 4,500.00 a month")],
             raise.GetProperty("request").GetProperty("changes").EnumerateArray()
                 .Select(c => (c.GetProperty("label").GetString(), c.GetProperty("before").GetString(), c.GetProperty("after").GetString())));
         Assert.Contains("can be changed once a manager has decided", await Problem(await manager.PostAsJsonAsync(
@@ -401,7 +401,7 @@ public class HrApiTests
             Skipped(await Json(await accountant.PostAsync("/api/hr/employees/import", Upload(arabicFile), Cancel))).Take(1));
         var request = (await Json(await manager.GetAsync("/api/approval-requests", Cancel))).GetProperty("pending").EnumerateArray()
             .Single(r => r.GetProperty("module").GetString() == "Employee");
-        Assert.Equal("New employee · Samir · Checker · 6,000.00 a month, from 09:30", request.GetProperty("summary").GetString());
+        Assert.Equal("New employee · Samir · Checker · L.E 6,000.00 a month, from 09:30", request.GetProperty("summary").GetString());
         await Json(await manager.PostAsJsonAsync($"/api/approval-requests/{request.GetProperty("id").GetGuid()}/approve", new { }, Cancel));
         Assert.Equal(accounts.GetProperty("roles")[0].GetProperty("id").GetGuid(), (await Employees())["Samir"].GetProperty("jobRoleId").GetGuid());
 
@@ -418,7 +418,7 @@ public class HrApiTests
         var rows = list.RowsUsed().Skip(1).ToList();
         // By department, then name.
         Assert.Equal(["Karim", "Hassan Ali", "Samir", "منى سعيد"], rows.Select(r => r.Cell(1).GetString()));
-        Assert.Equal(["Hassan Ali", "Monthly", "5,400.00", "Key accounts", "Checker", "10:00", "Friday", "2026-09-01", "7", "180.00", "20.00"],
+        Assert.Equal(["Hassan Ali", "Monthly", "L.E 5,400.00", "Key accounts", "Checker", "10:00", "Friday", "2026-09-01", "7", "L.E 180.00", "L.E 20.00"],
             rows[1].Cells(1, 11).Select(c => c.GetFormattedString()));
         foreach (var row in rows)
         {
@@ -487,7 +487,7 @@ public class HrApiTests
         var asked = await Record(accountant, Guid.NewGuid(), 200, hassan);
         Assert.True(asked.StatusCode == HttpStatusCode.Accepted, await asked.Content.ReadAsStringAsync(Cancel));
         var request = (await Json(asked)).GetProperty("request");
-        Assert.Equal(("Advance", "Advance · Hassan · 200.00"), (request.GetProperty("module").GetString(), request.GetProperty("summary").GetString()));
+        Assert.Equal(("Advance", "Advance · Hassan · L.E 200.00"), (request.GetProperty("module").GetString(), request.GetProperty("summary").GetString()));
         Assert.Equal(500m, await Deducted());
         await Json(await manager.PostAsJsonAsync($"/api/approval-requests/{request.GetProperty("id").GetGuid()}/approve", new { }, Cancel));
         Assert.Equal(700m, await Deducted());
@@ -523,7 +523,7 @@ public class HrApiTests
         // An accountant's lump sum waits for a manager, as their advances do.
         var asked = await accountant.PostAsJsonAsync("/api/hr/advances", new { advanceId = Guid.NewGuid(), amount = 400m, date = Iso(today), employeeId = (Guid?)null }, Cancel);
         Assert.Equal(HttpStatusCode.Accepted, asked.StatusCode);
-        Assert.StartsWith("Advances not given out yet · 400.00", (await Json(asked)).GetProperty("request").GetProperty("summary").GetString());
+        Assert.StartsWith("Advances not given out yet · L.E 400.00", (await Json(asked)).GetProperty("request").GetProperty("summary").GetString());
 
         // HR's view: Hassan's direct advance allocated; the lump sum pending, all of it.
         var seen = await Advances();
@@ -538,7 +538,7 @@ public class HrApiTests
         Assert.Equal(HttpStatusCode.Forbidden, (await Distribute(accountant, lump, new { employeeId = hassan, amount = 500 })).StatusCode);
         var part = await Json(await Distribute(manager, lump, new { employeeId = hassan, amount = 500, notes = "Night shift" }));
         Assert.Equal((500m, 500m), (part.GetProperty("allocated").GetDecimal(), part.GetProperty("remaining").GetDecimal()));
-        Assert.Contains("500.00 of these advances is left to give out, and the shares come to 600.00",
+        Assert.Contains("L.E 500.00 of these advances is left to give out, and the shares come to L.E 600.00",
             await Problem(await Distribute(manager, lump, new { employeeId = mona, amount = 600 })));
         Assert.Contains("Mona is on the list twice", await Problem(await Distribute(manager, lump,
             new { employeeId = mona, amount = 100 }, new { employeeId = mona, amount = 100 })));

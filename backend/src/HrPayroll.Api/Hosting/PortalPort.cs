@@ -2,7 +2,8 @@ namespace HrPayroll.Api.Hosting;
 
 // The employee portal's own port (Portal:Port), the one the office Wi-Fi reaches: phones
 // sign in there and read their own portal, and work the HR tabs a manager gave them (/hr and
-// /custody, /api/hr and /api/custody: only an employee's token holds a tab there, HrCaller).
+// /custody, /api/hr and /api/custody: only an employee's token holds a tab there, HrCaller). The
+// company's settings are read there too, never changed.
 // Nothing else of the system
 // answers. The rest of the API, the hub, the attendance device's paths and the health checks are
 // not found there; the app's files are, for the portal's screens, and any other screen of the app
@@ -21,7 +22,9 @@ internal static class PortalPort
         if (path.StartsWithSegments("/api"))
             return path.StartsWithSegments("/api/portal") || path.StartsWithSegments("/api/hr") || path.StartsWithSegments("/api/custody")
                 || path.StartsWithSegments("/api/leaves") || path.StartsWithSegments("/api/performance")
-                || path.Equals("/api/auth/employee-login", StringComparison.OrdinalIgnoreCase);
+                || path.Equals("/api/auth/employee-login", StringComparison.OrdinalIgnoreCase)
+                // The company's name, logo and money, read: the portal shows them. Never changed there.
+                || (path.StartsWithSegments("/api/settings") && (HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method)));
         if (path.StartsWithSegments("/hubs") || path.StartsWithSegments("/iclock") || path.StartsWithSegments("/health") || path.StartsWithSegments("/openapi"))
             return false;
         return HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method);

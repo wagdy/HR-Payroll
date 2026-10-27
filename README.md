@@ -15,6 +15,9 @@ self-service portal. Bilingual (English and Arabic) throughout.
 - **Performance & disciplinary**: KPIs, evaluations, warnings and penalty deductions.
 - **Custody & Assets**: assets by category, check-in and check-out vouchers, and what is in
   whose custody. What breaks or is lost only changes the asset's status.
+- **Company Settings**: the company's name and logo, the currency (on every screen, sheet and
+  message), the country (its national IDs and public holidays), the time zone and workday, and
+  the weekends new employees start with.
 - **Roles and approvals**: users sign in with an email and a password, as a Manager or an
   Accountant. An accountant works the tabs a manager gives them, and their changes wait for a
   manager's approval. An employee signs in to the portal with their mobile number and a PIN, and
@@ -64,7 +67,7 @@ Sign in with the first manager's email and password, then add the other users on
 | `Auth:SigningKey` | The key tokens are signed with, 32 bytes at least: `openssl rand -base64 48` |
 | `Auth:TokenLifetimeHours` | How long a sign-in lasts (12 hours) |
 | `Auth:FirstManager` | `Email`, `Name` and `Password` of the manager made when there is none |
-| `Company:Name`, `Company:TimeZoneId`, `Company:WorkdayStartsAtHour` | The company's name, its time zone (`Africa/Cairo`), and the hour its workday starts (4: a night past midnight belongs to the day before) |
+| `Company:*` | The company's settings for the first start only: `Name`, `TimeZoneId` (`Africa/Cairo`), `WorkdayStartsAtHour` (4: a night past midnight belongs to the day before), `Country` (`Egypt` or `SaudiArabia`), `CurrencySymbol` and `CurrencyPosition` (`Before` or `After`), `Weekends`. After that a manager changes them on Settings |
 | `Portal:Port` | A port that answers only the employee portal, for the office Wi-Fi (unset: none) |
 | `Attendance:DevicePort` | A port that answers only the attendance device (unset: the device uses the API's port) |
 | `Cors:AllowedOrigins` | Browser origins allowed to call the API from elsewhere |

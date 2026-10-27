@@ -6,15 +6,17 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Observable, firstValueFrom } from 'rxjs';
 import { errorMessage } from '../../core/http/error-message';
-import { HrApi, PublicHoliday, dayName, egyptFixedHolidays } from '../../core/hr/hr.api';
+import { HrApi, PublicHoliday, dayName, fixedHolidays } from '../../core/hr/hr.api';
+import { Company, countryLabels } from '../../core/settings/company';
 import { NotifyService } from '../../core/ui/notify.service';
 import { BusinessDay } from '../../core/ui/business-day';
 import { HolidayAnswer, HolidayData, HolidayDialog } from './holiday-dialog';
 import { HrAccess } from '../../core/hr/hr-access';
 
 // Public holidays (العطلات الرسمية), a year at a time: everyone's paid day off, entered by a
-// manager as the government announces them. Egypt's fixed-date holidays not entered yet are
-// offered, each to be checked and added; the ones that follow the moon are entered once announced.
+// manager as the government announces them. The fixed-date holidays of the company's country
+// (Company Settings) not entered yet are offered, each to be checked and added; the ones that
+// follow the moon are entered once announced.
 // A month whose pay is finalized keeps its holidays as they were.
 @Component({
   selector: 'app-holidays-page',
@@ -80,10 +82,14 @@ import { HrAccess } from '../../core/hr/hr-access';
 
       @if (suggested().length) {
         <section class="suggested" aria-labelledby="suggested-title">
-          <h3 id="suggested-title">Egypt's fixed-date holidays not entered yet <span class="inline-ar">العطلات الثابتة</span></h3>
+          <h3 id="suggested-title">{{ country().en }}'s fixed-date holidays not entered yet <span class="inline-ar">العطلات الثابتة</span></h3>
           <p class="note">
-            Check each against the government's announcement, as some are moved to a Thursday. The Eids, Arafat, the Hijri New Year and the Prophet's
-            Birthday follow the moon: add them once announced.
+            @if (company.settings().country === 'SaudiArabia') {
+              Check each against the official announcement. Eid al-Fitr and Eid al-Adha follow the moon: add them once announced.
+            } @else {
+              Check each against the government's announcement, as some are moved to a Thursday. The Eids, Arafat, the Hijri New Year and the
+              Prophet's Birthday follow the moon: add them once announced.
+            }
           </p>
           <ul>
             @for (s of suggested(); track s.name) {
@@ -154,10 +160,13 @@ export class HolidaysPage {
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
+  protected readonly company = inject(Company);
+  protected readonly country = computed(() => countryLabels[this.company.settings().country]);
+
   // The fixed-date holidays of the year that no holiday entered covers or is named as.
   protected readonly suggested = computed(() => {
     const entered = this.holidays();
-    return egyptFixedHolidays(this.year()).filter(
+    return fixedHolidays(this.company.settings().country, this.year()).filter(
       (s) => !entered.some((h) => (h.firstDay <= s.day && h.lastDay >= s.day) || h.name.trim().toLowerCase() === s.name.toLowerCase()),
     );
   });

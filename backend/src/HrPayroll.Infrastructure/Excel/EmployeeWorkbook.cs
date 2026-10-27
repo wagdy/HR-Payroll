@@ -1,6 +1,7 @@
 using System.Globalization;
 using ClosedXML.Excel;
 using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Company;
 using HrPayroll.Domain.Employees;
 using HrPayroll.Application.Hr;
 
@@ -57,17 +58,18 @@ public static class EmployeeWorkbook
     // role (the business's own, a new name allowed), a sheet of how to fill it with examples,
     // and a hidden sheet of the lists. No example rows on the sheet itself: left in, they would be
     // imported.
-    public static Stream Template(IReadOnlyList<DepartmentDto> departments)
+    // The company's money on the pay column, and its weekends said as what a blank Days Off is.
+    public static Stream Template(IReadOnlyList<DepartmentDto> departments, MoneyFormat money, IReadOnlyList<DayOfWeek> weekends)
     {
         using var workbook = new XLWorkbook();
         var sheet = workbook.Worksheets.Add(DataSheetName);
         Heading(sheet);
         sheet.Cell(1, 3).CreateComment().AddText("A month's salary for monthly pay, a day's wage for daily pay.");
         sheet.Cell(1, 6).CreateComment().AddText("When their nine hours begin: 10:00, 16:30. Flexible (مرن) for flexible hours.");
-        sheet.Cell(1, 7).CreateComment().AddText("Friday, Saturday or الجمعة، السبت. Blank for none.");
+        sheet.Cell(1, 7).CreateComment().AddText($"Friday, Saturday or الجمعة، السبت. Blank for the company's weekends ({Days(weekends)}); None for no day off.");
         sheet.Cell(1, 8).CreateComment().AddText("The day they started: their first month's pay counts from it.");
         sheet.Cell(1, 9).CreateComment().AddText("Their user number on the attendance device. Optional.");
-        Formats(sheet.Range(2, 1, FormattedRows + 1, Headers.Length));
+        Formats(sheet.Range(2, 1, FormattedRows + 1, Headers.Length), money);
 
         var lists = workbook.Worksheets.Add(ListsSheetName);
         lists.Cell(1, 1).Value = "Types";
@@ -113,14 +115,14 @@ public static class EmployeeWorkbook
         role.ErrorTitle = "A new role";
         role.ErrorMessage = "Not in that department yet: it is made on import.";
 
-        AddHelp(workbook);
+        AddHelp(workbook, weekends);
         sheet.SetTabActive();
         return Saved(workbook);
     }
 
     // The employees as they are, in the template's columns and two more: what a day and an hour
     // of theirs are paid. A styled table, filtered by any column.
-    public static Stream Export(IReadOnlyList<EmployeeDto> employees, IReadOnlyList<DepartmentDto> departments)
+    public static Stream Export(IReadOnlyList<EmployeeDto> employees, IReadOnlyList<DepartmentDto> departments, MoneyFormat money)
     {
         var names = departments.ToDictionary(d => d.Id, d => d.Name);
         using var workbook = new XLWorkbook();
@@ -141,7 +143,8 @@ public static class EmployeeWorkbook
                 sheet.Cell(row, 6).Value = start.ToTimeSpan();
             else
                 sheet.Cell(row, 6).Value = "Flexible";
-            sheet.Cell(row, 7).Value = string.Join(", ", e.DaysOff.OrderBy(d => ((int)d + 1) % 7).Select(d => d.ToString()));
+            // None said as such: blank, imported again, would be the company's weekends.
+            sheet.Cell(row, 7).Value = e.DaysOff.Count == 0 ? "None" : Days(e.DaysOff);
             sheet.Cell(row, 8).Value = e.HiredOn.ToDateTime(TimeOnly.MinValue);
             sheet.Cell(row, 9).Value = e.DeviceUserId ?? string.Empty;
             sheet.Cell(row, 10).Value = e.DailyRate;
@@ -150,8 +153,8 @@ public static class EmployeeWorkbook
         }
 
         var last = Math.Max(row - 1, 2);
-        Formats(sheet.Range(2, 1, last, Headers.Length));
-        sheet.Range(2, 10, last, 11).Style.NumberFormat.Format = "#,##0.00";
+        Formats(sheet.Range(2, 1, last, Headers.Length), money);
+        sheet.Range(2, 10, last, 11).Style.NumberFormat.Format = MoneyCells(money);
         sheet.Range(2, 6, last, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
         var table = sheet.Range(1, 1, last, headers.Length).CreateTable("Employees");
         table.Theme = XLTableTheme.TableStyleMedium2;
@@ -224,15 +227,29 @@ public static class EmployeeWorkbook
 
     // Each column's cells as they read: money, a time of day, a date, the device number as text
     // (so 007 stays 007).
-    private static void Formats(IXLRange rows)
+    private static void Formats(IXLRange rows, MoneyFormat money)
     {
-        rows.Column(3).Style.NumberFormat.Format = "#,##0.00";
+        rows.Column(3).Style.NumberFormat.Format = MoneyCells(money);
         rows.Column(6).Style.NumberFormat.Format = "hh:mm";
         rows.Column(8).Style.NumberFormat.Format = "yyyy-mm-dd";
         rows.Column(9).Style.NumberFormat.Format = "@";
     }
 
-    private static void AddHelp(XLWorkbook workbook)
+    // An amount cell as the company writes money: "L.E 1,400.00", "1,400.00 SAR". The cell holds
+    // the number alone, so a sheet read back reads the amount.
+    internal static string MoneyCells(MoneyFormat money)
+    {
+        var symbol = money.Symbol.Replace("\"", string.Empty);
+        if (symbol.Length == 0)
+            return "#,##0.00";
+        return money.Position == CurrencyPosition.Before ? $"\"{symbol} \"#,##0.00" : $"#,##0.00\" {symbol}\"";
+    }
+
+    // "Friday, Saturday", Saturday first as the week runs; "None".
+    private static string Days(IReadOnlyList<DayOfWeek> days) =>
+        days.Count == 0 ? "None" : string.Join(", ", days.OrderBy(d => ((int)d + 1) % 7).Select(d => d.ToString()));
+
+    private static void AddHelp(XLWorkbook workbook, IReadOnlyList<DayOfWeek> weekends)
     {
         var help = workbook.Worksheets.Add(HelpSheetName);
         string[] lines =
@@ -246,7 +263,7 @@ public static class EmployeeWorkbook
             "Department: one on the list, or a new one, which a manager's import adds. Blank: General.",
             "Job Role: required. One of the department's roles, or a new one, which is made.",
             "Work Schedule Start: required. When their nine hours begin, 10:00 or 16:30; Flexible (مرن) for flexible hours.",
-            "Days Off: their weekly days off, Friday, Saturday or الجمعة، السبت. Blank for none.",
+            $"Days Off: their weekly days off, Friday, Saturday or الجمعة، السبت. Blank for the company's weekends ({Days(weekends)}); None for no day off.",
             "Hired On: required. The day they started: their first month's pay counts from it.",
             "Device No.: optional. Their user number on the attendance device; a number already given is skipped.",
             "",

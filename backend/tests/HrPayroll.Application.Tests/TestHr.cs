@@ -6,6 +6,8 @@ using HrPayroll.Application.Common;
 using HrPayroll.Domain;
 using HrPayroll.Domain.Approvals;
 using HrPayroll.Domain.Common;
+using HrPayroll.Domain.Company;
+using HrPayroll.Domain.Employees;
 
 namespace HrPayroll.Application.Tests;
 
@@ -17,6 +19,7 @@ public sealed class TestHr
 
     public HrStore Hr { get; } = new();
     public TestClock Clock { get; } = new();
+    public TestCompany Company { get; } = new();
 
     public TestHr()
     {
@@ -27,6 +30,8 @@ public sealed class TestHr
 
         services.AddSingleton<IUnitOfWork>(new NoUnitOfWork());
         services.AddSingleton<IWorkClock>(Clock);
+        services.AddSingleton<ICompanyProfile>(Company);
+        services.AddSingleton<ICompanySettingsStore>(Hr.CompanySettings);
         services.AddSingleton<IApprovalRequestRepository>(Hr.Approvals);
         services.AddSingleton<IEmployeeRepository>(Hr.Employees);
         services.AddSingleton<IEmployeeIdPhotoStore>(Hr.Employees);
@@ -82,6 +87,15 @@ public sealed class TestHr
     {
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
     }
+}
+
+// The company a test runs for: in Egypt, its money written "L.E 1,400.00", Friday its weekend.
+public sealed class TestCompany : ICompanyProfile
+{
+    public CompanyProfile Current { get; private set; } = new(
+        "Acme", new MoneyFormat("L.E", CurrencyPosition.Before), Country.Egypt, "Africa/Cairo", 4, WeekDays.Friday, HasLogo: false, LogoUpdatedAtUtc: null);
+
+    public void Set(CompanyProfile profile) => Current = profile;
 }
 
 // The workday a test sets; dates as they fall.
