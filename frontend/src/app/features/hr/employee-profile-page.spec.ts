@@ -16,6 +16,7 @@ import { BusinessDay } from '../../core/ui/business-day';
 import { EmployeeDialog } from './employee-dialog';
 import { EmployeeProfilePage, IdCardDialog, PinDialog, RemoveIdCardDialog } from './employee-profile-page';
 import { EmploymentDialog } from './employment-dialog';
+import { aConnection } from '../../../testing/fixtures';
 
 const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 // Element by element: the template leaves no space between them.
@@ -119,7 +120,7 @@ describe('an employee’s profile', () => {
     performanceOf.mockReset().mockReturnValue(
       of({ employeeId: 'hassan', employeeName: 'Hassan', evaluations: [], actions: [], record: { verbalWarnings: 0, firstWritten: 0, secondWritten: 0, penaltyDeductions: 0, terminations: 0, warnings: 0, next: 'VerbalWarning' } }),
     );
-    deviceConnection.mockReset().mockReturnValue(of({ devicePort: 5082, portalPort: 5083, addresses: ['192.168.1.57'] }));
+    deviceConnection.mockReset().mockReturnValue(of(aConnection({ portalPort: 5083 })));
     open.mockReset();
     notify.info.mockReset();
     notify.error.mockReset();

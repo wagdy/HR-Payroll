@@ -1155,10 +1155,13 @@ public class HrApiTests
         // Calling in over ADMS: its punches come as they are made.
         Assert.Equal((true, true), (waiting.GetProperty("callingIn").GetBoolean(), waiting.GetProperty("lastCalledInAtUtc").ValueKind == JsonValueKind.String));
 
-        // Where it reaches the system: no device port here, and this machine's addresses.
+        // Where it reaches the system: no device port here, so the API's own, and this machine's
+        // addresses. The test server is bound to no network: said so, for the screens to warn.
         var connection = await Json(await accountant.GetAsync("/api/hr/devices/connection", Cancel));
         Assert.Equal(JsonValueKind.Null, connection.GetProperty("devicePort").ValueKind);
         Assert.Equal(JsonValueKind.Array, connection.GetProperty("addresses").ValueKind);
+        Assert.Equal(JsonValueKind.Number, connection.GetProperty("serverPort").ValueKind);
+        Assert.Equal((false, false), (connection.GetProperty("deviceOnNetwork").GetBoolean(), connection.GetProperty("portalOnNetwork").GetBoolean()));
 
         var options = await (await device.GetAsync("/iclock/cdata?SN=CQZ7232060112&options=all", Cancel)).Content.ReadAsStringAsync(Cancel);
         Assert.StartsWith("GET OPTION FROM: CQZ7232060112\r\nATTLOGStamp=None\r\n", options);

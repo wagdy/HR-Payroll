@@ -9,6 +9,7 @@ import { NotifyService } from '../../core/ui/notify.service';
 import { Approvals } from '../approvals/approvals';
 import { DeviceNameDialog, DevicesPage, ReadAttendanceDialog } from './devices-page';
 import { HrAccess } from '../../core/hr/hr-access';
+import { aConnection } from '../../../testing/fixtures';
 
 const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 
@@ -68,7 +69,7 @@ describe('the attendance devices', () => {
     saveSettings.mockReset().mockImplementation((p: object) => of(p));
     readDeviceUsers.mockReset().mockReturnValue(of(command()));
     readDeviceAttendance.mockReset().mockReturnValue(of(command({ kind: 'ReadAttendance' })));
-    deviceConnection.mockReset().mockReturnValue(of({ devicePort: null, addresses: [] }));
+    deviceConnection.mockReset().mockReturnValue(of(aConnection({ devicePort: null, addresses: [], deviceOnNetwork: false })));
     testDevice.mockReset();
     syncDevice.mockReset();
     open.mockReset();
@@ -82,7 +83,8 @@ describe('the attendance devices', () => {
     const { el } = await render();
 
     expect(text(el.querySelector('.setup')!)).toContain('Main menu → COMM. → Cloud Server Setting');
-    expect([...el.querySelectorAll('.setup dd')].map(text)).toEqual([location.hostname, location.port || '80']);
+    // No device port: the API's own, never the port this screen is served from.
+    expect([...el.querySelectorAll('.setup dd')].map(text)).toEqual([location.hostname, '5090']);
     const rows = [...el.querySelectorAll('tbody tr')];
     expect(text(rows[0].querySelector('strong')!)).toBe('Unnamed device');
     expect(text(rows[0].querySelector('td .muted')!)).toBe('Serial CQZ7232060112 · 192.168.1.40');
@@ -107,14 +109,28 @@ describe('the attendance devices', () => {
   });
 
   it('gives the device this machine’s network address and the device’s own port, when the system has one', async () => {
-    deviceConnection.mockReturnValue(of({ devicePort: 5082, addresses: ['192.168.1.132'] }));
+    deviceConnection.mockReturnValue(of(aConnection({ addresses: ['192.168.1.132'] })));
     const { el, fixture } = await render();
     await fixture.whenStable();
     fixture.detectChanges();
 
     const local = ['localhost', '127.0.0.1'].includes(location.hostname);
-    expect([...el.querySelectorAll('.setup dd')].map(text)).toEqual([local ? '192.168.1.132' : location.hostname, '5082']);
-    expect(text(el.querySelector('.setup')!)).toContain('Port 5082 is the device’s own');
+    expect([...el.querySelectorAll('.setup dd')].map(text)).toEqual([local ? '192.168.1.132' : location.hostname, '5092']);
+    expect(text(el.querySelector('.setup')!)).toContain('Port 5092 is the device’s own');
+    expect(el.querySelector('.unreachable')).toBeNull();
+  });
+
+  // The system listening on this machine alone: a device on the network could never call in.
+  it('says plainly when the device cannot reach the system from the network', async () => {
+    deviceConnection.mockReturnValue(of(aConnection({ deviceOnNetwork: false })));
+    const { el, fixture } = await render();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const warning = el.querySelector('.setup .unreachable')!;
+    expect(warning.getAttribute('role')).toBe('alert');
+    expect(text(warning)).toContain('The device cannot reach this port yet.');
+    expect(text(warning)).toContain('Attendance:DevicePort');
   });
 
   it('approves a device by the name a manager gives it, and refuses one again', async () => {

@@ -1,4 +1,5 @@
 import { Me } from '../app/core/api/models';
+import { DeviceConnection } from '../app/core/hr/hr.api';
 import { CompanySettings } from '../app/core/settings/company';
 
 // What GET /api/auth/me returns for each role: the API's RolePermissions table.
@@ -25,5 +26,13 @@ export function aCompany(overrides: Partial<CompanySettings> = {}): CompanySetti
   return {
     name: 'Acme', currencySymbol: 'L.E', currencyPosition: 'Before', country: 'Egypt', timeZoneId: 'Africa/Cairo', workdayStartsAtHour: 4,
     weekends: ['Friday'], hasLogo: false, logoVersion: 0, ...overrides,
+  };
+}
+
+// What GET /api/hr/devices/connection returns: the API on 5090, the device on its own port 5092
+// and the portal on 5093, both reached from the network at this machine's address.
+export function aConnection(overrides: Partial<DeviceConnection> = {}): DeviceConnection {
+  return {
+    devicePort: 5092, portalPort: 5093, serverPort: 5090, addresses: ['192.168.1.57'], deviceOnNetwork: true, portalOnNetwork: true, ...overrides,
   };
 }

@@ -761,7 +761,8 @@ export class EmployeeProfilePage {
     }
     try {
       const where = await firstValueFrom(this.api.deviceConnection());
-      this.portalAddress.set(where.portalPort && where.addresses.length ? `http://${where.addresses[0]}:${where.portalPort}/portal` : null);
+      // Only where phones on the network reach it.
+      this.portalAddress.set(where.portalPort && where.portalOnNetwork && where.addresses.length ? `http://${where.addresses[0]}:${where.portalPort}/portal` : null);
     } catch {
       this.portalAddress.set(null);
     }

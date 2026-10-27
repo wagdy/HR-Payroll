@@ -45,7 +45,10 @@ You need the .NET 10 SDK, Node 22 with npm, and Docker.
    ```
 
 2. Start the API on <http://localhost:5090>. It applies the migrations and makes the first
-   manager from `Auth:FirstManager` in `appsettings.Development.json`:
+   manager from `Auth:FirstManager` in `appsettings.Development.json`. It also listens on the
+   office network on two ports of their own: **5092** for the attendance device (ADMS, nothing
+   but `/iclock`) and **5093** for the employee portal on phones. The Devices tab shows this
+   machine's network address and the device's port to enter on the device:
 
    ```bash
    dotnet run --project backend/src/HrPayroll.Api --launch-profile http
@@ -68,8 +71,8 @@ Sign in with the first manager's email and password, then add the other users on
 | `Auth:TokenLifetimeHours` | How long a sign-in lasts (12 hours) |
 | `Auth:FirstManager` | `Email`, `Name` and `Password` of the manager made when there is none |
 | `Company:*` | The company's settings for the first start only: `Name`, `TimeZoneId` (`Africa/Cairo`), `WorkdayStartsAtHour` (4: a night past midnight belongs to the day before), `Country` (`Egypt` or `SaudiArabia`), `CurrencySymbol` and `CurrencyPosition` (`Before` or `After`), `Weekends`. After that a manager changes them on Settings |
-| `Portal:Port` | A port that answers only the employee portal, for the office Wi-Fi (unset: none) |
-| `Attendance:DevicePort` | A port that answers only the attendance device (unset: the device uses the API's port) |
+| `Portal:Port` | A port that answers only the employee portal, for the office Wi-Fi (5093 in development; unset: none), listened on for the network in `Urls` too |
+| `Attendance:DevicePort` | A port that answers only the attendance device (5092 in development; unset: the device uses the API's port). The API must also listen on it for the network, in `Urls`: `http://0.0.0.0:5092` |
 | `Cors:AllowedOrigins` | Browser origins allowed to call the API from elsewhere |
 
 ## Tests

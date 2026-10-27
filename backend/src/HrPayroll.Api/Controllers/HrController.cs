@@ -1,6 +1,7 @@
 using System.Globalization;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Mvc;
 using HrPayroll.Domain.Access;
 using HrPayroll.Domain.Attendance;
@@ -353,10 +354,27 @@ public sealed class HrController(ISender sender) : ControllerBase
     // Where a device reaches this system: the device's own port when one is set, and this
     // machine's addresses on its networks. No port: the one the screens are served on. The
     // employee portal's port too, when there is one: where phones on the Wi-Fi open it.
+    // Where an attendance device and the portal's phones reach this machine: its network
+    // addresses; the device's own port (Attendance:DevicePort) and the portal's (Portal:Port) when
+    // set, else the API's own (ServerPort, the one this request came in on); and whether the API
+    // listens there for the network, not this machine alone.
     [HttpGet("devices/connection")]
     [HrTab(HrTabs.Now | HrTabs.Employees | HrTabs.Devices)]
-    public object GetDeviceConnection([FromServices] IConfiguration configuration) =>
-        new { DevicePort = Hosting.DevicePort.Of(configuration), PortalPort = Hosting.PortalPort.Of(configuration), Addresses = Hosting.DevicePort.Addresses() };
+    public object GetDeviceConnection([FromServices] IConfiguration configuration, [FromServices] IServer server)
+    {
+        var devicePort = Hosting.DevicePort.Of(configuration);
+        var portalPort = Hosting.PortalPort.Of(configuration);
+        var serverPort = HttpContext.Connection.LocalPort;
+        return new
+        {
+            DevicePort = devicePort,
+            PortalPort = portalPort,
+            ServerPort = serverPort,
+            Addresses = Hosting.DevicePort.Addresses(),
+            DeviceOnNetwork = Hosting.DevicePort.ListensOnNetwork(server, devicePort ?? serverPort),
+            PortalOnNetwork = portalPort is { } port && Hosting.DevicePort.ListensOnNetwork(server, port),
+        };
+    }
 
     // The device reached by the system over its own port (ZKTeco's, 4370), beside ADMS: whether
     // it answers, and what it is. A manager's, as the system reaches out for it.

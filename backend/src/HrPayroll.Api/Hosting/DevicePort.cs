@@ -1,4 +1,6 @@
 using System.Net.NetworkInformation;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using System.Net.Sockets;
 
 namespace HrPayroll.Api.Hosting;
@@ -27,6 +29,29 @@ internal static class DevicePort
 
             await next(context);
         });
+    }
+
+    // Whether the API listens on this port where the network reaches it: on every address
+    // (0.0.0.0, [::], *) or on one that is not this machine's loopback. Listening on localhost
+    // alone, a device or a phone cannot reach it.
+    public static bool ListensOnNetwork(IServer server, int port) =>
+        ListensOnNetwork(server.Features.Get<IServerAddressesFeature>()?.Addresses ?? [], port);
+
+    // The same, of the addresses the server says it is bound to: "http://0.0.0.0:5092".
+    public static bool ListensOnNetwork(IEnumerable<string> bound, int port)
+    {
+        foreach (var address in bound)
+        {
+            var url = address.Replace("://*", "://0.0.0.0", StringComparison.Ordinal).Replace("://+", "://0.0.0.0", StringComparison.Ordinal);
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Port != port)
+                continue;
+            if (uri.Host is "0.0.0.0" or "[::]" or "::")
+                return true;
+            if (System.Net.IPAddress.TryParse(uri.Host.Trim('[', ']'), out var ip) ? !System.Net.IPAddress.IsLoopback(ip) : uri.Host != "localhost")
+                return true;
+        }
+
+        return false;
     }
 
     // This machine's addresses on its networks, for the device to be given one: IPv4, up, not

@@ -8,7 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import { aheadBy } from '../../core/hr/device-link';
 import { errorMessage } from '../../core/http/error-message';
 import { AttendanceSignal } from '../../core/hr/attendance-signal';
-import { AttendanceDevice, Department, EmployeeStatus, HrApi, Presence, PresenceState, clock } from '../../core/hr/hr.api';
+import { AttendanceDevice, Department, EmployeeStatus, HrApi, Presence, PresenceState, clock, DeviceConnection, deviceTarget } from '../../core/hr/hr.api';
 import { HrAccess } from '../../core/hr/hr-access';
 import { CorrectionsCount } from './corrections-count';
 
@@ -296,11 +296,14 @@ export class NowPage {
   protected readonly fast = signal<AttendanceDevice[]>([]);
   protected readonly ahead = aheadBy;
   protected readonly quietNames = computed(() => this.quiet().map((d) => d.name ?? d.serialNumber).join(', '));
-  private readonly connection = signal<{ devicePort: number | null; addresses: string[] } | null>(null);
+  private readonly connection = signal<DeviceConnection | null>(null);
   protected readonly pointAt = computed(() => {
     const c = this.connection();
-    const port = c?.devicePort ?? (location.port || null);
-    return c?.addresses.length && port ? `${c.addresses.join(' or ')}, port ${port}` : null;
+    if (!c) {
+      return null;
+    }
+    const { address, port } = deviceTarget(c, location);
+    return `${address}, port ${port}`;
   });
 
   protected readonly counts = computed(() => {

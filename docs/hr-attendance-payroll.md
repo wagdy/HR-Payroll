@@ -207,9 +207,13 @@ it changes).
 - Give the server a fixed address (a DHCP reservation on the router), and allow incoming
   connections to its port in the firewall.
 - **The device's own port** (`Attendance:DevicePort`): when set, the API answers nothing but the
-  device's `/iclock` paths on it, so the screens stay off that port. `GET
-  /api/hr/devices/connection` gives the port and the server's addresses, and the Devices tab
-  shows them. Unset, every port answers everything.
+  device's `/iclock` paths on it, so the screens stay off that port. In development the API
+  listens on `localhost:5090` for the screens and on `0.0.0.0:5092` for the device (and
+  `0.0.0.0:5093` for the portal). `GET /api/hr/devices/connection` gives the device's port (or
+  the API's own when none is set), the server's addresses, and whether the API listens there for
+  the network; the Devices and Now tabs show the address and port to enter, this machine's
+  network address when the screen is open on it, and say plainly when the device could not reach
+  the port (the API listening on this machine alone). Unset, every port answers everything.
 - On the device: Main Menu → COMM. → Cloud Server Setting.
   - Server mode ADMS, Enable Domain Name off.
   - Server Address = the server's address, Server Port = the API's port (or the device port).

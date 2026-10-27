@@ -702,6 +702,29 @@ export function shamElNessim(year: number): string {
   return monday.toISOString().slice(0, 10);
 }
 
+// Where an attendance device and the portal's phones reach this machine: its addresses on its
+// networks; the device's own port and the portal's when set, else the API's own (serverPort); and
+// whether the API listens there for the network, not this machine alone.
+export interface DeviceConnection {
+  devicePort: number | null;
+  portalPort: number | null;
+  serverPort: number;
+  addresses: string[];
+  deviceOnNetwork: boolean;
+  portalOnNetwork: boolean;
+}
+
+// The server address and port to give a device: this machine's network addresses when the screen
+// is open on it (a device cannot reach "localhost"), else the address the screen is open at; the
+// device's own port, else the API's.
+export function deviceTarget(c: DeviceConnection, screen: { hostname: string }): { address: string; port: number } {
+  const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(screen.hostname);
+  return {
+    address: local && c.addresses.length ? c.addresses.join(' or ') : screen.hostname,
+    port: c.devicePort ?? c.serverPort,
+  };
+}
+
 // An employee's HR tabs; hasMobile and hasPin say whether they can sign in to the portal to use them.
 export interface EmployeeHrAccess {
   id: string;
@@ -945,10 +968,9 @@ export class HrApi {
     return this.http.get('/api/hr/payroll/export', { params: { month }, responseType: 'blob' });
   }
 
-  // Where a device reaches this system: the device's own port when one is set (the system's screens
-  // then stay on its machine), and the machine's addresses on its networks.
-  deviceConnection(): Observable<{ devicePort: number | null; portalPort?: number | null; addresses: string[] }> {
-    return this.http.get<{ devicePort: number | null; portalPort?: number | null; addresses: string[] }>('/api/hr/devices/connection');
+  // Where a device and the portal's phones reach this system (DeviceConnection).
+  deviceConnection(): Observable<DeviceConnection> {
+    return this.http.get<DeviceConnection>('/api/hr/devices/connection');
   }
 
   devices(): Observable<AttendanceDevice[]> {

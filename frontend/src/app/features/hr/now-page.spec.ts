@@ -7,6 +7,7 @@ import { AttendanceDevice, Department, Employee, EmployeeStatus, HrApi, Presence
 import { CorrectionsCount } from './corrections-count';
 import { NowPage } from './now-page';
 import { HrAccess } from '../../core/hr/hr-access';
+import { aConnection } from '../../../testing/fixtures';
 
 const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 // Each element's text inside, as Angular drops the spaces between elements.
@@ -58,7 +59,7 @@ describe('who is in now', () => {
         provideRouter([]),
         {
           provide: HrApi,
-          useValue: { presence: presenceOf, departments: () => of(departments), devices, deviceConnection: () => of({ devicePort: 5082, addresses: ['192.168.1.57'] }) },
+          useValue: { presence: presenceOf, departments: () => of(departments), devices, deviceConnection: () => of(aConnection({ devicePort: 5082, addresses: ['192.168.1.57'] })) },
         },
         { provide: AttendanceSignal, useValue: punches },
         { provide: CorrectionsCount, useValue: waiting },

@@ -12,7 +12,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { aheadBy, addressOf, isIPv4, saveDeviceLink, savedDeviceLink, ZkPort } from '../../core/hr/device-link';
 import { errorMessage } from '../../core/http/error-message';
-import { AttendanceDevice, AttendancePolicy, DeviceCommand, HrApi } from '../../core/hr/hr.api';
+import { AttendanceDevice, AttendancePolicy, DeviceCommand, DeviceConnection, HrApi, deviceTarget } from '../../core/hr/hr.api';
 import { HrAccess } from '../../core/hr/hr-access';
 import { NotifyService } from '../../core/ui/notify.service';
 import { Approvals } from '../approvals/approvals';
@@ -133,10 +133,22 @@ export class ReadAttendanceDialog {
           <dd>{{ port() }}</dd>
         </div>
       </dl>
-      @if (devicePort()) {
-        <p class="muted small">Port {{ devicePort() }} is the device’s own: it answers nothing but the device, and the system’s screens stay on this machine.</p>
-      } @else if (local) {
-        <p class="muted small">This screen is open on the server itself: give the device this machine’s address on the office network, not “localhost”.</p>
+      @if (connection(); as c) {
+        @if (!c.deviceOnNetwork) {
+          <p class="unreachable" role="alert">
+            <mat-icon>wifi_off</mat-icon>
+            <span>
+              <strong>The device cannot reach this port yet.</strong> The system listens on it for this machine alone. Set
+              <code>Attendance:DevicePort</code> and have the system listen on that port on every address (<code>Urls</code>, such as
+              <code>http://0.0.0.0:5092</code>), then restart it.
+            </span>
+          </p>
+        } @else if (devicePort()) {
+          <p class="muted small">Port {{ devicePort() }} is the device’s own: it answers nothing but the device, and the system’s screens stay on this machine.</p>
+        }
+        @if (!c.addresses.length) {
+          <p class="muted small">This machine has no network address now: connect it to the office network, then open this page again.</p>
+        }
       }
       <p class="muted small">It shows up below within a minute, waiting. Approve it, and its punches start coming in, the ones it already holds too.</p>
       <p class="muted small">
@@ -310,6 +322,18 @@ export class ReadAttendanceDialog {
   `,
   styleUrl: '../shared/pages.scss',
   styles: `
+    .unreachable {
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--mat-sys-error-container);
+      color: var(--mat-sys-on-error-container);
+
+      mat-icon {
+        flex: none;
+      }
+    }
     .setup,
     .settings {
       margin-bottom: 16px;
@@ -459,15 +483,16 @@ export class DevicesPage {
   protected grace = 0;
   protected doubleScan = 3;
 
-  // Where the device reaches this system: the device's own port and this machine's network address
-  // when the system has one; otherwise the address and port this screen is served from.
-  protected readonly local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
-  protected readonly devicePort = signal<number | null>(null);
-  private readonly addresses = signal<string[]>([]);
-  protected readonly address = computed(() =>
-    this.devicePort() && this.local && this.addresses().length ? this.addresses().join(' or ') : location.hostname,
-  );
-  protected readonly port = computed(() => String(this.devicePort() ?? (location.port || (location.protocol === 'https:' ? '443' : '80'))));
+  // Where the device reaches this system (deviceTarget): this machine's network address, and the
+  // device's own port or the API's. Said plainly when the API cannot be reached from the network.
+  protected readonly connection = signal<DeviceConnection | null>(null);
+  protected readonly devicePort = computed(() => this.connection()?.devicePort ?? null);
+  protected readonly target = computed(() => {
+    const c = this.connection();
+    return c ? deviceTarget(c, location) : null;
+  });
+  protected readonly address = computed(() => this.target()?.address ?? '…');
+  protected readonly port = computed(() => (this.target() ? String(this.target()!.port) : '…'));
 
   // Where the system reaches the device: as last used here, else the address a device last called
   // from, on ZKTeco's port, with no comm key unless one is set on it.
@@ -482,10 +507,7 @@ export class DevicesPage {
     this.destroyRef.onDestroy(() => this.stopWatching());
     void this.load();
     void firstValueFrom(this.api.deviceConnection()).then(
-      (c) => {
-        this.devicePort.set(c.devicePort);
-        this.addresses.set(c.addresses);
-      },
+      (c) => this.connection.set(c),
       () => undefined,
     );
   }
