@@ -24,7 +24,8 @@ import { DailyCostPage } from './daily-cost-page';
 // as the formula adds them up:
 //   base salary + incentives + leave allowances + overtime − advances − last month's shortfall
 //   − deductions and penalties (lateness, absence, unpaid leave, administrative penalties) = net payable.
-// Above it, the month's total salaries before anything is deducted (إجمالي الرواتب).
+// Above it, the month's total salaries (إجمالي الرواتب): everyone's monthly salary in full, as the
+// Employees tab adds them up, however few of the month's days they were employed or worked.
 // The leave allowances are the ones entered and the days off worked, which earn theirs by
 // themselves.
 // A draft is worked out from the month's attendance as it stands now; calculating saves the
@@ -69,8 +70,8 @@ import { DailyCostPage } from './daily-cost-page';
         <div class="tiles">
           <div class="tile main">
             <span class="label">Total salaries · إجمالي الرواتب</span>
-            <strong>{{ p.totals.gross | money }}</strong>
-            <small class="muted">earned before anything is deducted</small>
+            <strong>{{ p.totals.monthlySalaries | money }}</strong>
+            <small class="muted">full monthly salaries@if (dailyWorkers()) { · {{ dailyWorkers() }} on daily wages}</small>
           </div>
           <div class="tile">
             <span class="label">Net payable · صافي المستحق</span>
@@ -282,6 +283,8 @@ export class PayrollPage {
   protected readonly error = signal<string | null>(null);
   protected readonly canCalculate = computed(() => this.auth.can(Permissions.HrManage));
   protected readonly finalized = computed(() => (this.payroll()?.slips ?? []).filter((s) => s.status === 'Finalized').length);
+  // Those with no monthly salary to count in the total salaries.
+  protected readonly dailyWorkers = computed(() => (this.payroll()?.slips ?? []).filter((s) => s.figures.employmentType === 'Daily').length);
 
   constructor() {
     // The month read only while it is the one shown.

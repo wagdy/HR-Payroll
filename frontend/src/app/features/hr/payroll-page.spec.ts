@@ -63,6 +63,7 @@ function month(slips: PayrollSlip[]): PayrollMonth {
       holidaysWorkedPay: sum((f) => f.holidaysWorkedPay),
       gross: sum((f) => f.gross),
       administrativePenalties: sum((f) => f.administrativePenalty),
+      monthlySalaries: sum((f) => f.monthlySalary),
     },
     slips,
   };
@@ -125,13 +126,25 @@ describe('the monthly payroll', () => {
     expect(el.querySelector('tbody a')!.getAttribute('href')).toBe('/hassan?month=2026-09-01');
   });
 
-  it('puts the month’s total salaries first, before anything is deducted', async () => {
+  it('puts the month’s total salaries first: everyone’s monthly salary in full, however few days they earned', async () => {
     const { el } = await render();
 
     const tiles = [...el.querySelectorAll('.tile')].map(cell);
-    // 5,400 + 500 + 40 overtime for Hassan, and Mona's 2,160.
-    expect(tiles[0]).toBe('Total salaries · إجمالي الرواتب 8,100.00 earned before anything is deducted');
+    // Hassan's 5,400 and all of Mona's 4,050, though she earned 2,160 of it in her 16 days.
+    expect(tiles[0]).toBe('Total salaries · إجمالي الرواتب 9,450.00 full monthly salaries');
     expect(tiles[1]).toMatch(/^Net payable · صافي المستحق/);
+    // The table still shows what each earned.
+    expect(cell(el.querySelectorAll('tfoot td')[1])).toBe('7,560.00');
+  });
+
+  it('says how many on daily wages have no monthly salary in the total salaries', async () => {
+    payroll.mockReturnValue(of(month([
+      slip(hassan),
+      slip({ ...mona, employmentType: 'Daily', monthlySalary: 0, dailyWage: 250 }, {}, { employmentType: 'Daily', monthlySalary: 0, dailyWage: 250, baseSalary: 5_000 }),
+    ])));
+    const { el } = await render();
+
+    expect(cell(el.querySelector('.tile')!)).toBe('Total salaries · إجمالي الرواتب 5,400.00 full monthly salaries · 1 on daily wages');
   });
 
   it('shows a day’s labour cost instead of the month when asked, without working the month out', async () => {

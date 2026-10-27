@@ -281,6 +281,12 @@ public class HrApiTests
         Assert.Equal(slips.Sum(f => f.GetProperty("gross").GetDecimal()), totals.GetProperty("gross").GetDecimal());
         Assert.True(totals.GetProperty("gross").GetDecimal() > 0);
         Assert.Equal(30m, totals.GetProperty("administrativePenalties").GetDecimal());
+        // Its salaries as agreed: each in full, of everyone on it (Karim too, while he was employed
+        // in it, and the portal's employee); Samir's daily wage is none.
+        var agreed = new Dictionary<string, decimal> { ["Hassan"] = 5_400, ["Samir"] = 0, ["Mona"] = 4_050, ["Karim"] = 6_000, [TestApi.OutsiderName] = 3_000 };
+        Assert.Equal(
+            payroll.GetProperty("slips").EnumerateArray().Sum(s => agreed[s.GetProperty("employee").GetProperty("name").GetString()!]),
+            totals.GetProperty("monthlySalaries").GetDecimal());
     }
 
     [Fact]
@@ -591,11 +597,15 @@ public class HrApiTests
         }, Cancel));
 
         var share = Math.Round(5_400m / days, 2, MidpointRounding.AwayFromZero);
-        var draft = (await Json(await manager.PostAsync($"/api/hr/payroll/calculate?month={Iso(lastMonth)}", null, Cancel))).GetProperty("slips")[0];
+        var calculated = await Json(await manager.PostAsync($"/api/hr/payroll/calculate?month={Iso(lastMonth)}", null, Cancel));
+        var draft = calculated.GetProperty("slips")[0];
         var figures = draft.GetProperty("figures");
         Assert.Equal(("Draft", 1, share, 100m, 50m, 0, 0), (draft.GetProperty("status").GetString(), figures.GetProperty("daysEmployed").GetInt32(),
             figures.GetProperty("baseSalary").GetDecimal(), figures.GetProperty("incentives").GetDecimal(), figures.GetProperty("advances").GetDecimal(),
             figures.GetProperty("absentDays").GetInt32(), figures.GetProperty("openDays").GetInt32()));
+        // The month's salaries as agreed: his in full, though he earned a day's share of it.
+        var totals = calculated.GetProperty("totals");
+        Assert.Equal((5_400m, share), (totals.GetProperty("monthlySalaries").GetDecimal(), totals.GetProperty("baseSalaries").GetDecimal()));
 
         // Paid only once finalized.
         object Payment(decimal amount) => new { paymentId = Guid.NewGuid(), employeeId = hassan, month = Iso(lastMonth), date = Iso(today), amount, notes = "Transfer" };

@@ -609,10 +609,13 @@ export interface PayrollMonth {
     salaryPaid: number;
     daysOffWorkedPay: number;
     holidaysWorkedPay: number;
-    // The month's salaries before anything is deducted (إجمالي الرواتب).
+    // What is earned before anything is deducted.
     gross: number;
     administrativePenalties: number;
     unpaidLeaveDeductions?: number;
+    // The month's salaries (إجمالي الرواتب), each in full as agreed, of everyone employed in it,
+    // however few of its days; a daily employee has none.
+    monthlySalaries: number;
   };
   slips: PayrollSlip[];
 }
