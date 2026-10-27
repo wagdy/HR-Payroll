@@ -1,9 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { Route, provideRouter } from '@angular/router';
+import { Route, Router, provideRouter } from '@angular/router';
 import { routes } from '../../app.routes';
 import { AuthService } from '../../core/auth/auth.service';
 import { Permissions } from '../../core/auth/permissions';
-import { signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { HrShell } from './hr-shell';
 import { CorrectionsCount } from './corrections-count';
 import { PendingLeaves } from './pending-leaves';
@@ -100,8 +100,12 @@ describe('the HR navigation', () => {
     expect([...el.querySelectorAll('nav a')].map((a) => a.getAttribute('href'))).toEqual([
       '/now', '/employees', '/departments', '/attendance', '/corrections', '/payroll', '/advances', '/leaves', '/devices', '/permissions',
     ]);
-    expect(text(el.querySelectorAll('nav a')[7])).toBe('Leaves & Holidaysالإجازات والعطلات');
-    expect(text(el.querySelectorAll('nav a')[9])).toBe('Permissionsصلاحيات الموظفين');
+    expect(text(el.querySelectorAll('nav a .label')[7])).toBe('Leaves & Holidaysالإجازات والعطلات');
+    expect(text(el.querySelectorAll('nav a .label')[9])).toBe('Permissionsصلاحيات الموظفين');
+    // Each with its icon.
+    expect([...el.querySelectorAll('nav a mat-icon')].map(text)).toEqual([
+      'how_to_reg', 'groups', 'account_tree', 'event_available', 'rule', 'payments', 'request_quote', 'beach_access', 'fingerprint', 'admin_panel_settings',
+    ]);
     expect(refresh).toHaveBeenCalled();
     expect(el.querySelector('.count')).toBeNull();
 
@@ -120,5 +124,60 @@ describe('the HR navigation', () => {
   it('shows an accountant only the tabs a manager ticked for them, and no Permissions', async () => {
     const { el } = await shellOf(['Payroll', 'Advances'], false);
     expect([...el.querySelectorAll('nav a')].map((a) => a.getAttribute('href'))).toEqual(['/payroll', '/advances']);
+  });
+
+  // On a phone the sidebar is a drawer, opened from the bar above the page that names the tab open.
+  it('opens the sections from the menu button, marks the tab open, and closes on Escape, the backdrop or a tab picked', async () => {
+    @Component({ template: '' })
+    class Page {}
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([{ path: 'payroll', component: Page }, { path: 'advances', component: Page }]),
+        { provide: CorrectionsCount, useValue: { count: signal(1), refresh: vi.fn() } },
+        { provide: PendingLeaves, useValue: { count: signal(0), refresh: vi.fn() } },
+        { provide: AuthService, useValue: { employeeActing: () => false, me: signal({ hrTabs: ['Payroll', 'Advances', 'Corrections'] }), can: (p: string) => p !== Permissions.ApprovalDecide } },
+      ],
+    });
+    const fixture = TestBed.createComponent(HrShell);
+    const el = fixture.nativeElement as HTMLElement;
+    const refresh = async () => {
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+    await TestBed.inject(Router).navigateByUrl('/payroll');
+    await refresh();
+    const menu = el.querySelector<HTMLButtonElement>('.mobile-bar button')!;
+    const side = el.querySelector('aside')!;
+
+    expect(text(el.querySelector('.current')!)).toBe('Payrollمسير الرواتب');
+    expect(el.querySelector('nav a.active')!.getAttribute('href')).toBe('/payroll');
+    expect(el.querySelector('nav a.active')!.getAttribute('aria-current')).toBe('page');
+    // Something waits in a tab: a dot on the menu button.
+    expect(menu.querySelector('.dot')).not.toBeNull();
+    expect([side.classList.contains('open'), menu.getAttribute('aria-expanded'), el.querySelector('.backdrop')]).toEqual([false, 'false', null]);
+
+    menu.click();
+    await refresh();
+    expect([side.classList.contains('open'), menu.getAttribute('aria-expanded'), side.getAttribute('role')]).toEqual([true, 'true', 'dialog']);
+    expect(document.activeElement?.getAttribute('href')).toBe('/payroll');
+
+    side.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await refresh();
+    expect(side.classList.contains('open')).toBe(false);
+    expect(document.activeElement).toBe(menu);
+
+    menu.click();
+    await refresh();
+    el.querySelector<HTMLElement>('.backdrop')!.click();
+    await refresh();
+    expect(side.classList.contains('open')).toBe(false);
+
+    menu.click();
+    await refresh();
+    el.querySelector<HTMLAnchorElement>('nav a[href="/advances"]')!.click();
+    await refresh();
+    expect(side.classList.contains('open')).toBe(false);
+    expect(text(el.querySelector('.current')!)).toBe('Advancesالسلفيات');
   });
 });

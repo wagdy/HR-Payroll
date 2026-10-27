@@ -9,24 +9,26 @@ export interface HrTabInfo {
   path: string;
   en: string;
   ar: string;
+  // Its Material icon, beside its name in the sections.
+  icon: string;
 }
 
 // HR & Payroll's own tabs, in the order they are shown.
 export const hrTabs: readonly HrTabInfo[] = [
-  { tab: 'Now', path: 'now', en: 'Now', ar: 'الآن' },
-  { tab: 'Employees', path: 'employees', en: 'Employees', ar: 'الموظفين' },
-  { tab: 'Departments', path: 'departments', en: 'Departments', ar: 'الأقسام' },
-  { tab: 'Attendance', path: 'attendance', en: 'Attendance', ar: 'الحضور والانصراف' },
-  { tab: 'Corrections', path: 'corrections', en: 'Corrections', ar: 'مراجعة وجزاءات' },
-  { tab: 'Payroll', path: 'payroll', en: 'Payroll', ar: 'مسير الرواتب' },
-  { tab: 'Advances', path: 'advances', en: 'Advances', ar: 'السلفيات' },
+  { tab: 'Now', path: 'now', en: 'Now', ar: 'الآن', icon: 'how_to_reg' },
+  { tab: 'Employees', path: 'employees', en: 'Employees', ar: 'الموظفين', icon: 'groups' },
+  { tab: 'Departments', path: 'departments', en: 'Departments', ar: 'الأقسام', icon: 'account_tree' },
+  { tab: 'Attendance', path: 'attendance', en: 'Attendance', ar: 'الحضور والانصراف', icon: 'event_available' },
+  { tab: 'Corrections', path: 'corrections', en: 'Corrections', ar: 'مراجعة وجزاءات', icon: 'rule' },
+  { tab: 'Payroll', path: 'payroll', en: 'Payroll', ar: 'مسير الرواتب', icon: 'payments' },
+  { tab: 'Advances', path: 'advances', en: 'Advances', ar: 'السلفيات', icon: 'request_quote' },
   // The leaves and the public holidays (the tab the API calls Holidays).
-  { tab: 'Holidays', path: 'leaves', en: 'Leaves & Holidays', ar: 'الإجازات والعطلات' },
-  { tab: 'Devices', path: 'devices', en: 'Attendance devices', ar: 'أجهزة البصمة' },
+  { tab: 'Holidays', path: 'leaves', en: 'Leaves & Holidays', ar: 'الإجازات والعطلات', icon: 'beach_access' },
+  { tab: 'Devices', path: 'devices', en: 'Attendance devices', ar: 'أجهزة البصمة', icon: 'fingerprint' },
 ];
 
 // Custody & Assets, a section of its own (/custody), given as a tab is.
-export const custodyTab: HrTabInfo = { tab: 'Custody', path: '/custody', en: 'Custody & Assets', ar: 'العهدة والأصول' };
+export const custodyTab: HrTabInfo = { tab: 'Custody', path: '/custody', en: 'Custody & Assets', ar: 'العهدة والأصول', icon: 'inventory_2' };
 
 // Every tab a manager gives, in the order the Permissions tab shows them.
 export const givenTabs: readonly HrTabInfo[] = [...hrTabs, custodyTab];
