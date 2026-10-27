@@ -16,7 +16,8 @@ ENV NG_CLI_ANALYTICS=false CI=1
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
-RUN npx ng build --configuration production --output-path /app-dist
+# Through scripts/build.mjs: `ng build` itself never exits after building (see the script).
+RUN node scripts/build.mjs --configuration production --output-path /app-dist
 
 # ---- 2. The API, with the app in its wwwroot ----
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api
