@@ -130,7 +130,7 @@ describe('an employee working their HR tabs in the portal', () => {
     http.get('/api/hr/employees').subscribe({ error: () => undefined });
     backend.expectOne('/api/hr/employees').flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(portal.isSignedIn()).toBe(false);
-    expect(navigate).toHaveBeenCalledWith(['/portal'], { queryParams: { reason: 'expired' } });
+    expect(navigate).toHaveBeenCalledWith(['/sign-in'], { queryParams: { reason: 'expired' } });
     backend.verify();
   });
 

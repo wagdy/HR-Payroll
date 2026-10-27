@@ -7,12 +7,15 @@ namespace HrPayroll.Api.Hosting;
 // Nothing else of the system
 // answers. The rest of the API, the hub, the attendance device's paths and the health checks are
 // not found there; the app's files are, for the portal's screens, and any other screen of the app
-// opens the portal's sign-in instead.
+// opens the sign-in instead, where an employee signs in with their mobile number (a user's email
+// is refused there: /api/auth/sign-in is not found).
 internal static class PortalPort
 {
     public const string Setting = "Portal:Port";
+    public const string SignIn = "/sign-in";
 
-    private static readonly string[] Screens = ["/portal", "/my-profile", "/hr", "/custody"];
+    // /portal: the address employees were given, which opens the sign-in.
+    private static readonly string[] Screens = [SignIn, "/portal", "/my-profile", "/hr", "/custody"];
 
     public static int? Of(IConfiguration configuration) => configuration.GetValue<int?>(Setting);
 
@@ -48,10 +51,10 @@ internal static class PortalPort
             return app;
         return app.Use(async (context, next) =>
         {
-            // Its address alone, or any other screen, opens the portal's sign-in.
+            // Its address alone, or any other screen, opens the sign-in.
             if (context.Connection.LocalPort == portalPort && IsOtherScreen(context.Request) && Allows(context.Request))
             {
-                context.Response.Redirect("/portal");
+                context.Response.Redirect(SignIn);
                 return;
             }
 

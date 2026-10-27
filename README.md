@@ -20,8 +20,9 @@ self-service portal. Bilingual (English and Arabic) throughout.
   the weekends new employees start with.
 - **Roles and approvals**: users sign in with an email and a password, as a Manager or an
   Accountant. An accountant works the tabs a manager gives them, and their changes wait for a
-  manager's approval. An employee signs in to the portal with their mobile number and a PIN, and
-  can be given HR tabs to work there.
+  manager's approval. Everyone signs in on one page: a user with their email and password, an
+  employee with their mobile number and a PIN, who goes to their own portal and can be given HR
+  tabs to work there.
 
 The design, rule by rule, is in [docs/](docs/).
 

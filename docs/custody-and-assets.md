@@ -75,7 +75,8 @@ approval module `Custody`), the asset locked until decided. A portal PIN is a ma
   `/api/leaves/*` and `/api/performance/*` (for the tabs a manager gave an employee; only an
   employee's token holds a tab there) and the app's files (GET); the rest of the API, the hub,
   `/iclock` and the health checks are not found there. Its address alone, or any screen other
-  than `/portal`, `/my-profile`, `/hr` and `/custody`, sends a phone to `/portal`.
+  than `/sign-in`, `/portal`, `/my-profile`, `/hr` and `/custody`, sends a phone to `/sign-in`,
+  where a user's email is refused (its sign-in is not found there).
 
 ## The screens
 
@@ -86,7 +87,8 @@ approval module `Custody`), the asset locked until decided. A portal PIN is a ma
   change keeps its own.
 - **The employee profile**: an Assigned custody card, and a Portal card where a manager sets,
   changes or takes off the PIN and sees the portal's Wi-Fi address.
-- **The portal** (`/portal`, then `/my-profile`): the employee's details and ID card, their
+- **The portal** (signed in on the one sign-in, `/sign-in`, with their mobile number and PIN;
+  `/portal` opens it too; then `/my-profile`): the employee's details and ID card, their
   payslip (this month's draft, or one before), their leaves, and their custody as Asset |
   Category | Quantity, with nothing of what it cost; read-only, and nothing of the system's
   navigation. On a phone: details, custody, then the payslip.

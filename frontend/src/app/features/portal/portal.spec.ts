@@ -10,7 +10,6 @@ import { PortalAuth } from '../../core/portal/portal-auth';
 import { PortalApi, PortalProfile } from '../../core/portal/portal.api';
 import { PayrollSlip } from '../../core/hr/hr.api';
 import { MyProfilePage } from './my-profile-page';
-import { PortalLoginPage } from './portal-login-page';
 import { PortalHrFrame } from './portal-hr-frame';
 import { HrAccess } from '../../core/hr/hr-access';
 
@@ -73,7 +72,7 @@ describe('the portal’s sign-in, kept apart from the system’s', () => {
     backend.expectOne('/api/portal/me').flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(portal.isSignedIn()).toBe(false);
     expect(localStorage.getItem('hr-payroll.portal-session')).toBeNull();
-    expect(navigate).toHaveBeenCalledWith(['/portal'], { queryParams: { reason: 'expired' } });
+    expect(navigate).toHaveBeenCalledWith(['/sign-in'], { queryParams: { reason: 'expired' } });
     expect(staffSignOut).not.toHaveBeenCalled();
   });
 
@@ -81,69 +80,6 @@ describe('the portal’s sign-in, kept apart from the system’s', () => {
     localStorage.setItem('hr-payroll.portal-session', JSON.stringify({ token: 'old', expiresAtUtc: '2020-01-01T00:00:00Z', employeeId: 'hassan', name: 'Hassan' }));
     const { portal } = setUp();
     expect(portal.isSignedIn()).toBe(false);
-  });
-});
-
-describe('the portal’s sign-in screen', () => {
-  const signIn = vi.fn();
-
-  async function render(reason?: string) {
-    TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: PortalAuth, useValue: { signIn } }],
-    });
-    const fixture = TestBed.createComponent(PortalLoginPage);
-    if (reason) {
-      fixture.componentRef.setInput('reason', reason);
-    }
-    const el = fixture.nativeElement as HTMLElement;
-    const refresh = async () => {
-      fixture.componentRef.changeDetectorRef.markForCheck();
-      fixture.detectChanges();
-      await fixture.whenStable();
-      fixture.detectChanges();
-    };
-    await refresh();
-    return { el, refresh, page: fixture.componentInstance as unknown as Record<string, any> };
-  }
-
-  beforeEach(() => {
-
-    signIn.mockReset();
-
-  });
-
-  it('signs in and opens their profile; a refusal says why and clears the PIN', async () => {
-    const { el, page, refresh } = await render();
-    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-    expect(text(el.querySelector('h1')!)).toBe('My profile ملفي');
-    // Nothing of the system here.
-    expect(el.querySelector('nav, mat-toolbar')).toBeNull();
-
-    // Nothing typed yet: said so, nothing sent.
-    await page['signIn']();
-    await refresh();
-    expect(text(el.querySelector('.error')!)).toBe('Enter your mobile number and your PIN.');
-    expect(signIn).not.toHaveBeenCalled();
-    expect((el.querySelector('button[type=submit]') as HTMLButtonElement).disabled).toBe(false);
-
-    signIn.mockRejectedValueOnce(new HttpErrorResponse({ status: 401, error: { detail: 'Wrong mobile number or PIN.' } }));
-    Object.assign(page, { mobile: ' 01012345678 ', pin: '1111' });
-    await page['signIn']();
-    await refresh();
-    expect(signIn).toHaveBeenLastCalledWith('01012345678', '1111');
-    expect(text(el.querySelector('.error')!)).toBe('Wrong mobile number or PIN.');
-    expect(page['pin']).toBe('');
-    expect(navigate).not.toHaveBeenCalled();
-
-    signIn.mockResolvedValueOnce(undefined);
-    page['pin'] = '2468';
-    await page['signIn']();
-    expect(navigate).toHaveBeenCalledWith(['/my-profile']);
-  });
-
-  it('says they were signed out', async () => {
-    const { el } = await render('expired');
-    expect(text(el.querySelector('.notice')!)).toBe('You were signed out. Sign in again. سجّل الدخول مرة أخرى');
   });
 });
 

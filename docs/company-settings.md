@@ -61,6 +61,6 @@ The portal's port answers `GET /api/settings` and the logo, never a change.
 - **Settings** (a manager's, in the top bar): the company's name and logo; the currency symbol and
   where it goes, with "1,400.00" shown as it will read; the country, the time zone (typed or
   picked from the browser's list) and the hour the workday starts; and the weekends.
-- **The logo and name** in the top bar, on the sign-in page, on the portal's sign-in and on every
+- **The logo and name** in the top bar, on the sign-in page (everyone's, the portal's too) and on every
   payslip, printed ones too.
 - **Money** through one pipe and one formatter, so every amount in the app follows the setting.

@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { PortalAuth } from '../portal/portal-auth';
 import { AuthService } from './auth.service';
 import { Permission } from './permissions';
 
@@ -13,9 +14,14 @@ export const signedInGuard: CanActivateFn = () => {
   return auth.isSignedIn() ? true : inject(Router).createUrlTree(['/sign-in']);
 };
 
+// The sign-in: one already signed in goes on, a user to the system and an employee to their
+// portal.
 export const signedOutGuard: CanActivateFn = () => {
-  const auth = inject(AuthService);
-  return auth.isSignedIn() ? inject(Router).createUrlTree([homePath]) : true;
+  const router = inject(Router);
+  if (inject(AuthService).isSignedIn()) {
+    return router.createUrlTree([homePath]);
+  }
+  return inject(PortalAuth).isSignedIn() ? router.createUrlTree(['/my-profile']) : true;
 };
 
 // A section only some roles have: its link is hidden from the rest, and this keeps a typed

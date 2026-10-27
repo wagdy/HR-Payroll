@@ -62,7 +62,7 @@ export class PortalAuth {
     } catch {
       // Nothing was kept.
     }
-    void this.router.navigate(['/portal'], { queryParams: reason ? { reason } : {} });
+    void this.router.navigate(['/sign-in'], { queryParams: reason ? { reason } : {} });
   }
 }
 
@@ -81,9 +81,5 @@ function tabsInToken(token: string | null): HrTab[] {
   }
 }
 
-// /my-profile: an employee signed in to the portal; anyone else to its sign-in.
-export const portalGuard: CanActivateFn = () => (inject(PortalAuth).isSignedIn() ? true : inject(Router).createUrlTree(['/portal']));
-
-// The portal's sign-in: one already signed in goes to their profile.
-export const portalSignedOutGuard: CanActivateFn = () =>
-  inject(PortalAuth).isSignedIn() ? inject(Router).createUrlTree(['/my-profile']) : true;
+// /my-profile: an employee signed in to the portal; anyone else to the sign-in.
+export const portalGuard: CanActivateFn = () => (inject(PortalAuth).isSignedIn() ? true : inject(Router).createUrlTree(['/sign-in']));

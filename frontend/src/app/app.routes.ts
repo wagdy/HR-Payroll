@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { homePath, permissionGuard, signedInGuard, signedOutGuard } from './core/auth/guards';
 import { Permissions } from './core/auth/permissions';
 import { HrAccess, hrGiveGuard, hrGuard, hrTabGuard, portalHrMatch } from './core/hr/hr-access';
-import { portalGuard, portalSignedOutGuard } from './core/portal/portal-auth';
+import { portalGuard } from './core/portal/portal-auth';
 
 // HR & Payroll's tabs, the system's and the portal's alike: each guarded by its tab (HrAccess), so
 // a typed address opens only a tab held. Opens on the first one held.
@@ -108,14 +108,10 @@ const custodyChildren: Routes = [
 ];
 
 export const routes: Routes = [
-  // The employee portal: its own sign-in and the employee's own page, outside the system's shell,
-  // so none of its navigation is there; the employee's token reaches /api/portal alone.
-  {
-    path: 'portal',
-    pathMatch: 'full',
-    canActivate: [portalSignedOutGuard],
-    loadComponent: () => import('./features/portal/portal-login-page').then((m) => m.PortalLoginPage),
-  },
+  // The employee portal: the employee's own page, outside the system's shell, so none of its
+  // navigation is there; the employee's token reaches /api/portal alone. They sign in on the one
+  // sign-in, with their mobile number; /portal, the address they were given, opens it.
+  { path: 'portal', pathMatch: 'full', redirectTo: 'sign-in' },
   {
     path: 'my-profile',
     canActivate: [portalGuard],
@@ -140,6 +136,7 @@ export const routes: Routes = [
     children: [{ path: '', loadComponent: () => import('./features/custody/custody-shell').then((m) => m.CustodyShell), children: custodyChildren }],
   },
   {
+    // Everyone's: a user with their email, an employee with their mobile number.
     path: 'sign-in',
     canActivate: [signedOutGuard],
     loadComponent: () => import('./features/sign-in/sign-in-page').then((m) => m.SignInPage),

@@ -291,14 +291,14 @@ public class CustodyApiTests
             Assert.Equal(HttpStatusCode.Unauthorized, (await phone.GetAsync(path, Cancel)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await phone.PostAsJsonAsync("/api/auth/sign-in", new { email = "x@example.com", password = "12345678" }, Cancel)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await phone.PostAsync("/my-profile", null, Cancel)).StatusCode);
-        // Its address alone, or another screen, opens the portal's sign-in; the portal's own screens and the app's files open.
+        // Its address alone, or another screen, opens the sign-in; the sign-in, the portal's own screens and the app's files open.
         var root = api.Anonymous(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        foreach (var path in new[] { "/", "/hr-settings", "/users", "/portalx" })
+        foreach (var path in new[] { "/", "/hr-settings", "/users", "/portalx", "/sign-inx" })
         {
             var opened = await root.GetAsync(path, Cancel);
-            Assert.Equal((HttpStatusCode.Redirect, "/portal"), (opened.StatusCode, opened.Headers.Location?.OriginalString));
+            Assert.Equal((HttpStatusCode.Redirect, "/sign-in"), (opened.StatusCode, opened.Headers.Location?.OriginalString));
         }
-        foreach (var path in new[] { "/portal", "/my-profile", "/hr/now", "/custody/assets", "/Portal?reason=expired", "/favicon.ico", "/main-ABC.js" })
+        foreach (var path in new[] { "/sign-in", "/sign-in?reason=expired", "/portal", "/my-profile", "/hr/now", "/custody/assets", "/Portal?reason=expired", "/favicon.ico", "/main-ABC.js" })
             Assert.NotEqual(HttpStatusCode.Redirect, (await root.GetAsync(path, Cancel)).StatusCode);
         // Its sign-in and its API answer there.
         Assert.Equal(HttpStatusCode.Unauthorized,
