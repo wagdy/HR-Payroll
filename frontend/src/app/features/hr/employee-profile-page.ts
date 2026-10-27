@@ -201,9 +201,9 @@ export class PinDialog {
             <div class="muted">{{ e.jobTitle }} · {{ departmentName() }}</div>
           </div>
           @if (e.isActive) {
-            <span class="status active">Employed<span class="ar">على رأس العمل</span></span>
+            <span class="status tag ok">Employed<span class="ar">على رأس العمل</span></span>
           } @else {
-            <span class="status">Left<span class="ar">ترك العمل</span></span>
+            <span class="status tag">Left<span class="ar">ترك العمل</span></span>
           }
       </header>
       @if (asked(); as a) {
@@ -394,17 +394,6 @@ export class PinDialog {
       font: var(--mat-sys-title-medium);
       background: var(--mat-sys-primary-container);
       color: var(--mat-sys-on-primary-container);
-    }
-    .status {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: var(--mat-sys-surface-container-high);
-
-      &.active {
-        background: color-mix(in srgb, var(--app-ok, #2e7d32) 16%, transparent);
-      }
     }
     .waiting {
       max-width: 1320px;

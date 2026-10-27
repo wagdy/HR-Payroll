@@ -32,6 +32,7 @@ import { HrAccess } from '../../core/hr/hr-access';
       }
     </div>
     <p class="note">
+      <span class="note-ar" lang="ar" dir="rtl">يوم راحة مدفوع للجميع: عدم العمل فيه لا يُعد غيابًا أبدًا. ومن يعمل فيه يُحاسَب على دوامه كأي يوم، ويستحق أجر يوم إضافي إن عمل نصف يوم أو أكثر، وأجر ساعاته إن عمل أقل. والعطلة التي توافق يوم الراحة الأسبوعي للموظف تُدفع مرة واحدة.</span>
       Everyone's paid day off: not working one is never an absence. Whoever works it is measured against their work schedule as on any day, and earns a
       day's pay on top for half a workday or more, its hours for less. One on someone's weekly day off is paid once.
     </p>
@@ -85,8 +86,10 @@ import { HrAccess } from '../../core/hr/hr-access';
           <h3 id="suggested-title">{{ country().en }}'s fixed-date holidays not entered yet <span class="inline-ar">العطلات الثابتة</span></h3>
           <p class="note">
             @if (company.settings().country === 'SaudiArabia') {
+              <span class="note-ar" lang="ar" dir="rtl">راجع كل عطلة مع الإعلان الرسمي. عيد الفطر وعيد الأضحى يتبعان رؤية الهلال: أضفهما بعد إعلانهما.</span>
               Check each against the official announcement. Eid al-Fitr and Eid al-Adha follow the moon: add them once announced.
             } @else {
+              <span class="note-ar" lang="ar" dir="rtl">راجع كل عطلة مع إعلان الحكومة، فبعضها يُنقل إلى يوم خميس. العيدان ووقفة عرفات ورأس السنة الهجرية والمولد النبوي تتبع رؤية الهلال: أضفها بعد إعلانها.</span>
               Check each against the government's announcement, as some are moved to a Thursday. The Eids, Arafat, the Hijri New Year and the
               Prophet's Birthday follow the moon: add them once announced.
             }

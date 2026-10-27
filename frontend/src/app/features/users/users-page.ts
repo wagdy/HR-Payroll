@@ -25,7 +25,7 @@ const rank = (user: User) => (user.role === 'Manager' ? 0 : 1);
       <h1>Users <span class="inline-ar">المستخدمون</span></h1>
     </header>
     <div class="toolbar">
-      <p class="note">Who signs in to the system: managers, and accountants who work the HR tabs a manager gives them.</p>
+      <p class="note"><span class="note-ar" lang="ar" dir="rtl">من يسجّل الدخول إلى النظام: المديرون، والمحاسبون الذين يعملون على تبويبات الموارد البشرية التي يمنحها لهم المدير.</span> Who signs in to the system: managers, and accountants who work the HR tabs a manager gives them.</p>
       <span class="spacer"></span>
       <button mat-flat-button (click)="add()"><mat-icon>person_add</mat-icon> Add a user</button>
     </div>
@@ -93,15 +93,7 @@ const rank = (user: User) => (user.role === 'Manager' ? 0 : 1);
       color: var(--mat-sys-on-surface-variant);
     }
     .tag {
-      margin-left: 6px;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: var(--mat-sys-surface-container-high);
-
-      &.warn {
-        background: color-mix(in srgb, var(--app-warn) 22%, transparent);
-      }
+      margin-inline-start: 6px;
     }
     .muted {
       color: var(--mat-sys-on-surface-variant);

@@ -73,7 +73,7 @@ import { LeaveTypeAnswer, LeaveTypeDialog } from './leave-dialogs';
         </table>
       </div>
       @if (!manager()) {
-        <p class="note">A manager adds and changes them.</p>
+        <p class="note"><span class="note-ar" lang="ar" dir="rtl">يضيفها المدير ويعدّلها.</span> A manager adds and changes them.</p>
       }
     }
   `,

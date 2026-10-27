@@ -32,7 +32,7 @@ import { Company } from '../../core/settings/company';
           <div class="muted">{{ s.employee.jobTitle }} · {{ month() | date: 'MMMM y' }}</div>
         </div>
         <div class="state">
-          <span class="status" [class]="s.status ?? 'none'">{{ status().en }}<span class="ar">{{ status().ar }}</span></span>
+          <span class="status tag" [class]="s.status ?? 'none'">{{ status().en }}<span class="ar">{{ status().ar }}</span></span>
           @if (s.finalizedBy) {
             <div class="muted small">by {{ s.finalizedBy }}, {{ s.finalizedAtUtc | date: 'd MMM' }}</div>
           }
@@ -337,15 +337,14 @@ import { Company } from '../../core/settings/company';
       border-radius: 8px;
       background: var(--mat-sys-surface-container);
     }
-    .status {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: var(--mat-sys-surface-container-high);
-
+    .status.tag {
       &.Finalized {
-        background: color-mix(in srgb, #2e7d32 16%, transparent);
+        --tag-bg: var(--tag-ok-bg);
+        --tag-fg: var(--tag-ok-fg);
+      }
+      &.Draft {
+        --tag-bg: var(--tag-info-bg);
+        --tag-fg: var(--tag-info-fg);
       }
     }
     .lists {

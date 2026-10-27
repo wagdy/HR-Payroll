@@ -177,7 +177,7 @@ interface Row {
                 <td class="num" [class.bad]="d.awayMinutes > 0">{{ duration(d.awayMinutes) }}</td>
                 <td class="num" [class.good]="d.overtimeMinutes > 0">{{ duration(d.overtimeMinutes) }}</td>
                 <td>
-                  <span class="status" [class]="d.status">{{ labels[d.status].en }}<span class="ar">{{ labels[d.status].ar }}</span></span>
+                  <span class="status tag" [class]="d.status">{{ labels[d.status].en }}<span class="ar">{{ labels[d.status].ar }}</span></span>
                   @if (d.holidayName && mode() === 'employee') {
                     <div class="muted small">{{ d.holidayName }}</div>
                   }
@@ -251,7 +251,7 @@ interface Row {
     @if (mode() === 'day' && unassigned().length) {
       <section class="unassigned">
         <h3>Punches under a number nobody has <span class="inline-ar">بصمات بأرقام غير مسجلة</span></h3>
-        <p class="muted small">Give the number to an employee on the Employees tab, and their punches count from then.</p>
+        <p class="muted small"><span class="note-ar" lang="ar" dir="rtl">أعطِ الرقم لموظف من تبويب الموظفين، وتُحتسب بصماته من وقتها.</span> Give the number to an employee on the Employees tab, and their punches count from then.</p>
         @for (p of unassigned(); track p.id) {
           <span class="punch"><mat-icon>fingerprint</mat-icon> no. <strong>{{ p.deviceUserId }}</strong> at {{ clock(p.punchedAt) }}</span>
         }
@@ -260,6 +260,7 @@ interface Row {
 
     @if (policy(); as p) {
       <p class="note">
+        <span class="note-ar" lang="ar" dir="rtl">كل دوام تسع ساعات. يُحسب التأخير من بداية الدوام{{ p.graceMinutes ? ' بعد فترة سماح ' + p.graceMinutes + ' دقيقة' : '، ولا توجد فترة سماح' }}؛ والوقت الإضافي هو ما بعد نهاية الدوام زيادةً على تسع ساعات عمل، فالبقاء بعد الدوام لتعويض التأخير لا يُعد وقتًا إضافيًا؛ والبصمات المتتالية خلال {{ p.doubleScanMinutes }} دقيقة تُحسب بصمة واحدة. ينتهي اليوم قبل بداية الدوام التالي بست ساعات، فالدوام الذي يمتد بعد منتصف الليل يُحسب يومًا واحدًا. بصمة الحضور التي تمر عليها 18 ساعة دون بصمة انصراف تُوقف للمراجعة حتى يُدخل المدير الانصراف، هنا أو في تبويب المراجعة والجزاءات. العطلة الرسمية يوم راحة مدفوع للجميع؛ ومن يعمل فيها يُحسب يومه كما لو كان يوم عمل عاديًا ويستحق بدل العطلة. الساعات المرنة بلا دوام محدد: لا تأخير فيها، وما زاد على تسع ساعات وقت إضافي، ويومها من الساعة 04:00 إلى 04:00.</span>
         Each work schedule is nine hours. Late counts from the work schedule's start{{ p.graceMinutes ? ', once past ' + p.graceMinutes + ' minutes’ grace' : ': no grace is set' }};
         overtime is time after the work schedule ends, beyond nine hours worked, so staying late to make up for being late isn't overtime;
         scans within {{ p.doubleScanMinutes }} minutes of each other are one. A day ends six hours before the next work schedule starts, so a work schedule past
@@ -344,29 +345,39 @@ interface Row {
         background: color-mix(in srgb, #2e7d32 14%, transparent);
       }
     }
-    .status {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: var(--mat-sys-surface-container-high);
-
+    // A day's status as a tag (styles.scss), its tone by what the day was: worked green, today so
+    // far blue, a day off worked violet, a paid day off teal, suspended or unpaid amber, absent red,
+    // a day off grey.
+    .status.tag {
       &.Worked {
-        background: color-mix(in srgb, #2e7d32 16%, transparent);
+        --tag-bg: var(--tag-ok-bg);
+        --tag-fg: var(--tag-ok-fg);
+      }
+      &.Open {
+        --tag-bg: var(--tag-info-bg);
+        --tag-fg: var(--tag-info-fg);
       }
       &.WorkedOnDayOff,
       &.WorkedOnHoliday {
-        background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent);
+        --tag-bg: var(--tag-accent-bg);
+        --tag-fg: var(--tag-accent-fg);
       }
-      &.Holiday {
-        background: color-mix(in srgb, var(--mat-sys-tertiary) 16%, transparent);
+      &.Holiday,
+      &.Leave {
+        --tag-bg: var(--tag-teal-bg);
+        --tag-fg: var(--tag-teal-fg);
       }
-      &.Suspended {
-        background: color-mix(in srgb, var(--app-warn) 24%, transparent);
+      &.Suspended,
+      &.UnpaidLeave {
+        --tag-bg: var(--tag-warn-bg);
+        --tag-fg: var(--tag-warn-fg);
       }
       &.Absent {
-        background: color-mix(in srgb, var(--mat-sys-error) 16%, transparent);
-        color: var(--mat-sys-error);
+        --tag-bg: var(--tag-bad-bg);
+        --tag-fg: var(--tag-bad-fg);
+      }
+      &.NotEmployed {
+        opacity: 0.7;
       }
     }
     /* Forgot to check out: the row lit, its Out said so. */
@@ -374,12 +385,19 @@ interface Row {
       background: color-mix(in srgb, var(--mat-sys-error) 7%, transparent);
     }
     .flag {
-      display: inline-block;
-      padding: 1px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
       border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      color: var(--mat-sys-on-error-container);
-      background: var(--mat-sys-error-container);
+      font: var(--mat-sys-label-medium);
+      font-weight: 600;
+      color: var(--tag-bad-fg);
+      background: var(--tag-bad-bg);
+
+      .ar {
+        display: inline;
+      }
     }
     tr.status-NotEmployed td,
     tr.status-DayOff td,

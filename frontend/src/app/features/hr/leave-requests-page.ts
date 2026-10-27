@@ -35,7 +35,7 @@ import { PendingLeaves } from './pending-leaves';
         }
       </div>
       @if (!manager()) {
-        <p class="note">A manager approves or rejects them.</p>
+        <p class="note"><span class="note-ar" lang="ar" dir="rtl">يوافق عليها المدير أو يرفضها.</span> A manager approves or rejects them.</p>
       }
       @if (loading()) {
         <mat-progress-bar mode="indeterminate" />
@@ -105,7 +105,7 @@ import { PendingLeaves } from './pending-leaves';
         <button mat-icon-button (click)="moveYear(1)" aria-label="The year after"><mat-icon>chevron_right</mat-icon></button>
       </div>
       @if (manager()) {
-        <p class="note">An approved leave is cancelled from a day on: its days from then are given back and unmarked, those before stay taken.</p>
+        <p class="note"><span class="note-ar" lang="ar" dir="rtl">تُلغى الإجازة المعتمدة بدءًا من يوم معيّن: تُعاد أيامها من ذلك اليوم وتُرفع من الحضور، وتبقى الأيام السابقة محسوبة.</span> An approved leave is cancelled from a day on: its days from then are given back and unmarked, those before stay taken.</p>
       }
       <div class="table-wrap">
         <table class="grid">
@@ -136,7 +136,7 @@ import { PendingLeaves } from './pending-leaves';
                   }
                 </td>
                 <td>
-                  <span class="leave-status" [class]="s.key">{{ s.en }}<span class="ar">{{ s.ar }}</span></span>
+                  <span class="leave-status tag" [class]="s.key">{{ s.en }}<span class="ar">{{ s.ar }}</span></span>
                   @if (r.cancelledFrom) {
                     <div class="muted small">from {{ dayName(r.cancelledFrom) }} by {{ r.cancelledBy }}@if (r.cancellationNotes) { · {{ r.cancellationNotes }} }</div>
                   } @else if (r.managerNotes) {
@@ -203,27 +203,24 @@ import { PendingLeaves } from './pending-leaves';
     .nowrap {
       white-space: nowrap;
     }
-    .leave-status {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      white-space: nowrap;
-      background: var(--mat-sys-surface-container-high);
-
-      .ar {
-        display: inline;
-        margin-left: 4px;
+    // A request's status as a tag (styles.scss): waiting blue, approved green, cut short amber,
+    // rejected red, cancelled grey.
+    .leave-status.tag {
+      &.Pending {
+        --tag-bg: var(--tag-info-bg);
+        --tag-fg: var(--tag-info-fg);
       }
       &.Approved {
-        background: color-mix(in srgb, var(--app-ok, #2e7d32) 18%, transparent);
-      }
-      &.Rejected {
-        background: color-mix(in srgb, var(--mat-sys-error) 14%, transparent);
-        color: var(--mat-sys-error);
+        --tag-bg: var(--tag-ok-bg);
+        --tag-fg: var(--tag-ok-fg);
       }
       &.CutShort {
-        background: color-mix(in srgb, var(--app-warn) 22%, transparent);
+        --tag-bg: var(--tag-warn-bg);
+        --tag-fg: var(--tag-warn-fg);
+      }
+      &.Rejected {
+        --tag-bg: var(--tag-bad-bg);
+        --tag-fg: var(--tag-bad-fg);
       }
     }
   `,

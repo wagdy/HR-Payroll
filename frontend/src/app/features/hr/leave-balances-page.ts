@@ -35,6 +35,7 @@ import { LeaveBalanceDialog } from './leave-dialogs';
       </mat-form-field>
     </div>
     <p class="note">
+      <span class="note-ar" lang="ar" dir="rtl">يبدأ كل عام من جديد في 1 يناير بأيام كل نوع، دون ترحيل؛ والموظف الجديد يأخذ في سنته الأولى نصيبه من النوع الذي يُحسب بالنسبة. @if (manager()) { عدّل أيام أي رصيد بأيقونة القلم، بأيام كاملة أو أنصاف أيام. }</span>
       Each year opens afresh on 1 January at each type’s days, nothing carried over; a new hire’s first year at their share of a type shared so.
       @if (manager()) {
         Change a balance’s days with its pencil, in whole or half days.

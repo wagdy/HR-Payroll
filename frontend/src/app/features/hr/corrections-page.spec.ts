@@ -248,7 +248,7 @@ describe('the corrections', () => {
     const { el, rows } = await render();
 
     expect(el.querySelectorAll('button:not([aria-label*="month"])').length).toBe(0);
-    expect(text(el.querySelector('.suspended .table-wrap + .note')!)).toBe('A manager enters the punch-out, or ignores the punch.');
+    expect(text(el.querySelector('.suspended .table-wrap + .note')!)).toBe('يُدخل المدير بصمة الانصراف، أو يتجاهل البصمة. A manager enters the punch-out, or ignores the punch.');
     expect(rows('penalties')[0].querySelectorAll('td').length).toBe(7);
   });
 

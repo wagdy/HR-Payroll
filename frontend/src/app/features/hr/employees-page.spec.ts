@@ -126,14 +126,14 @@ describe('the employees', () => {
 
     expect(text(el.querySelector('.toolbar .muted')!)).toBe('2 employed · 9,400.00 a month');
     expect(rows()).toEqual([
-      // The company's week starts on Saturday.
-      ['Hassan Checker · General', '5,400.00 180.00 a day · 20.00 an hour', '10:00–19:00', 'Sat, Fri', '7', 'Employed على رأس العمل since 1 Jan 2026'],
-      ['Mona Warehouse clerk · General', '4,000.00 133.33 a day · 14.81 an hour', '16:00–01:00', 'None', '—', 'Employed على رأس العمل since 1 Jan 2026'],
+      // Each with their initials in a circle; the company's week starts on Saturday.
+      ['H Hassan Checker · General', '5,400.00 180.00 a day · 20.00 an hour', '10:00–19:00', 'Sat, Fri', '7', 'Employed على رأس العمل since 1 Jan 2026'],
+      ['M Mona Warehouse clerk · General', '4,000.00 133.33 a day · 14.81 an hour', '16:00–01:00', 'None', '—', 'Employed على رأس العمل since 1 Jan 2026'],
     ]);
 
     page['showLeft'].set(true);
     await refresh();
-    expect(rows()[0]).toEqual(['Gone Already Checker · General', '5,400.00 180.00 a day · 20.00 an hour', '10:00–19:00', 'Fri', '—', 'Left ترك العمل last day 30 Sep 2026']);
+    expect(rows()[0]).toEqual(['GA Gone Already Checker · General', '5,400.00 180.00 a day · 20.00 an hour', '10:00–19:00', 'Fri', '—', 'Left ترك العمل last day 30 Sep 2026']);
   });
 
   it('opens an employee’s profile from their row or their name, and not from the row’s buttons', async () => {
@@ -193,12 +193,12 @@ describe('the employees', () => {
     employees.mockReturnValue(of([hassan, samir]));
     const { el, page, rows, refresh } = await render();
 
-    expect(rows()[1].slice(0, 2)).toEqual(['Samir Checker · Key accounts', '270.00 a day Daily wage · 30.00 an hour']);
+    expect(rows()[1].slice(0, 2)).toEqual(['S Samir Checker · Key accounts', '270.00 a day Daily wage · 30.00 an hour']);
     expect(text(el.querySelector('.toolbar > .muted')!)).toBe('2 employed · 5,400.00 a month · 1 on daily wages');
 
     page['department'].set('accounts');
     await refresh();
-    expect(rows().map((r) => r[0])).toEqual(['Samir Checker · Key accounts']);
+    expect(rows().map((r) => r[0])).toEqual(['S Samir Checker · Key accounts']);
   });
 
   describe('Excel', () => {
@@ -385,7 +385,8 @@ describe('the employees', () => {
     const { el } = await render(true, 'device');
 
     expect(text(el.querySelector('.on-device p')!)).toBe(
-      'No users read from the attendance device yet. Sync device reads them, as does a device’s “Read its users” on the Attendance devices tab.',
+      'لم يُقرأ أي مستخدم من جهاز البصمة بعد. «مزامنة الجهاز» تقرؤهم، وكذلك «قراءة المستخدمين» لأي جهاز في تبويب أجهزة البصمة. ' +
+        'No users read from the attendance device yet. Sync device reads them, as does a device’s “Read its users” on the Attendance devices tab.',
     );
     expect(el.querySelector('.on-device a')!.getAttribute('href')).toBe('/hr/devices');
     expect(el.querySelector('table.grid')).toBeNull();
@@ -420,7 +421,9 @@ describe('the employees', () => {
     expect(notify.info).toHaveBeenCalledWith('منى added, with number 12 on the device.');
     expect(page['list']()).toBe('device');
     expect(el.querySelectorAll('.on-device tbody tr').length).toBe(0);
-    expect(text(el.querySelector('.on-device p')!)).toBe('Everyone the device has listed is an employee here. Sync device reads it again for anyone new.');
+    expect(text(el.querySelector('.on-device p')!)).toBe(
+      'كل من سجّله الجهاز موظف هنا. «مزامنة الجهاز» تقرؤه من جديد بحثًا عن أي شخص جديد. Everyone the device has listed is an employee here. Sync device reads it again for anyone new.',
+    );
     expect([...el.querySelectorAll('.lists .count')].map(text)).toEqual(['3', '0']);
 
     // Linked to Mona, employed without a number: saved as she is, with it, her ID card's number and

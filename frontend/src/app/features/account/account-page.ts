@@ -30,7 +30,7 @@ import { MinPasswordLength, roleLabels } from '../../core/users/users.api';
         <dd>{{ labels[me.role].en }}<span class="inline-ar">{{ labels[me.role].ar }}</span></dd>
       </dl>
       @if (noTabs()) {
-        <p class="note">You hold no HR tab yet. A manager gives them on HR &amp; Payroll's Permissions tab.</p>
+        <p class="note"><span class="note-ar" lang="ar" dir="rtl">ليس لديك أي تبويب في الموارد البشرية بعد. يمنحها المدير من تبويب صلاحيات الموظفين.</span> You hold no HR tab yet. A manager gives them on HR &amp; Payroll's Permissions tab.</p>
       }
     }
 

@@ -185,7 +185,7 @@ describe('the leave requests', () => {
   it('shows an accountant the requests with nothing to decide, and asks for leave for someone', async () => {
     const { el } = await render(LeaveRequestsPage, 'accountant');
     expect(el.querySelectorAll('td.actions, .year-part tbody button').length).toBe(0);
-    expect(text(el.querySelector('.note')!)).toBe('A manager approves or rejects them.');
+    expect(text(el.querySelector('.note')!)).toBe('يوافق عليها المدير أو يرفضها. A manager approves or rejects them.');
     expect(text(el.querySelector('.toolbar button')!)).toBe('add Request leave for someone طلب إجازة');
 
     const viewer = await render(LeaveRequestsPage, 'viewer');
@@ -276,6 +276,6 @@ describe('the leave types', () => {
   it('shows anyone but a manager the types with nothing to change', async () => {
     const { el } = await render(LeaveTypesPage, 'accountant');
     expect(el.querySelectorAll('button').length).toBe(0);
-    expect(text(el.querySelector('.note')!)).toBe('A manager adds and changes them.');
+    expect(text(el.querySelector('.note')!)).toBe('يضيفها المدير ويعدّلها. A manager adds and changes them.');
   });
 });

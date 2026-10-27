@@ -58,6 +58,7 @@ import { CorrectionsCount } from './corrections-count';
         </mat-form-field>
       </div>
       <p class="note">
+        <span class="note-ar" lang="ar" dir="rtl">بصمة حضور مرّت عليها 18 ساعة دون بصمة انصراف. لا يُحسب اليوم، ولا يمكن اعتماد راتب شهره، حتى يُدخل المدير وقت الانصراف، أو يتجاهل البصمة إن كانت بالخطأ.</span>
         A punch-in left 18 hours without its punch-out. The day isn't worked out, and its month's pay can't be finalized, until a manager enters
         when they left, or ignores the punch if it was made by mistake.
       </p>
@@ -128,7 +129,7 @@ import { CorrectionsCount } from './corrections-count';
           </table>
         </div>
         @if (!canCorrect() && days().length) {
-          <p class="note">A manager enters the punch-out, or ignores the punch.</p>
+          <p class="note"><span class="note-ar" lang="ar" dir="rtl">يُدخل المدير بصمة الانصراف، أو يتجاهل البصمة.</span> A manager enters the punch-out, or ignores the punch.</p>
         }
       }
     </section>
@@ -137,6 +138,7 @@ import { CorrectionsCount } from './corrections-count';
       <section class="late" aria-labelledby="late-title">
         <h2 id="late-title">Punches after the pay was finalized <span class="inline-ar">بصمات بعد اعتماد الرواتب</span></h2>
         <p class="note">
+          <span class="note-ar" lang="ar" dir="rtl">احتفظ بها الجهاز أثناء انقطاع النظام، وأرسلها بعد اعتماد راتب شهرها. تبقى قسيمة الراتب كما هي: إن غيّرت هذه البصمات المستحق، فسوِّ الفرق في راتب شهر لاحق بحافز أو جزاء، ثم علّمها كمُراجَعة.</span>
           The device kept them while the system was away, and sent them after their month's pay was finalized. The payslip stays as it was: if they
           change what was owed, settle it in a later month's pay, with an incentive or a penalty, then mark them seen to.
         </p>
@@ -191,6 +193,7 @@ import { CorrectionsCount } from './corrections-count';
         }
       </div>
       <p class="note">
+        <span class="note-ar" lang="ar" dir="rtl">ساعات تُخصم عن يوم مع ذكر السبب، من راتب الشهر بأجر ساعة الموظف: أجر اليوم مقسومًا على تسع. جزاء واحد لكل يوم، يُعدَّل أو يُلغى حتى اعتماد راتب الشهر. أما خصم الجزاء في الإجراء التأديبي فمبلغ يُخصم كما هو، ويُسحب من ملف الموظف مع الإجراء.</span>
         Hours on a day, with the reason, taken off the month's pay at the employee's hourly rate: a day's pay over nine. One a day; changed or taken
         off until the month's pay is finalized. A disciplinary action's penalty deduction is an amount, taken off as it is: withdrawn on the
         employee's profile, with the action.

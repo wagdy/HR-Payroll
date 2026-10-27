@@ -79,6 +79,7 @@ import { Company } from '../../core/settings/company';
     } @else if (report(); as r) {
       @if (view() === 'pending') {
         <p class="muted">
+          <span class="note-ar" lang="ar" dir="rtl">السلف المصروفة دون تحديد موظف تنتظر هنا لتوزيعها، حصة لكل موظف. وتُخصم كل حصة من راتب صاحبها.</span>
           Advances handed out with no one named wait here to be given out, a share each. Each share comes off its employee's pay.
         </p>
         @for (p of r.pending; track p.id) {
@@ -90,9 +91,9 @@ import { Company } from '../../core/settings/company';
               </div>
               <span class="spacer"></span>
               @if (p.fullyAllocated) {
-                <span class="status ok">Fully allocated<span class="ar">تم التوزيع بالكامل</span></span>
+                <span class="status tag ok">Fully allocated<span class="ar">تم التوزيع بالكامل</span></span>
               } @else {
-                <span class="status left">{{ p.remaining | money }} left<span class="ar">متبقي</span></span>
+                <span class="status tag warn left">{{ p.remaining | money }} left<span class="ar">متبقي</span></span>
               }
               @if (canDistribute() && !p.fullyAllocated) {
                 <button mat-flat-button (click)="distribute(p)"><mat-icon>call_split</mat-icon> Distribute <span class="inline-ar">توزيع</span></button>
@@ -247,19 +248,6 @@ import { Company } from '../../core/settings/company';
         display: block;
         height: 100%;
         background: var(--mat-sys-primary);
-      }
-    }
-    .status {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-medium);
-
-      &.ok {
-        background: color-mix(in srgb, #2e7d32 16%, transparent);
-      }
-      &.left {
-        background: color-mix(in srgb, var(--app-warn) 30%, transparent);
       }
     }
     .small {

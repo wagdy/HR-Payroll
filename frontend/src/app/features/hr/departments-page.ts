@@ -150,7 +150,7 @@ export class DeleteDepartmentDialog {
   imports: [MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule],
   template: `
     <div class="toolbar">
-      <span class="muted">Every employee is in one. The Employees tab shows them by department.</span>
+      <span class="muted"><span class="note-ar" lang="ar" dir="rtl">كل موظف ينتمي إلى قسم واحد، ويعرضهم تبويب الموظفين حسب القسم.</span> Every employee is in one. The Employees tab shows them by department.</span>
       <span class="spacer"></span>
       @if (canChange()) {
         <button mat-flat-button (click)="add()"><mat-icon>add</mat-icon> Add a department <span class="inline-ar">إضافة قسم</span></button>
@@ -198,14 +198,16 @@ export class DeleteDepartmentDialog {
                   <td class="role-cell">
                     @if (r.role; as role) {
                       <span class="role">
-                        {{ role.name }}
+                        <span class="role-name">{{ role.name }}</span>
                         @if (canChange()) {
-                          <button mat-icon-button class="mini" (click)="renameRole(d, role)" [attr.aria-label]="'Rename the ' + role.name + ' role'"><mat-icon>edit</mat-icon></button>
-                          <button mat-icon-button class="mini danger" (click)="removeRole(d, role)" [attr.aria-label]="'Delete the ' + role.name + ' role'"><mat-icon>close</mat-icon></button>
+                          <span class="role-actions">
+                            <button mat-icon-button class="mini" (click)="renameRole(d, role)" [attr.aria-label]="'Rename the ' + role.name + ' role'" matTooltip="Rename"><mat-icon>edit</mat-icon></button>
+                            <button mat-icon-button class="mini danger" (click)="removeRole(d, role)" [attr.aria-label]="'Delete the ' + role.name + ' role'" matTooltip="Delete"><mat-icon>close</mat-icon></button>
+                          </span>
                         }
                       </span>
                     } @else {
-                      <span class="muted small">{{ r.label }}</span>
+                      <span class="role none">{{ r.label }}</span>
                     }
                   </td>
                   <td class="num">{{ r.employed }}</td>
@@ -277,6 +279,7 @@ export class DeleteDepartmentDialog {
         </table>
       </div>
       <p class="note">
+        <span class="note-ar" lang="ar" dir="rtl">تكلفة العاملين حاليًا: الرواتب الشهرية في الشهر، وعلى حدة يوميات من يعملون باليومية، وشهرهم هو الأيام التي يعملونها. لا يُحسب من ترك العمل.</span>
         What those employed now cost: monthly salaries a month, and apart, the daily wages of those paid by the day, whose month is the
         days they work. Those who left are not counted.
       </p>
@@ -296,41 +299,97 @@ export class DeleteDepartmentDialog {
     .danger {
       color: var(--mat-sys-error);
     }
+    // A department a band of rows: its name and its total down the side, a row each role between,
+    // their names aligned in one column with their counts and costs beside them.
     .costs {
       tbody.department {
-        border-top: 2px solid var(--mat-sys-outline-variant);
+        border-top: 2px solid var(--app-line-strong);
       }
-      td {
-        vertical-align: top;
+      tbody.department:first-of-type {
+        border-top: 0;
       }
       td.name,
       td.total {
-        background: var(--mat-sys-surface-container-low);
+        vertical-align: top;
+        background: color-mix(in srgb, var(--mat-sys-surface-container-low) 70%, transparent);
+      }
+      td.name strong {
+        font-size: 15px;
       }
       td.total strong {
         font: var(--mat-sys-title-medium);
+        font-weight: 650;
+      }
+      td.role-cell {
+        min-width: 220px;
+        padding-block: 6px;
       }
       .add-role {
-        margin-top: 4px;
+        margin-top: 8px;
+        margin-inline-start: -8px;
+      }
+      tbody tr:hover > td.name,
+      tbody tr:hover > td.total {
+        background: color-mix(in srgb, var(--mat-sys-surface-container-low) 70%, transparent);
       }
     }
+    // A role: a small square of the brand's colour, its name, and its pencil and cross at the end,
+    // shown under the pointer (always, on a touch screen).
     .role {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      padding: 0 2px 0 10px;
-      border-radius: 999px;
-      background: var(--mat-sys-surface-container-high);
-      font: var(--mat-sys-body-small);
+      gap: 10px;
+      min-height: 36px;
+      font: var(--mat-sys-body-medium);
+      font-weight: 500;
+      color: var(--mat-sys-on-surface);
+
+      &::before {
+        content: '';
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 3px;
+        background: color-mix(in srgb, var(--mat-sys-primary) 60%, transparent);
+      }
+      &.none {
+        color: var(--mat-sys-on-surface-variant);
+        font-weight: 400;
+        font-style: italic;
+
+        &::before {
+          background: var(--mat-sys-outline-variant);
+        }
+      }
+    }
+    .role-name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .role-actions {
+      display: inline-flex;
+      gap: 2px;
+      margin-inline-start: auto;
+    }
+    @media (hover: hover) {
+      .role-actions {
+        opacity: 0;
+        transition: opacity 120ms ease;
+      }
+      tr:hover .role-actions,
+      .role:focus-within .role-actions {
+        opacity: 1;
+      }
     }
     .mini {
-      width: 28px;
-      height: 28px;
-      padding: 2px;
+      width: 30px;
+      height: 30px;
+      padding: 3px;
 
       mat-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
       }
     }
   `,

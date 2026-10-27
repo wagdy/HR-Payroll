@@ -1,5 +1,5 @@
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -37,6 +37,15 @@ export class Shell implements OnInit, OnDestroy {
   // The company's name and logo, beside the sections.
   protected readonly company = inject(Company);
   private readonly hub = inject(HrHubService);
+  // The signed-in user's first letters, in the avatar on their menu.
+  protected readonly initials = computed(() =>
+    (this.auth.me()?.fullName ?? '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0].toUpperCase())
+      .join(''),
+  );
 
   // Narrower than this, the nav shows its icons only (shell.scss), and tooltips name them.
   protected readonly compactNav = toSignal(

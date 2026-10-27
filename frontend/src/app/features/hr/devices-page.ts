@@ -139,6 +139,7 @@ export class ReadAttendanceDialog {
       @if (connection(); as c) {
         @if (c.publicAddress) {
           <p class="muted small">
+            <span class="note-ar" lang="ar" dir="rtl">النظام على السحابة: يتصل به الجهاز عبر الإنترنت على هذا العنوان والمنفذ، باتصال HTTP عادي، من خلال وسيط إلى منفذه الخاص. يحتاج الجهاز إلى ضبط خادم DNS ‏(COMM. ← Ethernet) ليعرف الاسم.</span>
             The system is in the cloud: the device calls it over the internet at this address and port, plain HTTP, through a proxy to its own
             port. The device needs a DNS server set (COMM. → Ethernet) to find the name.
           </p>
@@ -152,15 +153,16 @@ export class ReadAttendanceDialog {
             </span>
           </p>
         } @else if (devicePort()) {
-          <p class="muted small">Port {{ devicePort() }} is the device’s own: it answers nothing but the device, and the system’s screens stay on this machine.</p>
+          <p class="muted small"><span class="note-ar" lang="ar" dir="rtl">المنفذ {{ devicePort() }} خاص بالجهاز: لا يستجيب إلا للجهاز، وتبقى شاشات النظام على هذا الكمبيوتر.</span> Port {{ devicePort() }} is the device’s own: it answers nothing but the device, and the system’s screens stay on this machine.</p>
         }
         @if (!c.addresses.length && !c.publicAddress) {
-          <p class="muted small">This machine has no network address now: connect it to the office network, then open this page again.</p>
+          <p class="muted small"><span class="note-ar" lang="ar" dir="rtl">ليس لهذا الكمبيوتر عنوان شبكة الآن: وصّله بشبكة المكتب، ثم افتح هذه الصفحة من جديد.</span> This machine has no network address now: connect it to the office network, then open this page again.</p>
         }
       }
-      <p class="muted small">It shows up below within a minute, waiting. Approve it, and its punches start coming in, the ones it already holds too.</p>
+      <p class="muted small"><span class="note-ar" lang="ar" dir="rtl">يظهر الجهاز بالأسفل خلال دقيقة في انتظار الموافقة. وافق عليه فتبدأ بصماته في الوصول، ومعها البصمات المخزّنة فيه.</span> It shows up below within a minute, waiting. Approve it, and its punches start coming in, the ones it already holds too.</p>
       @if (!connection()?.publicAddress) {
         <p class="muted small">
+          <span class="note-ar" lang="ar" dir="rtl">احجز عنوان هذا الكمبيوتر على الراوتر حتى يحتفظ به: يخزّن الجهاز بصماته أثناء انقطاع النظام ويرسلها كلها عندما يصل إلى هذا العنوان من جديد.</span>
           Reserve this machine’s address on the router, so it keeps it: the device holds its punches while the system is away and sends them all when it
           can reach this address again.
         </p>
@@ -171,6 +173,7 @@ export class ReadAttendanceDialog {
       <section class="link" aria-label="Connection settings">
         <h2>Connection settings <span class="inline-ar">إعدادات التوصيل</span></h2>
         <p class="muted small">
+          <span class="note-ar" lang="ar" dir="rtl">يتصل النظام بالجهاز على عنوانه الخاص، لاختبار استجابته وقراءة مستخدميه وسجله كاملًا الآن. وتستمر بصماته في الوصول عبر ADMS أيضًا؛ ولا تُحفظ أي بصمة مرتين.</span>
           The system reaches the device at its own address, to test it answers and to read its users and its whole log now. Its punches keep coming
           over ADMS too; none is kept twice.
         </p>
@@ -238,7 +241,7 @@ export class ReadAttendanceDialog {
               </td>
               <td>
                 @if (d.isApproved) {
-                  <span class="status ok">Approved<span class="ar">معتمد</span></span>
+                  <span class="status tag ok">Approved<span class="ar">معتمد</span></span>
                   <div class="muted small">by {{ d.approvedBy }}</div>
                 } @else {
                   <span class="pending-badge">Waiting for approval<span class="ar">بانتظار الموافقة</span></span>
@@ -430,16 +433,6 @@ export class ReadAttendanceDialog {
 
       mat-form-field {
         width: 280px;
-      }
-    }
-    .status {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-
-      &.ok {
-        background: color-mix(in srgb, #2e7d32 16%, transparent);
       }
     }
     .small {

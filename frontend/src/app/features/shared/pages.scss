@@ -37,9 +37,47 @@
   }
 }
 
+// An explanation: a soft box, its Arabic first (right to left, as Arabic reads) and its English
+// under it.
 .note {
+  margin: 16px 0 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--app-line);
+  background: var(--mat-sys-surface-container-low);
   color: var(--mat-sys-on-surface-variant);
-  margin: 0 0 12px;
+  font: var(--mat-sys-body-medium);
+  line-height: 1.6;
+
+  .note-ar {
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--app-line);
+  }
+}
+
+// A note's Arabic, a block of its own above its English: the page's own words in Arabic.
+.note-ar {
+  display: block;
+  direction: rtl;
+  text-align: right;
+  font-size: 1.04em;
+  line-height: 1.8;
+  color: var(--mat-sys-on-surface);
+}
+
+// In a toolbar's line, a hint has no box.
+.toolbar .note {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+
+  .note-ar {
+    padding: 0;
+    margin: 0 0 2px;
+    border: 0;
+  }
 }
 
 // For screen readers only: a column's name where the column is plain to see, such as its buttons.
@@ -55,58 +93,9 @@
   color: var(--mat-sys-error);
 }
 
-.table-wrap {
-  // Its own box for anything positioned inside (a hidden column label): clipped with the table,
-  // not widening the page.
-  position: relative;
-  overflow-x: auto;
-  border-radius: 12px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface);
-}
 
-table.grid {
-  width: 100%;
-  border-collapse: collapse;
-
-  th,
-  td {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
-    text-align: start;
-    vertical-align: middle;
-  }
-
-  th {
-    font: var(--mat-sys-label-medium);
-    color: var(--mat-sys-on-surface-variant);
-    background: var(--mat-sys-surface-container);
-  }
-
-  .num,
-  .code {
-    white-space: nowrap;
-  }
-
-  .num {
-    text-align: end;
-  }
-
-  tr.clickable {
-    cursor: pointer;
-
-    &:hover {
-      background: var(--mat-sys-surface-container-low);
-    }
-  }
-
-  tfoot td {
-    font-weight: 600;
-    background: var(--mat-sys-surface-container);
-  }
-}
-
-.status {
+// A status of the old kind, its Arabic under it; a tag (styles.scss) is one line.
+.status:not(.tag) {
   display: inline-flex;
   flex-direction: column;
   padding: 2px 8px;
@@ -196,6 +185,13 @@ tr.surplus td.strong,
   }
 }
 
+// A tag's Arabic beside its English, on one line (here too: a page's .ar is a block).
+.tag .ar {
+  display: inline;
+  margin-left: 4px;
+  font-weight: 500;
+}
+
 // A small tag beside a name: a prep item, an archived supplier.
 .badge {
   margin-left: 6px;
@@ -214,21 +210,34 @@ tr.pending-deletion td {
 
 .pending-badge,
 .voided-badge {
-  display: inline-block;
-  padding: 1px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font: var(--mat-sys-label-small);
+  font: var(--mat-sys-label-medium);
+  font-weight: 600;
   white-space: nowrap;
 
   .ar {
     display: inline;
-    margin-left: 4px;
+    margin-left: 0;
+    font-weight: 500;
   }
 }
 
+// Waiting for a manager: an amber tag.
 .pending-badge {
-  background: color-mix(in srgb, var(--app-warn) 22%, transparent);
-  color: var(--app-warn);
+  background: var(--tag-warn-bg);
+  color: var(--tag-warn-fg);
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
 }
 
 // Posted, then deleted with a manager's approval: kept, its stock reversed.
@@ -271,10 +280,11 @@ tr.pending-deletion td {
 .tile {
   display: grid;
   gap: 2px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface);
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--app-line);
+  background: var(--mat-sys-surface-container-lowest);
+  box-shadow: var(--app-card-shadow);
 
   .label {
     font: var(--mat-sys-label-medium);

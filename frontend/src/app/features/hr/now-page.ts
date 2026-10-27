@@ -97,7 +97,7 @@ const states: Record<PresenceState, { en: string; ar: string; tone: string }> = 
                 <span class="muted small">{{ p.employee.jobTitle }}</span>
               </span>
               <span class="state">
-                <span class="label">{{ label(p).en }}<span class="ar">{{ label(p).ar }}</span></span>
+                <span class="label tag">{{ label(p).en }}<span class="ar">{{ label(p).ar }}</span></span>
                 <span class="small">{{ detail(p) }}</span>
               </span>
             </a>
@@ -183,16 +183,23 @@ const states: Record<PresenceState, { en: string; ar: string; tone: string }> = 
       grid-template-areas: 'dot who' 'dot state';
       align-items: center;
       gap: 2px 10px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--mat-sys-outline-variant);
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--app-line);
       border-left: 4px solid var(--off);
-      background: var(--mat-sys-surface);
+      background: var(--mat-sys-surface-container-lowest);
+      box-shadow: var(--app-card-shadow);
       color: inherit;
       text-decoration: none;
+      transition:
+        transform 140ms ease,
+        box-shadow 140ms ease;
 
       &:hover {
-        background: var(--mat-sys-surface-container-low);
+        transform: translateY(-1px);
+        box-shadow:
+          0 1px 2px rgb(15 23 42 / 6%),
+          0 10px 24px -12px rgb(15 23 42 / 22%);
       }
       &.in {
         border-left-color: var(--in);
@@ -226,11 +233,18 @@ const states: Record<PresenceState, { en: string; ar: string; tone: string }> = 
         gap: 0 8px;
         align-items: baseline;
       }
-      .label {
-        font-weight: 600;
+      // Its state as a tag (styles.scss): in green, late red, not arrived yet amber, left and off grey.
+      &.in .tag {
+        --tag-bg: var(--tag-ok-bg);
+        --tag-fg: var(--tag-ok-fg);
       }
-      &.late .label {
-        color: var(--late);
+      &.late .tag {
+        --tag-bg: var(--tag-bad-bg);
+        --tag-fg: var(--tag-bad-fg);
+      }
+      &.waiting .tag {
+        --tag-bg: var(--tag-warn-bg);
+        --tag-fg: var(--tag-warn-fg);
       }
       &.fresh {
         animation: fresh 4s ease-out;

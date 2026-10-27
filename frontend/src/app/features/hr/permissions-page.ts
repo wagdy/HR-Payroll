@@ -40,6 +40,7 @@ export interface TabsDialogData {
         }
       </div>
       <p class="muted small">
+        <span class="note-ar" lang="ar" dir="rtl">يرون هذه التبويبات فقط. تعديل بيانات موظف أو سلفة أو أصل ينتظر موافقة المدير؛ وباقي عمل التبويب ينفّذه الموظف فورًا كما يفعل المدير. أما الأرقام السرية وهذه الصلاحيات فتبقى بيد المدير.</span>
         They see only these tabs. A change to someone’s record, an advance or an asset waits for a manager; an employee does the rest of a tab’s
         work at once, as a manager would. Their PINs and these tabs stay a manager’s.
       </p>
@@ -49,7 +50,7 @@ export interface TabsDialogData {
             They need a mobile number and a PIN to sign in to the portal: set {{ !e.hasMobile ? 'them' : 'a PIN' }} on their profile.
           </p>
         }
-        <p class="muted small">They use them in the portal, on their phone. Saving signs them out of it: they sign in again to see their tabs.</p>
+        <p class="muted small"><span class="note-ar" lang="ar" dir="rtl">يستخدمونها في البوابة من هواتفهم. الحفظ يُخرجهم منها: يسجّلون الدخول مرة أخرى لرؤية تبويباتهم.</span> They use them in the portal, on their phone. Saving signs them out of it: they sign in again to see their tabs.</p>
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -123,6 +124,7 @@ export class TabsDialog {
   imports: [DatePipe, FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressBarModule, MatTooltipModule, RouterLink],
   template: `
     <p class="note">
+      <span class="note-ar" lang="ar" dir="rtl">أعطِ كل شخص تبويبات الموارد البشرية والرواتب والعهدة والأصول التي يعمل عليها. يستخدم الموظف تبويباته في البوابة من هاتفه، ويسجّل الدخول برقم الموبايل والرقم السري، وينجز عمل التبويب كما يفعل المدير، مع انتظار تعديل بيانات موظف أو سلفة أو أصل لموافقة المدير؛ ويستخدم المحاسب تبويباته هنا في النظام كالمعتاد. للمدير كل التبويبات.</span>
       Give each the tabs of HR &amp; Payroll, and Custody &amp; Assets, they work. An employee uses theirs in the portal on their phone, signing in
       with their mobile number and PIN, and does a tab’s work as a manager would, a change to someone’s record, an advance or an asset waiting for
       a manager; an accountant uses theirs here in the system, as always. A manager has every tab.

@@ -43,9 +43,9 @@ type Deciding = { id: string; decision: 'approve' | 'reject' };
       <h1>Approvals <span class="inline-ar">الموافقات</span></h1>
     </header>
     <p class="note">
+      <span class="note-ar" lang="ar" dir="rtl">طلبات من المحاسبين: موظفون جدد أو معدَّلون، وسلف، وأصول، وأذونات عهدة. لا يتغير شيء حتى تقرر: يبقى السجل كما هو ولا يمكن تعديله، ولا يُنشأ شيء جديد.</span>
       Requests from accountants: new or changed employees, advances, assets and custody vouchers. Until you decide, nothing changes: the
       record stays as it is and cannot be changed, and nothing new is made.
-      <span class="inline-ar">طلبات بانتظار موافقة المدير.</span>
     </p>
     @if (loading()) {
       <mat-progress-bar mode="indeterminate" />

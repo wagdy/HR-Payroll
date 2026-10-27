@@ -111,17 +111,6 @@ export class LinkDeviceUserDialog {
     <div class="toolbar">
       @if (list() === 'employees') {
         <mat-slide-toggle [ngModel]="showLeft()" (ngModelChange)="showLeft.set($event)">Show who has left · عرض من ترك العمل</mat-slide-toggle>
-        @if (departments().length > 1) {
-          <mat-form-field subscriptSizing="dynamic" class="department">
-            <mat-label>Department · القسم</mat-label>
-            <mat-select [ngModel]="department()" (ngModelChange)="department.set($event)" aria-label="Department">
-              <mat-option value="">All departments</mat-option>
-              @for (d of departments(); track d.id) {
-                <mat-option [value]="d.id">{{ d.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        }
       }
       <span class="spacer"></span>
       @if (list() === 'employees') {
@@ -148,6 +137,19 @@ export class LinkDeviceUserDialog {
         <button mat-flat-button (click)="add()"><mat-icon>person_add</mat-icon> Add employee <span class="inline-ar">إضافة موظف</span></button>
       }
     </div>
+    @if (list() === 'employees' && departments().length > 1) {
+      <!-- The department shown: a pill each, with how many are in it, as the list stands. -->
+      <div class="segments" role="group" aria-label="Department · القسم">
+        <button type="button" class="segment" [class.on]="!department()" [attr.aria-pressed]="!department()" (click)="department.set('')">
+          All departments <span class="inline-ar">كل الأقسام</span> <span class="n">{{ inDepartment().get('') ?? 0 }}</span>
+        </button>
+        @for (d of departments(); track d.id) {
+          <button type="button" class="segment" [class.on]="department() === d.id" [attr.aria-pressed]="department() === d.id" (click)="department.set(d.id)">
+            {{ d.name }} <span class="n">{{ inDepartment().get(d.id) ?? 0 }}</span>
+          </button>
+        }
+      </div>
+    }
     @if (loading() || excelBusy()) {
       <mat-progress-bar mode="indeterminate" />
     }
@@ -182,18 +184,23 @@ export class LinkDeviceUserDialog {
               @let asked = approvals.pendingFor(e.id);
               <tr class="opens" [class.left]="!e.isActive" [class.pending-deletion]="!!asked" (click)="profile(e)">
                 <td>
-                  <a class="name" [routerLink]="[e.id]" (click)="$event.stopPropagation()"><strong>{{ e.name }}</strong></a>
-                  <div class="muted small">{{ e.jobTitle }} · {{ departmentName(e) }}</div>
-                  @if (asked) {
-                    <div><span class="pending-badge">{{ pendingLabel(asked).en }}<span class="ar">{{ pendingLabel(asked).ar }}</span></span></div>
-                  }
+                  <div class="who">
+                    <span class="avatar" aria-hidden="true">{{ initials(e.name) }}</span>
+                    <div>
+                      <a class="name" [routerLink]="[e.id]" (click)="$event.stopPropagation()"><strong>{{ e.name }}</strong></a>
+                      <div class="muted small">{{ e.jobTitle }} · {{ departmentName(e) }}</div>
+                      @if (asked) {
+                        <div><span class="pending-badge">{{ pendingLabel(asked).en }}<span class="ar">{{ pendingLabel(asked).ar }}</span></span></div>
+                      }
+                    </div>
+                  </div>
                 </td>
                 <td class="num">
                   @if (e.employmentType === 'Daily') {
-                    {{ e.dailyWage | money }} a day
+                    <span class="salary">{{ e.dailyWage | money }} a day</span>
                     <div class="muted small">Daily wage · {{ e.hourlyRate | money }} an hour</div>
                   } @else {
-                    {{ e.monthlySalary | money }}
+                    <span class="salary">{{ e.monthlySalary | money }}</span>
                     <div class="muted small">{{ e.dailyRate | money }} a day · {{ e.hourlyRate | money }} an hour</div>
                   }
                 </td>
@@ -208,10 +215,10 @@ export class LinkDeviceUserDialog {
                 <td>{{ e.deviceUserId ?? '—' }}</td>
                 <td>
                   @if (e.isActive) {
-                    <span class="status active">Employed<span class="ar">على رأس العمل</span></span>
+                    <span class="status tag ok">Employed<span class="ar">على رأس العمل</span></span>
                     <div class="muted small">since {{ e.hiredOn | date: 'd MMM y' }}</div>
                   } @else {
-                    <span class="status">Left<span class="ar">ترك العمل</span></span>
+                    <span class="status tag">Left<span class="ar">ترك العمل</span></span>
                     <div class="muted small">last day {{ e.leftOn | date: 'd MMM y' }}</div>
                   }
                 </td>
@@ -252,7 +259,7 @@ export class LinkDeviceUserDialog {
       <section class="on-device" aria-labelledby="on-device-title">
         <h3 id="on-device-title">On the attendance device, not in the system yet <span class="inline-ar">على جهاز البصمة وليسوا في النظام</span></h3>
         @if (unknown().length) {
-          <p class="muted small">As the device listed them. Add each as an employee, or give their number to one already here: their punches count from then.</p>
+          <p class="muted small"><span class="note-ar" lang="ar" dir="rtl">كما سجّلهم الجهاز. أضف كلًّا منهم موظفًا، أو أعطِ رقمه لموظف موجود: تُحتسب بصماته من وقتها.</span> As the device listed them. Add each as an employee, or give their number to one already here: their punches count from then.</p>
           <div class="table-wrap">
             <table class="grid">
               <thead>
@@ -285,9 +292,10 @@ export class LinkDeviceUserDialog {
             </table>
           </div>
         } @else if (deviceUsers().length) {
-          <p class="muted">Everyone the device has listed is an employee here. Sync device reads it again for anyone new.</p>
+          <p class="muted"><span class="note-ar" lang="ar" dir="rtl">كل من سجّله الجهاز موظف هنا. «مزامنة الجهاز» تقرؤه من جديد بحثًا عن أي شخص جديد.</span> Everyone the device has listed is an employee here. Sync device reads it again for anyone new.</p>
         } @else {
           <p class="muted">
+            <span class="note-ar" lang="ar" dir="rtl">لم يُقرأ أي مستخدم من جهاز البصمة بعد. «مزامنة الجهاز» تقرؤهم، وكذلك «قراءة المستخدمين» لأي جهاز في تبويب أجهزة البصمة.</span>
             No users read from the attendance device yet. Sync device reads them, as does a device’s “Read its users” on
             the @if (access.has('Devices')) { <a routerLink="/hr/devices">Attendance devices</a> } @else { Attendance devices } tab.
           </p>
@@ -339,29 +347,98 @@ export class LinkDeviceUserDialog {
     }
     tr.opens {
       cursor: pointer;
-
-      &:hover td {
-        background: var(--mat-sys-surface-container-low);
-      }
+    }
+    // The employee: their initials in a circle, their name over their role and department.
+    .who {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .avatar {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+      color: var(--mat-sys-primary);
+      font: var(--mat-sys-label-large);
+      font-weight: 700;
+    }
+    tr.left .avatar {
+      background: var(--mat-sys-surface-container-high);
+      color: var(--mat-sys-on-surface-variant);
     }
     a.name {
       color: inherit;
       text-decoration: none;
+      font-size: 15px;
 
       &:hover,
       &:focus-visible {
-        text-decoration: underline;
+        color: var(--mat-sys-primary);
       }
     }
-    .status {
-      display: inline-block;
-      padding: 1px 8px;
+    .salary {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--mat-sys-on-surface);
+    }
+    // The departments to show, as pills: the one shown filled.
+    .segments {
+      display: flex;
+      gap: 6px;
+      margin: 0 0 14px;
+      padding-bottom: 2px;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+    .segment {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 14px;
       border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: var(--mat-sys-surface-container-high);
+      border: 1px solid var(--app-line-strong);
+      background: var(--mat-sys-surface-container-lowest);
+      color: var(--mat-sys-on-surface-variant);
+      font: var(--mat-sys-label-large);
+      cursor: pointer;
+      transition:
+        background-color 140ms ease,
+        color 140ms ease,
+        border-color 140ms ease;
 
-      &.active {
-        background: color-mix(in srgb, var(--app-ok, #2e7d32) 16%, transparent);
+      .n {
+        min-width: 22px;
+        padding: 0 7px;
+        border-radius: 999px;
+        background: var(--mat-sys-surface-container);
+        font: var(--mat-sys-label-small);
+        font-weight: 700;
+        line-height: 20px;
+        text-align: center;
+      }
+      &:hover {
+        background: var(--mat-sys-surface-container-low);
+        color: var(--mat-sys-on-surface);
+      }
+      &:focus-visible {
+        outline: 2px solid var(--mat-sys-primary);
+        outline-offset: 2px;
+      }
+      &.on {
+        background: var(--mat-sys-primary);
+        border-color: var(--mat-sys-primary);
+        color: var(--mat-sys-on-primary);
+
+        .n {
+          background: color-mix(in srgb, var(--mat-sys-on-primary) 22%, transparent);
+        }
       }
     }
     .small {
@@ -372,9 +449,6 @@ export class LinkDeviceUserDialog {
     }
     .danger {
       color: var(--mat-sys-error);
-    }
-    .department {
-      min-width: 200px;
     }
     .on-device {
 
@@ -421,6 +495,15 @@ export class EmployeesPage {
     (this.showLeft() ? this.employees() : this.active()).filter((e) => !this.department() || e.departmentId === this.department()),
   );
   protected readonly payroll = computed(() => this.active().reduce((sum, e) => sum + e.monthlySalary, 0));
+  // How many each department has, as the list stands (those who left too, when shown); '' all.
+  protected readonly inDepartment = computed(() => {
+    const counts = new Map<string, number>();
+    for (const e of this.showLeft() ? this.employees() : this.active()) {
+      counts.set(e.departmentId, (counts.get(e.departmentId) ?? 0) + 1);
+      counts.set('', (counts.get('') ?? 0) + 1);
+    }
+    return counts;
+  });
   protected readonly daily = computed(() => this.active().filter((e) => e.employmentType === 'Daily').length);
   protected readonly waiting = computed(() => this.approvals.waitingToBeMade('Employee'));
   // The device's users whose number no employee has.
@@ -563,6 +646,16 @@ export class EmployeesPage {
 
   protected departmentName(e: Employee): string {
     return this.departments().find((d) => d.id === e.departmentId)?.name ?? '—';
+  }
+
+  // Their name's first letters, for the circle beside it: "Hassan Ali" HA, "منى" م.
+  protected initials(name: string): string {
+    return name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0].toUpperCase())
+      .join('');
   }
 
   // "Fri" or "Fri, Sat", in the company's week order; "None".

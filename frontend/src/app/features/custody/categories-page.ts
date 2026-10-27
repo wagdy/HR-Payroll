@@ -39,6 +39,7 @@ export interface CategoryAnswer {
       </mat-form-field>
       <mat-checkbox [(ngModel)]="isConsumable">Consumable <span class="inline-ar">مستهلك</span></mat-checkbox>
       <p class="muted small">
+        <span class="note-ar" lang="ar" dir="rtl">مستهلك: الأطباق والأكواب وما شابهها. عند صرف قطعة منه على أنها مكسورة، تُحتسب تكلفتها هالكًا. اتركه غير مفعّل للأصول الثابتة، مثل القلاية أو اللابتوب.</span>
         Consumable: plates, glasses and the like. When one is checked out as broken, its cost goes to Costing → Waste. Leave it off for fixed
         assets, a fryer or a laptop.
       </p>

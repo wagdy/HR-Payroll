@@ -93,7 +93,7 @@ import { DailyCostPage } from './daily-cost-page';
         </div>
 
         <div class="table-wrap">
-          <table class="grid">
+          <table class="grid dense">
             <thead>
               <tr>
                 <th>Employee<span class="ar">الموظف</span></th>
@@ -113,7 +113,7 @@ import { DailyCostPage } from './daily-cost-page';
                 @let f = s.figures;
                 <tr>
                   <td>
-                    <a [routerLink]="[s.employee.id]" [queryParams]="{ month: p.month }"><strong>{{ s.employee.name }}</strong></a>
+                    <a class="who" [routerLink]="[s.employee.id]" [queryParams]="{ month: p.month }"><strong>{{ s.employee.name }}</strong></a>
                     <div class="muted small">{{ s.employee.jobTitle }}@if (f.daysEmployed < f.daysInMonth) { · {{ f.daysEmployed }} of {{ f.daysInMonth }} days}</div>
                   </td>
                   <td class="num">
@@ -148,7 +148,7 @@ import { DailyCostPage } from './daily-cost-page';
                     }
                   </td>
                   <td>
-                    <span class="status" [class]="s.status ?? 'none'">{{ statusOf(s).en }}<span class="ar">{{ statusOf(s).ar }}</span></span>
+                    <span class="status tag" [class]="s.status ?? 'none'">{{ statusOf(s).en }}<span class="ar">{{ statusOf(s).ar }}</span></span>
                     @if (s.status === 'Finalized') {
                       <div class="muted small">{{ s.salaryOwed > 0 ? (s.salaryOwed | money) + ' to pay' : 'Paid' }}</div>
                     } @else if (f.missingPunchDays) {
@@ -181,6 +181,7 @@ import { DailyCostPage } from './daily-cost-page';
           </table>
         </div>
         <p class="note">
+          <span class="note-ar" lang="ar" dir="rtl">أجر اليوم هو الراتب مقسومًا على 30، وأجر الساعة هو أجر اليوم مقسومًا على 9: يُخصم التأخير (التأخر والانصراف المبكر والغياب أثناء الدوام) والغياب بهذا الأجر، ويُدفع الوقت الإضافي به. العمل في يوم الراحة يستحق بدل إجازة تلقائيًا: أجر يوم لنصف يوم عمل أو أكثر، وأجر الساعات لما هو أقل؛ أما يوم الراحة المُبدَّل بيوم آخر فيُعلَّم يوم عمل في الحضور ولا يستحق بدلًا. وإذا زادت الخصومات على المستحق، لا يُصرف شيء ويُرحَّل الباقي إلى الشهر التالي. افتح قسيمة الراتب لإضافة الحوافز وبدلات الإجازات واعتمادها وصرفها.</span>
           A day costs the salary over 30, an hour a day's over 9: lateness (late, leaving early, away during the work schedule) and absence are
           deducted at that rate, and overtime paid at it. A day off worked earns a leave allowance by itself: a day's pay for half a workday
           or more, its hours for less; a day off swapped for another is marked a working day on the attendance, and earns none. When the deductions are more than the pay, nothing is paid and the rest comes off
@@ -191,6 +192,10 @@ import { DailyCostPage } from './daily-cost-page';
   `,
   styleUrl: '../shared/pages.scss',
   styles: `
+    // An employee's name on one line, the columns beside it as narrow as they go.
+    a.who {
+      white-space: nowrap;
+    }
     .views {
       margin: 0 0 12px;
     }
@@ -241,15 +246,15 @@ import { DailyCostPage } from './daily-cost-page';
     td.net {
       background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent);
     }
-    .status {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: var(--mat-sys-surface-container-high);
-
+    // A slip's status as a tag (styles.scss): finalized green, a draft blue, not calculated grey.
+    .status.tag {
       &.Finalized {
-        background: color-mix(in srgb, #2e7d32 16%, transparent);
+        --tag-bg: var(--tag-ok-bg);
+        --tag-fg: var(--tag-ok-fg);
+      }
+      &.Draft {
+        --tag-bg: var(--tag-info-bg);
+        --tag-fg: var(--tag-info-fg);
       }
     }
     .small {

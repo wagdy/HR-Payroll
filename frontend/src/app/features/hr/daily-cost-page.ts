@@ -142,6 +142,7 @@ import { BusinessDay, isoDay } from '../../core/ui/business-day';
         <p class="muted">No one came in on this day.</p>
       }
       <p class="note">
+        <span class="note-ar" lang="ar" dir="rtl">مرجع سريع وليس مسير الرواتب: كل موظف حضر بأجر يومه، الراتب الشهري مقسومًا على 30 أو اليومية. يُدفع الوقت الإضافي فوق ذلك؛ ويُخصم التأخير والغياب والجزاءات وتُضاف البدلات في قسائم رواتب الشهر.</span>
         A quick reference, not the payroll: each employee who came in, at their day's rate, a monthly salary over 30 or their daily wage.
         Overtime is paid on top; lateness, absence and penalties are deducted, and allowances added, on the month's payslips.
       </p>
