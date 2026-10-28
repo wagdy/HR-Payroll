@@ -105,6 +105,12 @@ const custodyChildren: Routes = [
     path: 'vouchers',
     loadComponent: () => import('./features/custody/vouchers-page').then((m) => m.VouchersPage),
   },
+  {
+    // The consumables used up from the store (جرد الاستهلاكيات): their stock, received, used up
+    // and counted.
+    path: 'consumables',
+    loadComponent: () => import('./features/custody/consumables-page').then((m) => m.ConsumablesPage),
+  },
 ];
 
 export const routes: Routes = [

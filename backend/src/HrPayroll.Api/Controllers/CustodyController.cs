@@ -97,6 +97,43 @@ public sealed class CustodyController(ISender sender, IWorkClock calendar, HrCal
         return sender.Send(new GetAssetTransactionsQuery(from ?? last.AddDays(-29), last), cancellationToken);
     }
 
+    // ---- Consumables inventory (جرد الاستهلاكيات) ----
+
+    [HttpGet("consumables")]
+    [HrTab(HrTabs.Custody)]
+    public Task<IReadOnlyList<ConsumableItemDto>> GetConsumables(CancellationToken cancellationToken) =>
+        sender.Send(new GetConsumablesQuery(), cancellationToken);
+
+    // An item with its movements, the latest first.
+    [HttpGet("consumables/{itemId:guid}")]
+    [HrTab(HrTabs.Custody)]
+    public async Task<ActionResult<ConsumableDetailDto>> GetConsumable(Guid itemId, CancellationToken cancellationToken) =>
+        await sender.Send(new GetConsumableQuery(itemId), cancellationToken) is { } item ? item : NotFound();
+
+    // Added under the id the app made, or changed; made at once, by whoever manages on the tab.
+    [HttpPut("consumables/{itemId:guid}")]
+    [HrTab(HrTabs.Custody, Manage = true)]
+    public Task<ConsumableItemDto> SaveConsumable(Guid itemId, SaveConsumableRequest request, CancellationToken cancellationToken) =>
+        sender.Send(new SaveConsumableCommand(itemId, request.Name, request.Unit, request.ReorderLevel, request.Notes, StaffName), cancellationToken);
+
+    // Only one nothing was ever recorded of.
+    [HttpDelete("consumables/{itemId:guid}")]
+    [HrTab(HrTabs.Custody, Decide = true)]
+    public async Task<IActionResult> DeleteConsumable(Guid itemId, CancellationToken cancellationToken)
+    {
+        await sender.Send(new DeleteConsumableCommand(itemId), cancellationToken);
+        return NoContent();
+    }
+
+    // Stock received, used up or counted, today unless a day before is given. An employee is never
+    // shown what things cost, so what they receive goes at the average.
+    [HttpPost("consumables/{itemId:guid}/movements")]
+    [HrTab(HrTabs.Custody, Manage = true)]
+    public Task<ConsumableMovementResultDto> RecordMovement(Guid itemId, ConsumableMovementRequest request, CancellationToken cancellationToken) =>
+        sender.Send(new RecordConsumableMovementCommand(
+            itemId, request.MovementId, request.Type, request.Quantity, caller.IsEmployee ? null : request.UnitCost, request.Date ?? Today, request.Notes, StaffName),
+            cancellationToken);
+
     private DateOnly Today => calendar.WorkdayOf(DateTime.UtcNow);
 
     private async Task<IActionResult> ChangeAsync(Guid assetId, Guid requestId, CustodyRequest change, string? reason, CancellationToken cancellationToken)
@@ -122,3 +159,10 @@ public sealed record CheckInRequest(Guid RequestId, Guid TransactionId, Guid Emp
 // Reason: why it goes out (Returned, Maintenance, Breakage, Lost, Discarded).
 public sealed record CheckOutRequest(
     Guid RequestId, Guid TransactionId, AssetMovementReason Reason, int Quantity, DateOnly? Date = null, string? Notes = null, string? RequestReason = null);
+
+public sealed record SaveConsumableRequest(string Name, string Unit, decimal? ReorderLevel = null, string? Notes = null);
+
+// Type: Received (with a UnitCost, or none: at the average), Consumed, or Counted (Quantity: what
+// was counted). MovementId is made by the app: a retry finds the movement made.
+public sealed record ConsumableMovementRequest(
+    Guid MovementId, ConsumableMovementType Type, decimal Quantity, decimal? UnitCost = null, DateOnly? Date = null, string? Notes = null);

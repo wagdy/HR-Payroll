@@ -1,43 +1,26 @@
 import { Component } from '@angular/core';
-import { MatTabsModule } from '@angular/material/tabs';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
+import { SideLayout, SideSection } from '../shared/side-layout';
 
 // Custody & Assets (العهدة والأصول): what the company owns and whose custody each thing is in.
-// Its categories, the assets themselves, and the vouchers that hand them out and take them back.
-// Whoever holds its tab sees it; an accountant's changes go to a manager.
+// Its categories, the assets themselves, the vouchers that hand them out and take them back, and
+// the consumables used up from the store (جرد الاستهلاكيات). Whoever holds its tab sees it; an
+// accountant's changes to an asset go to a manager. The sections are a sidebar beside the page,
+// a drawer on a phone (SideLayout).
 @Component({
   selector: 'app-custody-shell',
-  imports: [MatTabsModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterOutlet, SideLayout],
   template: `
-    <header class="head">
-      <h1>Custody &amp; Assets <span class="inline-ar">العهدة والأصول</span></h1>
-    </header>
-    <nav mat-tab-nav-bar [tabPanel]="panel" mat-stretch-tabs="false" mat-align-tabs="start" class="no-print">
-      @for (tab of tabs; track tab.path) {
-        <a mat-tab-link [routerLink]="tab.path" routerLinkActive #active="routerLinkActive" [active]="active.isActive">
-          {{ tab.en }}<span class="inline-ar">{{ tab.ar }}</span>
-        </a>
-      }
-    </nav>
-    <mat-tab-nav-panel #panel>
-      <div class="body"><router-outlet /></div>
-    </mat-tab-nav-panel>
-  `,
-  styleUrl: '../shared/pages.scss',
-  styles: `
-    .head h1 {
-      margin: 0 0 8px;
-      font: var(--mat-sys-headline-small);
-    }
-    .body {
-      padding-top: 16px;
-    }
+    <app-side-layout titleEn="Custody & Assets" titleAr="العهدة والأصول" [sections]="sections">
+      <router-outlet />
+    </app-side-layout>
   `,
 })
 export class CustodyShell {
-  protected readonly tabs = [
-    { path: 'categories', en: 'Categories', ar: 'الفئات' },
-    { path: 'assets', en: 'Assets', ar: 'الأصول' },
-    { path: 'vouchers', en: 'Vouchers', ar: 'الأذونات' },
+  protected readonly sections: SideSection[] = [
+    { path: 'categories', en: 'Categories', ar: 'الفئات', icon: 'category' },
+    { path: 'assets', en: 'Assets', ar: 'الأصول', icon: 'inventory_2' },
+    { path: 'vouchers', en: 'Vouchers', ar: 'الأذونات', icon: 'receipt_long' },
+    { path: 'consumables', en: 'Consumables Inventory', ar: 'جرد الاستهلاكيات', icon: 'inventory' },
   ];
 }

@@ -44,6 +44,8 @@ public sealed class HrStore
     public DisciplinaryStore Disciplinary { get; } = new();
     public AssetItemStore Assets { get; } = new();
     public AssetTransactionStore AssetVouchers { get; } = new();
+    public ConsumableItemStore Consumables { get; } = new();
+    public ConsumableMovementStore ConsumableMovements { get; } = new();
     public PlainPinHasher Pins { get; } = new();
     public AttendanceSettingsStore Settings { get; } = new();
     public AttendanceNotifications Notifications { get; } = new();
@@ -343,6 +345,27 @@ public sealed class AssetTransactionStore : ListStore<AssetTransaction>, IAssetT
 
     public Task<bool> AnyForAssetAsync(Guid assetItemId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Items.Any(t => t.AssetItemId == assetItemId));
+}
+
+public sealed class ConsumableItemStore : ListStore<ConsumableItem>, IConsumableItemRepository
+{
+    public Task<IReadOnlyList<ConsumableItem>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ConsumableItem>>(Items.OrderBy(c => c.Name).ToList());
+
+    public void Remove(ConsumableItem item) => Items.Remove(item);
+}
+
+public sealed class ConsumableMovementStore : ListStore<ConsumableMovement>, IConsumableMovementRepository
+{
+    public Task<IReadOnlyList<ConsumableMovement>> GetForItemAsync(Guid consumableItemId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ConsumableMovement>>(
+            Items.Where(m => m.ConsumableItemId == consumableItemId).OrderByDescending(m => m.Date).ThenByDescending(m => m.RecordedAtUtc).ToList());
+
+    public Task<IReadOnlyDictionary<Guid, DateOnly>> GetLastDatesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, DateOnly>>(Items.GroupBy(m => m.ConsumableItemId).ToDictionary(g => g.Key, g => g.Max(m => m.Date)));
+
+    public Task<bool> AnyForItemAsync(Guid consumableItemId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.Any(m => m.ConsumableItemId == consumableItemId));
 }
 
 // A PIN "hashed" as itself, reversed: enough for the use cases, never what the database keeps.

@@ -39,8 +39,8 @@ export interface CategoryAnswer {
       </mat-form-field>
       <mat-checkbox [(ngModel)]="isConsumable">Consumable <span class="inline-ar">مستهلك</span></mat-checkbox>
       <p class="muted small">
-        <span class="note-ar" lang="ar" dir="rtl">مستهلك: الأطباق والأكواب وما شابهها. عند صرف قطعة منه على أنها مكسورة، تُحتسب تكلفتها هالكًا. اتركه غير مفعّل للأصول الثابتة، مثل القلاية أو اللابتوب.</span>
-        Consumable: plates, glasses and the like. When one is checked out as broken, its cost goes to Costing → Waste. Leave it off for fixed
+        <span class="note-ar" lang="ar" dir="rtl">مستهلك: الأطباق والأكواب وما شابهها. عند إخراج قطعة منه على أنها مكسورة، تُشطب بتكلفتها في إذن الخروج. اتركه غير مفعّل للأصول الثابتة، مثل القلاية أو اللابتوب.</span>
+        Consumable: plates, glasses and the like. When one is checked out as broken, it is written off at its cost, on its voucher. Leave it off for fixed
         assets, a fryer or a laptop.
       </p>
     </mat-dialog-content>
@@ -73,7 +73,7 @@ export class CategoryDialog {
   imports: [MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule],
   template: `
     <div class="toolbar">
-      <span class="muted">What the assets are kept by. A consumable's breakage is a cost of the day, in Costing → Waste.</span>
+      <span class="muted"><span class="note-ar" lang="ar" dir="rtl">الفئات التي تُصنَّف بها الأصول. المستهلك الذي ينكسر يُشطب بتكلفته في إذن خروجه.</span>What the assets are kept by. A consumable that breaks is written off at its cost, on its voucher.</span>
       <span class="spacer"></span>
       @if (canChange()) {
         <button mat-flat-button (click)="add()"><mat-icon>add</mat-icon> Add a category <span class="inline-ar">إضافة فئة</span></button>
@@ -104,9 +104,9 @@ export class CategoryDialog {
                 <td><strong>{{ c.name }}</strong></td>
                 <td>
                   @if (c.isConsumable) {
-                    <span class="kind consumable">Consumable<span class="ar">مستهلك</span></span>
+                    <span class="tag accent">Consumable<span class="ar">مستهلك</span></span>
                   } @else {
-                    <span class="kind">Fixed asset<span class="ar">أصل ثابت</span></span>
+                    <span class="tag info">Fixed asset<span class="ar">أصل ثابت</span></span>
                   }
                 </td>
                 <td class="num">{{ c.assets }}</td>
@@ -119,7 +119,13 @@ export class CategoryDialog {
                 }
               </tr>
             } @empty {
-              <tr><td [attr.colspan]="canChange() ? 5 : 4" class="muted">No categories yet. Add one, such as Tableware (consumable) or Devices.</td></tr>
+              <tr>
+                <td [attr.colspan]="canChange() ? 5 : 4" class="empty">
+                  <mat-icon>category</mat-icon>
+                  <span class="note-ar" lang="ar" dir="rtl">لا توجد فئات بعد. أضف فئة مثل أدوات المائدة (مستهلك) أو الأجهزة.</span>
+                  No categories yet. Add one, such as Tableware (consumable) or Devices.
+                </td>
+              </tr>
             }
           </tbody>
         </table>
@@ -130,17 +136,6 @@ export class CategoryDialog {
   styles: `
     .narrow {
       max-width: 820px;
-    }
-    .kind {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: var(--mat-sys-surface-container-high);
-
-      &.consumable {
-        background: color-mix(in srgb, var(--app-warn) 22%, transparent);
-      }
     }
     .nowrap {
       white-space: nowrap;

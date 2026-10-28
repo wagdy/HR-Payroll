@@ -73,6 +73,25 @@ public interface IAssetTransactionRepository : IRepository<AssetTransaction>
     Task<bool> AnyForAssetAsync(Guid assetItemId, CancellationToken cancellationToken = default);
 }
 
+public interface IConsumableItemRepository : IRepository<ConsumableItem>
+{
+    // By name.
+    Task<IReadOnlyList<ConsumableItem>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    void Remove(ConsumableItem item);
+}
+
+public interface IConsumableMovementRepository : IRepository<ConsumableMovement>
+{
+    // An item's movements, the latest first.
+    Task<IReadOnlyList<ConsumableMovement>> GetForItemAsync(Guid consumableItemId, CancellationToken cancellationToken = default);
+
+    // The last day each item moved.
+    Task<IReadOnlyDictionary<Guid, DateOnly>> GetLastDatesAsync(CancellationToken cancellationToken = default);
+
+    Task<bool> AnyForItemAsync(Guid consumableItemId, CancellationToken cancellationToken = default);
+}
+
 public interface IJobRoleRepository : IRepository<JobRole>
 {
     // Every department's, by name.

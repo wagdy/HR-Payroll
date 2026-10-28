@@ -59,6 +59,8 @@ public sealed class HrDbContext(DbContextOptions<HrDbContext> options) : DbConte
     public DbSet<AssetCategory> AssetCategories => Set<AssetCategory>();
     public DbSet<AssetItem> AssetItems => Set<AssetItem>();
     public DbSet<AssetTransaction> AssetTransactions => Set<AssetTransaction>();
+    public DbSet<ConsumableItem> ConsumableItems => Set<ConsumableItem>();
+    public DbSet<ConsumableMovement> ConsumableMovements => Set<ConsumableMovement>();
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<HrSettings> HrSettings => Set<HrSettings>();
     public DbSet<Domain.Company.CompanySettings> CompanySettings => Set<Domain.Company.CompanySettings>();

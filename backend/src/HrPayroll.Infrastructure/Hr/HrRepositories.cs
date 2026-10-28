@@ -108,6 +108,42 @@ internal sealed class AssetTransactionRepository(HrDbContext db) : IAssetTransac
         db.AssetTransactions.AnyAsync(t => t.AssetItemId == assetItemId, cancellationToken);
 }
 
+internal sealed class ConsumableItemRepository(HrDbContext db) : IConsumableItemRepository
+{
+    public Task<ConsumableItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.ConsumableItems.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
+
+    public void Add(ConsumableItem aggregate) => db.ConsumableItems.Add(aggregate);
+
+    public void Remove(ConsumableItem item) => db.ConsumableItems.Remove(item);
+
+    public async Task<IReadOnlyList<ConsumableItem>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        await db.ConsumableItems.AsNoTracking().OrderBy(c => c.Name).ToListAsync(cancellationToken);
+}
+
+internal sealed class ConsumableMovementRepository(HrDbContext db) : IConsumableMovementRepository
+{
+    public Task<ConsumableMovement?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.ConsumableMovements.SingleOrDefaultAsync(m => m.Id == id, cancellationToken);
+
+    public void Add(ConsumableMovement aggregate) => db.ConsumableMovements.Add(aggregate);
+
+    public async Task<IReadOnlyList<ConsumableMovement>> GetForItemAsync(Guid consumableItemId, CancellationToken cancellationToken = default) =>
+        await db.ConsumableMovements.AsNoTracking()
+            .Where(m => m.ConsumableItemId == consumableItemId)
+            .OrderByDescending(m => m.Date).ThenByDescending(m => m.RecordedAtUtc)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, DateOnly>> GetLastDatesAsync(CancellationToken cancellationToken = default) =>
+        await db.ConsumableMovements.AsNoTracking()
+            .GroupBy(m => m.ConsumableItemId)
+            .Select(g => new { Id = g.Key, Last = g.Max(m => m.Date) })
+            .ToDictionaryAsync(x => x.Id, x => x.Last, cancellationToken);
+
+    public Task<bool> AnyForItemAsync(Guid consumableItemId, CancellationToken cancellationToken = default) =>
+        db.ConsumableMovements.AnyAsync(m => m.ConsumableItemId == consumableItemId, cancellationToken);
+}
+
 // An employee's ID card photo: one row per employee, its bytes alone.
 public sealed class EmployeeIdPhoto
 {

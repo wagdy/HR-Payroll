@@ -3,10 +3,8 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { firstValueFrom } from 'rxjs';
@@ -19,6 +17,7 @@ import { MoneyPipe } from '../../core/ui/money.pipe';
 import { NotifyService } from '../../core/ui/notify.service';
 import { Approvals, pendingLabel } from '../approvals/approvals';
 import { BusinessDay } from '../../core/ui/business-day';
+import { FilterOption, FilterSelect } from '../shared/filter-select';
 import {
   AssetDialog,
   AssetDialogData,
@@ -37,18 +36,10 @@ import {
 // locked until then.
 @Component({
   selector: 'app-assets-page',
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatProgressBarModule, MatSelectModule, MatSlideToggleModule, MatTooltipModule, MoneyPipe],
+  imports: [FilterSelect, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatSlideToggleModule, MatTooltipModule, MoneyPipe],
   template: `
     <div class="toolbar">
-      <mat-form-field subscriptSizing="dynamic" class="filter">
-        <mat-label>Category · الفئة</mat-label>
-        <mat-select [ngModel]="category()" (ngModelChange)="category.set($event)" aria-label="Category">
-          <mat-option value="">All categories</mat-option>
-          @for (c of categories(); track c.id) {
-            <mat-option [value]="c.id">{{ c.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+      <app-filter-select label="Category · الفئة" icon="category" [options]="categoryFilters()" [(value)]="category" />
       <mat-slide-toggle [ngModel]="showGone()" (ngModelChange)="showGone.set($event)">Show what is gone · عرض المستبعد</mat-slide-toggle>
       <span class="spacer"></span>
       <span class="muted">{{ shown().length }} {{ shown().length === 1 ? 'asset' : 'assets' }}@if (costsShown()) { · {{ worth() | money }}}</span>
@@ -98,7 +89,7 @@ import {
                   @if (a.employeeName) {
                     <strong>{{ a.employeeName }}</strong>
                   }
-                  <div><span class="status" [class]="a.status">{{ statusLabels[a.status].en }}<span class="ar">{{ statusLabels[a.status].ar }}</span></span></div>
+                  <div><span class="status tag" [class]="a.status">{{ statusLabels[a.status].en }}<span class="ar">{{ statusLabels[a.status].ar }}</span></span></div>
                 </td>
                 <td class="num nowrap">
                   <button mat-icon-button (click)="history(a)" matTooltip="Its vouchers" [attr.aria-label]="a.name + '’s vouchers'"><mat-icon>history</mat-icon></button>
@@ -117,10 +108,14 @@ import {
               </tr>
             } @empty {
               <tr>
-                <td [attr.colspan]="costsShown() ? 6 : 4" class="muted">
+                <td [attr.colspan]="costsShown() ? 6 : 4" class="empty">
                   @if (assets().length) {
+                    <mat-icon>search_off</mat-icon>
+                    <span class="note-ar" lang="ar" dir="rtl">لا يوجد ما يُعرض هنا: جرّب فئة أخرى، أو اعرض المستبعد.</span>
                     Nothing to show here: try another category, or show what is gone.
                   } @else {
+                    <mat-icon>inventory_2</mat-icon>
+                    <span class="note-ar" lang="ar" dir="rtl">لا توجد أصول بعد. أضف الأطباق والأدوات والأجهزة، ثم قم بتسجيلها كعهدة للموظفين.</span>
                     No assets yet. Add the plates, the tools and the devices, then check each into someone's custody.
                   }
                 </td>
@@ -133,9 +128,6 @@ import {
   `,
   styleUrl: '../shared/pages.scss',
   styles: `
-    .filter {
-      min-width: 190px;
-    }
     .small {
       font-size: 0.85em;
     }
@@ -149,22 +141,24 @@ import {
     tr.gone td {
       color: var(--mat-sys-on-surface-variant);
     }
-    .status {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: var(--mat-sys-surface-container-high);
-
+    // Where an asset is, as a tag (styles.scss): in custody green, the store blue, maintenance
+    // amber, broken red, thrown away grey.
+    .status.tag {
       &.InCustody {
-        background: color-mix(in srgb, var(--app-ok, #2e7d32) 16%, transparent);
+        --tag-bg: var(--tag-ok-bg);
+        --tag-fg: var(--tag-ok-fg);
+      }
+      &.InStore {
+        --tag-bg: var(--tag-info-bg);
+        --tag-fg: var(--tag-info-fg);
       }
       &.Maintenance {
-        background: color-mix(in srgb, var(--app-warn) 22%, transparent);
+        --tag-bg: var(--tag-warn-bg);
+        --tag-fg: var(--tag-warn-fg);
       }
-      &.Broken,
-      &.Discarded {
-        background: color-mix(in srgb, var(--mat-sys-error) 12%, transparent);
+      &.Broken {
+        --tag-bg: var(--tag-bad-bg);
+        --tag-fg: var(--tag-bad-fg);
       }
     }
   `,
@@ -195,6 +189,14 @@ export class AssetsPage {
     this.assets().filter((a) => (this.showGone() || !isGone(a)) && (!this.category() || a.categoryId === this.category())),
   );
   protected readonly worth = computed(() => this.shown().reduce((sum, a) => sum + (a.totalCost ?? 0), 0));
+  // The categories to pick from, each with how many of its assets show (what is gone too, when shown).
+  protected readonly categoryFilters = computed<FilterOption[]>(() => {
+    const listed = this.assets().filter((a) => this.showGone() || !isGone(a));
+    return [
+      { value: '', label: 'All categories', count: listed.length },
+      ...this.categories().map((c) => ({ value: c.id, label: c.name, count: listed.filter((a) => a.categoryId === c.id).length })),
+    ];
+  });
 
   constructor() {
     void this.load();

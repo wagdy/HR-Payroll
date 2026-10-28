@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { firstValueFrom } from 'rxjs';
 import { AssetVoucher, CustodyApi, reasonLabels } from '../../core/custody/custody.api';
@@ -14,7 +15,7 @@ import { BusinessDay, isoDay } from '../../core/ui/business-day';
 // (إذن دخول), or out of it and why (إذن خروج). The last 30 days to start with.
 @Component({
   selector: 'app-custody-vouchers-page',
-  imports: [DatePipe, FormsModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, MoneyPipe],
+  imports: [DatePipe, FormsModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressBarModule, MoneyPipe],
   template: `
     <div class="toolbar">
       <mat-form-field subscriptSizing="dynamic" class="day">
@@ -53,7 +54,7 @@ import { BusinessDay, isoDay } from '../../core/ui/business-day';
                 <td class="nowrap">{{ v.date | date: 'EEE d MMM' }}</td>
                 <td><strong>{{ v.assetName }}</strong></td>
                 <td>
-                  <span class="type" [class]="v.type">{{ v.type === 'CheckIn' ? 'In · إذن دخول' : 'Out · إذن خروج' }}</span>
+                  <span class="type tag" [class]="v.type">{{ v.type === 'CheckIn' ? 'In · إذن دخول' : 'Out · إذن خروج' }}</span>
                   @if (v.reason) {
                     <span class="muted"> {{ reasonLabels[v.reason].en }} · {{ reasonLabels[v.reason].ar }}</span>
                   }
@@ -67,7 +68,13 @@ import { BusinessDay, isoDay } from '../../core/ui/business-day';
                 <td class="muted small">{{ v.recordedBy }}</td>
               </tr>
             } @empty {
-              <tr><td colspan="7" class="muted">No vouchers on these days.</td></tr>
+              <tr>
+                <td colspan="7" class="empty">
+                  <mat-icon>receipt_long</mat-icon>
+                  <span class="note-ar" lang="ar" dir="rtl">لا توجد أذونات في هذه الأيام.</span>
+                  No vouchers on these days.
+                </td>
+              </tr>
             }
           </tbody>
         </table>
@@ -85,16 +92,10 @@ import { BusinessDay, isoDay } from '../../core/ui/business-day';
     .nowrap {
       white-space: nowrap;
     }
-    .type {
-      display: inline-block;
-      padding: 1px 8px;
-      border-radius: 999px;
-      font: var(--mat-sys-label-small);
-      background: color-mix(in srgb, var(--app-ok, #2e7d32) 16%, transparent);
-
-      &.CheckOut {
-        background: var(--mat-sys-surface-container-high);
-      }
+    // In green, out grey: tags (styles.scss).
+    .type.CheckIn {
+      --tag-bg: var(--tag-ok-bg);
+      --tag-fg: var(--tag-ok-fg);
     }
   `,
 })

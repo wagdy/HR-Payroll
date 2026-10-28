@@ -73,6 +73,8 @@ public static class DependencyInjection
         services.AddScoped<IAssetCategoryRepository, AssetCategoryRepository>();
         services.AddScoped<IAssetItemRepository, AssetItemRepository>();
         services.AddScoped<IAssetTransactionRepository, AssetTransactionRepository>();
+        services.AddScoped<IConsumableItemRepository, ConsumableItemRepository>();
+        services.AddScoped<IConsumableMovementRepository, ConsumableMovementRepository>();
 
         // The system's users.
         services.AddScoped<UserDirectory>();

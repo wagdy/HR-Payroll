@@ -126,6 +126,70 @@ export function isGone(asset: AssetItem): boolean {
   return asset.status === 'Broken' || asset.status === 'Discarded';
 }
 
+// Consumables inventory (جرد الاستهلاكيات): supplies kept in the store and used up. Their stock
+// changes by movements: received (at a unit cost, moving the average), used up, or counted (the
+// stock set to what was counted, the difference kept). An employee is sent no cost: null.
+export type ConsumableMovementType = 'Received' | 'Consumed' | 'Counted';
+
+export interface ConsumableItem {
+  id: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  // The average a unit cost, and what the stock is worth.
+  unitCost: number | null;
+  totalCost: number | null;
+  reorderLevel: number | null;
+  isLow: boolean;
+  notes: string | null;
+  lastMovedOn: string | null;
+  createdBy: string;
+  createdAtUtc: string;
+}
+
+// Quantity: what came in or went out; a count's, the difference it found (negative when short).
+export interface ConsumableMovement {
+  id: string;
+  consumableItemId: string;
+  type: ConsumableMovementType;
+  date: string;
+  quantity: number;
+  unitCost: number | null;
+  cost: number | null;
+  stockAfter: number;
+  notes: string | null;
+  recordedBy: string;
+  recordedAtUtc: string;
+}
+
+export interface ConsumableDetail {
+  item: ConsumableItem;
+  movements: ConsumableMovement[];
+}
+
+export interface ConsumableInput {
+  name: string;
+  unit: string;
+  reorderLevel: number | null;
+  notes: string | null;
+}
+
+// Counted: quantity is what was counted. unitCost: a receipt's, or none (the average).
+export interface ConsumableMovementInput {
+  movementId: string;
+  type: ConsumableMovementType;
+  quantity: number;
+  unitCost: number | null;
+  date: string;
+  notes: string | null;
+}
+
+export const movementLabels: Record<ConsumableMovementType, { en: string; ar: string }> = {
+  Received: { en: 'Received', ar: 'وارد' },
+  Consumed: { en: 'Used up', ar: 'منصرف' },
+  Counted: { en: 'Counted', ar: 'جرد' },
+};
+
 @Injectable({ providedIn: 'root' })
 export class CustodyApi {
   private readonly http = inject(HttpClient);
@@ -168,5 +232,25 @@ export class CustodyApi {
 
   employeeCustody(employeeId: string): Observable<CustodyItem[]> {
     return this.http.get<CustodyItem[]>(`/api/hr/employees/${employeeId}/custody`);
+  }
+
+  consumables(): Observable<ConsumableItem[]> {
+    return this.http.get<ConsumableItem[]>('/api/custody/consumables');
+  }
+
+  consumable(id: string): Observable<ConsumableDetail> {
+    return this.http.get<ConsumableDetail>(`/api/custody/consumables/${id}`);
+  }
+
+  saveConsumable(id: string, input: ConsumableInput): Observable<ConsumableItem> {
+    return this.http.put<ConsumableItem>(`/api/custody/consumables/${id}`, input);
+  }
+
+  deleteConsumable(id: string): Observable<void> {
+    return this.http.delete<void>(`/api/custody/consumables/${id}`);
+  }
+
+  recordMovement(itemId: string, input: ConsumableMovementInput): Observable<{ item: ConsumableItem; movement: ConsumableMovement }> {
+    return this.http.post<{ item: ConsumableItem; movement: ConsumableMovement }>(`/api/custody/consumables/${itemId}/movements`, input);
   }
 }

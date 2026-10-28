@@ -57,6 +57,9 @@ approval module `Custody`), the asset locked until decided. A portal PIN is a ma
 | `POST /api/custody/assets/{id}/check-out` | إذن خروج: `reason` (Returned, Maintenance, Breakage, Lost, Discarded) and `quantity` |
 | `GET /api/custody/vouchers?from=&to=` | The vouchers of those workdays (the last 30 unless said) |
 | `GET /api/hr/employees/{id}/custody` | What is in their custody now, since when, and what it cost |
+| `GET /api/custody/consumables`, `GET …/consumables/{id}` | جرد الاستهلاكيات: the supplies used up from the store, their stock, average unit cost, value and whether low; one with its movements, the latest first |
+| `PUT /api/custody/consumables/{id}`, `DELETE …/{id}` | Added or changed: name, unit, the level it is low at, notes; deleted only before anything was recorded of it |
+| `POST /api/custody/consumables/{id}/movements` | `type` Received (`unitCost`, or none: at the average; an employee's always at it), Consumed (never more than in stock), or Counted (`quantity` what was counted: the stock set to it, the difference kept); `movementId` made by the app, so a retry records it once; `date` today unless given, none after it. Made at once: nothing here is in anyone's custody |
 | `PUT /api/hr/employees/{id}/pin`, `DELETE …/pin` | Their portal PIN set (4 to 6 digits; it signs them out and unlocks them) or taken off: a manager's. `EmployeeDto` says `hasPin` and `pinSetAtUtc`, never the PIN |
 | `POST /api/auth/employee-login` | `mobileNumber` and `pinCode` → a token with the role `Employee` and their id; one answer, "Wrong mobile number or PIN.", whether or not the number is anyone's |
 | `GET /api/portal/me`, `…/id-photo`, `…/payslip-months`, `…/payslip?month=`, `…/custody` | The portal, read-only, only ever the signed-in employee's own, from their token |
@@ -92,6 +95,17 @@ approval module `Custody`), the asset locked until decided. A portal PIN is a ma
   payslip (this month's draft, or one before), their leaves, and their custody as Asset |
   Category | Quantity, with nothing of what it cost; read-only, and nothing of the system's
   navigation. On a phone: details, custody, then the payslip.
+
+## Consumables inventory (جرد الاستهلاكيات)
+
+Supplies bought, kept in the store and used up (napkins, detergent, gloves, takeaway cups) are
+not assets: nobody holds them in custody. Each is a `ConsumableItem` counted in its unit (a
+piece, a box, a kilo; to the thousandth), with what a unit cost on average. Its stock changes only
+by a `ConsumableMovement`: stock received at its price moves the average; what is used up, or
+found short on a count, goes at the average; a count sets the stock to what was counted and keeps
+the difference. Nothing is deleted once recorded. At or under its reorder level an item is low.
+Whoever manages on the Custody tab records them at once; an employee there is never sent a cost
+(`HrPrivacyFilter` clears `unitCost`, `totalCost` and `cost`).
 
 ## Not decided yet
 

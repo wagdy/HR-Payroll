@@ -470,7 +470,13 @@ export class CheckOutDialog extends SavingDialog {
                 <td class="num">{{ v.cost === null ? '—' : (v.cost | money) }}</td>
               </tr>
             } @empty {
-              <tr><td colspan="5" class="muted">No vouchers yet: it has not left the store.</td></tr>
+              <tr>
+                <td colspan="5" class="empty">
+                  <mat-icon>receipt_long</mat-icon>
+                  <span class="note-ar" lang="ar" dir="rtl">لا توجد أذونات بعد: لم يخرج من المخزن.</span>
+                  No vouchers yet: it has not left the store.
+                </td>
+              </tr>
             }
           </tbody>
         </table>

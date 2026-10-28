@@ -113,6 +113,48 @@ internal sealed class AssetTransactionConfiguration : IEntityTypeConfiguration<A
     }
 }
 
+// Quantities to the thousandth (a kilo and a half); the average cost to four places, so averaging
+// many receipts does not drift.
+internal sealed class ConsumableItemConfiguration : IEntityTypeConfiguration<ConsumableItem>
+{
+    public void Configure(EntityTypeBuilder<ConsumableItem> builder)
+    {
+        builder.ToTable("ConsumableItems", HrDbContext.HrSchema, t => t.HasCheckConstraint("CK_ConsumableItems_Quantity", "\"Quantity\" >= 0"));
+        builder.Property(c => c.Name).HasMaxLength(ConsumableItem.MaxNameLength);
+        builder.Property(c => c.Unit).HasMaxLength(ConsumableItem.MaxUnitLength);
+        builder.Property(c => c.Notes).HasMaxLength(ConsumableItem.MaxNotesLength);
+        builder.Property(c => c.CreatedBy).HasMaxLength(200);
+        builder.Property(c => c.Quantity).HasPrecision(12, 3);
+        builder.Property(c => c.ReorderLevel).HasPrecision(12, 3);
+        builder.Property(c => c.UnitCost).HasPrecision(18, 4);
+        builder.Ignore(c => c.TotalCost);
+        builder.Ignore(c => c.IsLow);
+        builder.HasIndex(c => c.Name).IsUnique();
+    }
+}
+
+internal sealed class ConsumableMovementConfiguration : IEntityTypeConfiguration<ConsumableMovement>
+{
+    public void Configure(EntityTypeBuilder<ConsumableMovement> builder)
+    {
+        builder.ToTable("ConsumableMovements", HrDbContext.HrSchema, t =>
+        {
+            // Received and used up, some; a count, any difference, none too.
+            t.HasCheckConstraint("CK_ConsumableMovements_Quantity", "\"Type\" = 'Counted' OR \"Quantity\" > 0");
+            t.HasCheckConstraint("CK_ConsumableMovements_StockAfter", "\"StockAfter\" >= 0");
+        });
+        builder.Property(m => m.Type).IsEnumName();
+        builder.Property(m => m.Notes).HasMaxLength(ConsumableItem.MaxNotesLength);
+        builder.Property(m => m.RecordedBy).HasMaxLength(200);
+        builder.Property(m => m.Quantity).HasPrecision(12, 3);
+        builder.Property(m => m.StockAfter).HasPrecision(12, 3);
+        builder.Property(m => m.UnitCost).HasPrecision(18, 4);
+        builder.Ignore(m => m.Cost);
+        builder.HasOne<ConsumableItem>().WithMany().HasForeignKey(m => m.ConsumableItemId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(m => new { m.ConsumableItemId, m.Date });
+    }
+}
+
 internal sealed class EmployeeIdPhotoConfiguration : IEntityTypeConfiguration<Hr.EmployeeIdPhoto>
 {
     public void Configure(EntityTypeBuilder<Hr.EmployeeIdPhoto> builder)

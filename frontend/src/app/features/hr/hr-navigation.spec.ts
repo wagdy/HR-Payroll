@@ -69,7 +69,7 @@ describe('the HR navigation', () => {
       ['settings', 1],
       ['account', 0],
     ]);
-    expect(shell.children!.find((r) => r.path === 'custody')!.children!.map((r) => r.path)).toEqual(['', 'categories', 'assets', 'vouchers']);
+    expect(shell.children!.find((r) => r.path === 'custody')!.children!.map((r) => r.path)).toEqual(['', 'categories', 'assets', 'vouchers', 'consumables']);
   });
 
   async function shellOf(hrTabs: string[], manager: boolean) {
