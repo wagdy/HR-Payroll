@@ -18,6 +18,33 @@ export function shiftHours(shift: Pick<WorkShift, 'startsAt' | 'endsAt'>): strin
   return `${start}–${end}${end <= start ? ' +1' : ''}`;
 }
 
+// A time as typed, as "HH:mm": "8", "0800", "8:30", "16:30", "4pm", "4:30 PM", Arabic digits too.
+// Null when it is not one.
+export function parseTime(typed: string): string | null {
+  const text = typed
+    .trim()
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .toLowerCase()
+    .replace(/\s+/g, '');
+  const match = /^(\d{1,2})(?:[:.]?(\d{2}))?(am|pm|ص|م)?$/.exec(text);
+  if (!match) {
+    return null;
+  }
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? 0);
+  const half = match[3];
+  if (half) {
+    if (hour < 1 || hour > 12) {
+      return null;
+    }
+    hour = (hour % 12) + (half === 'pm' || half === 'م' ? 12 : 0);
+  }
+  if (hour > 23 || minute > 59) {
+    return null;
+  }
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
 export interface ShiftDialogData {
   shifts: WorkShift[];
 }
@@ -60,15 +87,19 @@ export interface ShiftDialogData {
           <mat-label>Name · الاسم</mat-label>
           <input matInput [(ngModel)]="name" maxlength="50" placeholder="Morning, evening, night" aria-label="Name" />
         </mat-form-field>
+        <!-- Typed, not a browser's time picker: one that also wants AM or PM leaves its value empty until every part is filled. -->
         <mat-form-field>
           <mat-label>Starts · يبدأ</mat-label>
-          <input matInput type="time" [(ngModel)]="startsAt" aria-label="Starts" />
+          <input matInput [(ngModel)]="startsAt" (blur)="tidy('startsAt')" inputmode="numeric" placeholder="08:00" maxlength="10" aria-label="Starts" />
+          <mat-hint>24-hour, like 08:00 · مثل 08:00</mat-hint>
         </mat-form-field>
         <mat-form-field>
           <mat-label>Ends · ينتهي</mat-label>
-          <input matInput type="time" [(ngModel)]="endsAt" aria-label="Ends" />
-          @if (startsAt && endsAt && endsAt <= startsAt) {
+          <input matInput [(ngModel)]="endsAt" (blur)="tidy('endsAt')" inputmode="numeric" placeholder="16:00" maxlength="10" aria-label="Ends" />
+          @if (overnight()) {
             <mat-hint>The next morning · صباح اليوم التالي</mat-hint>
+          } @else {
+            <mat-hint>Like 16:00 · مثل 16:00</mat-hint>
           }
         </mat-form-field>
         <div class="tones wide" role="radiogroup" aria-label="Colour">
@@ -89,7 +120,8 @@ export interface ShiftDialogData {
       @if (editing()) {
         <button mat-button (click)="reset()">Cancel the edit</button>
       }
-      <button mat-stroked-button (click)="save()" [disabled]="!name.trim() || !startsAt || !endsAt || saving()">
+      <!-- Never disabled for what is missing: pressed, it says what. -->
+      <button mat-stroked-button (click)="save()" [disabled]="saving()">
         <mat-icon>{{ editing() ? 'check' : 'add' }}</mat-icon> {{ editing() ? 'Save · حفظ' : 'Add · إضافة' }}
       </button>
       <button mat-flat-button (click)="ref.close(changed)">Done · تم</button>
@@ -218,12 +250,38 @@ export class ShiftDialog {
     this.tone = shiftTones[this.shifts().length % shiftTones.length];
   }
 
+  // Ends at or before it starts: into the next morning.
+  protected overnight(): boolean {
+    const start = parseTime(this.startsAt);
+    const end = parseTime(this.endsAt);
+    return !!start && !!end && end <= start;
+  }
+
+  // As typed, made "HH:mm" once it is one.
+  protected tidy(field: 'startsAt' | 'endsAt'): void {
+    const time = parseTime(this[field]);
+    if (time) {
+      this[field] = time;
+    }
+  }
+
   protected async save(): Promise<void> {
+    const start = parseTime(this.startsAt);
+    const end = parseTime(this.endsAt);
+    const missing = !this.name.trim()
+      ? 'Give the shift its name. · اكتب اسم الشفت'
+      : !start
+        ? 'Enter when it starts, like 08:00. · أدخل وقت البداية'
+        : !end
+          ? 'Enter when it ends, like 16:00. · أدخل وقت النهاية'
+          : null;
+    if (missing) {
+      this.error.set(missing);
+      return;
+    }
     await this.act(async () => {
       const id = this.editing() ?? crypto.randomUUID();
-      const saved = await firstValueFrom(
-        this.api.saveShift(id, { name: this.name.trim(), startsAt: `${this.startsAt}:00`, endsAt: `${this.endsAt}:00`, tone: this.tone }),
-      );
+      const saved = await firstValueFrom(this.api.saveShift(id, { name: this.name.trim(), startsAt: `${start}:00`, endsAt: `${end}:00`, tone: this.tone }));
       this.shifts.update((list) => [...list.filter((s) => s.id !== id), saved].sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
       this.reset();
     });

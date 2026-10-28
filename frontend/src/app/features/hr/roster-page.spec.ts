@@ -7,7 +7,7 @@ import { Employee, HrApi, Roster, RosterCell, WorkShift } from '../../core/hr/hr
 import { BusinessDay } from '../../core/ui/business-day';
 import { NotifyService } from '../../core/ui/notify.service';
 import { RosterPage } from './roster-page';
-import { ShiftDialog } from './shift-dialog';
+import { ShiftDialog, parseTime } from './shift-dialog';
 
 const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 // Element by element: the template leaves no space between them.
@@ -167,6 +167,15 @@ describe('the shift roster', () => {
   });
 });
 
+describe('a shift’s hours as typed', () => {
+  it('reads them however they come, and nothing that is not a time', () => {
+    expect(['8', '08', '0800', '8:30', '08.30', '1630', '16:30', ' 4pm ', '4:30 PM', '12am', '12pm', '٠٨:٣٠', '4 م'].map(parseTime)).toEqual([
+      '08:00', '08:00', '08:00', '08:30', '08:30', '16:30', '16:30', '16:00', '16:30', '00:00', '12:00', '08:30', '16:00',
+    ]);
+    expect(['', 'noon', '24', '8:60', '13pm', '0pm', '123456'].map(parseTime)).toEqual([null, null, null, null, null, null, null]);
+  });
+});
+
 describe('the shifts', () => {
   const saveShift = vi.fn();
   const deleteShift = vi.fn();
@@ -212,12 +221,26 @@ describe('the shifts', () => {
       input.dispatchEvent(new Event('input'));
       await refresh();
     };
+    // Pressed with something missing, it says what instead of doing nothing.
+    const add = () => el.querySelector<HTMLButtonElement>('mat-dialog-actions button:first-child')!;
+    expect(add().disabled).toBe(false);
+    add().click();
+    await refresh();
+    expect(text(el.querySelector('.error')!)).toBe('Give the shift its name. · اكتب اسم الشفت');
     await type('Name', ' Evening ');
-    await type('Starts', '16:00');
-    await type('Ends', '00:00');
+    add().click();
+    await refresh();
+    expect(text(el.querySelector('.error')!)).toBe('Enter when it starts, like 08:00. · أدخل وقت البداية');
+    expect(saveShift).not.toHaveBeenCalled();
+
+    await type('Starts', '4pm');
+    el.querySelector<HTMLInputElement>('input[aria-label="Starts"]')!.dispatchEvent(new Event('blur'));
+    await refresh();
+    expect(el.querySelector<HTMLInputElement>('input[aria-label="Starts"]')!.value).toBe('16:00');
+    await type('Ends', '0');
     el.querySelector<HTMLButtonElement>('.tone[aria-label="Teal"]')!.click();
     await refresh();
-    expect(text(el.querySelector('mat-hint')!)).toBe('The next morning · صباح اليوم التالي');
+    expect(text(el.querySelectorAll('mat-hint')[1])).toBe('The next morning · صباح اليوم التالي');
     await page['save']();
     await refresh();
     expect(saveShift.mock.lastCall![1]).toEqual({ name: 'Evening', startsAt: '16:00:00', endsAt: '00:00:00', tone: 'Teal' });
