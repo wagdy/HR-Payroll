@@ -1211,7 +1211,7 @@ public class HrApiTests
         await Json(await manager.PostAsync($"/api/hr/punches/{evening}/restore", null, Cancel));
 
         // A working day (a swap) is only ever a weekly day off; Hassan has none.
-        Assert.Contains("only a weekly day off is marked as one", await Problem(await manager.PutAsJsonAsync(
+        Assert.Contains("only a day off is marked as one", await Problem(await manager.PutAsJsonAsync(
             $"/api/hr/employees/{hassan}/days/{Iso(day)}", new { kind = "WorkingDay" }, Cancel)));
 
         // Ten minutes' grace: four minutes late is on time.

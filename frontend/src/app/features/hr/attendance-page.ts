@@ -162,7 +162,12 @@ interface Row {
                     <div class="muted small">{{ r.sub }}</div>
                   }
                 </td>
-                <td class="nowrap">{{ shift(d) }}</td>
+                <td class="nowrap">
+                  {{ shift(d) }}
+                  @if (d.shiftName) {
+                    <div class="muted small">{{ d.shiftName }} · شفت</div>
+                  }
+                </td>
                 <td class="nowrap">{{ clock(d.firstIn, d.date) }}</td>
                 <td class="nowrap">
                   @if (d.forgotToCheckOut) {
@@ -522,7 +527,7 @@ export class AttendancePage {
     return sheet.days.map((d) => ({
       key: d.date,
       title: dayName(d.date),
-      sub: d.isWeeklyDayOff ? 'Weekly day off · راحة أسبوعية' : '',
+      sub: d.isWeeklyDayOff ? 'Weekly day off · راحة أسبوعية' : d.isRosteredDayOff ? 'Day off on the roster · راحة حسب الجدول' : '',
       employee: sheet.employee,
       day: d,
     }));

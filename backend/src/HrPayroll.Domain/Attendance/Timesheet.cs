@@ -91,17 +91,21 @@ public sealed record DayEvaluation(
 
 // How a day's punches become hours worked, lateness and overtime.
 //
+// A day is measured against what it was planned as (WorkSchedule): the shift the roster put the
+// employee on that day, or their own work schedule (nine hours from its start) with none; a day off
+// from the roster, or a weekly one of theirs.
+//
 // An employee's day runs from six hours before their shift starts to the same time the next day,
-// so a shift that runs past midnight stays one day. Its punches, a double scan taken as one, are
-// paired in order: in, out, in, out. Against the shift (its start, and nine hours after):
+// so a shift that runs past midnight stays one day (WorkSchedule.Window). Its punches, a double
+// scan taken as one, are paired in order: in, out, in, out. Against the shift (its start and end):
 // - late: from the shift's start to the first punch, unless that is within the grace;
 // - leaving early: from the last punch to the shift's end;
 // - away: time punched out between pairs while the shift ran;
-// - overtime: time worked after the shift's end, once nine hours are worked. Coming in early is
-//   not overtime, and neither is staying late to make up for coming in late: 10:00 to 19:00 on an
-//   08:00 shift is two hours late, and no overtime.
-// So late, early, away and the shift's time worked add up to its nine hours. On a day off or
-// leave there is no shift: the time is worked, and nothing is late or overtime.
+// - overtime: time worked after the shift's end, once the shift's hours are worked. Coming in
+//   early is not overtime, and neither is staying late to make up for coming in late: 10:00 to
+//   19:00 on an 08:00 shift is two hours late, and no overtime.
+// So late, early, away and the shift's time worked add up to its hours. On a day off or leave
+// there is no shift: the time is worked, and nothing is late or overtime.
 //
 // A public holiday is a paid day off for everyone: never an absence. Worked, it is measured as
 // the day would have been otherwise (a working day against its shift, a day off without one).
@@ -122,29 +126,28 @@ public static class Timesheet
     // A punch-in this long without its punch-out is an abandoned shift: suspended for a manager.
     public static readonly TimeSpan AbandonedAfter = TimeSpan.FromHours(18);
 
-    // The punches of `day` are the ones from From, up to but not including To.
-    public static (DateTime From, DateTime To) Window(Employee employee, DateOnly day)
-    {
-        var from = employee.ShiftStartsAt is { } start ? day.ToDateTime(start) - DayStartsBeforeShift : day.ToDateTime(FlexibleDayStartsAt);
-        return (from, from.AddDays(1));
-    }
+    // On their own schedule alone, no roster.
+    public static (DateTime From, DateTime To) Window(Employee employee, DateOnly day) => WorkSchedule.Of(employee).Window(day);
 
-    // The day a punch at `time` belongs to: the one whose window holds it.
-    public static DateOnly DayOf(Employee employee, DateTime time) =>
-        DateOnly.FromDateTime(time - (employee.ShiftStartsAt is { } start ? start.ToTimeSpan() - DayStartsBeforeShift : FlexibleDayStartsAt.ToTimeSpan()));
+    public static DateOnly DayOf(Employee employee, DateTime time) => WorkSchedule.Of(employee).DayOf(time);
+
+    public static DayEvaluation Evaluate(
+        Employee employee, DateOnly day, IEnumerable<DateTime> punches, DayMarkKind? mark, AttendancePolicy policy, DateTime now, bool holiday = false) =>
+        Evaluate(WorkSchedule.Of(employee), day, punches, mark, policy, now, holiday);
 
     // `now` is local time, as the punches are: a day is over once its window has closed.
     // `holiday`: the day is a public holiday.
     public static DayEvaluation Evaluate(
-        Employee employee, DateOnly day, IEnumerable<DateTime> punches, DayMarkKind? mark, AttendancePolicy policy, DateTime now, bool holiday = false)
+        WorkSchedule schedule, DateOnly day, IEnumerable<DateTime> punches, DayMarkKind? mark, AttendancePolicy policy, DateTime now, bool holiday = false)
     {
+        var employee = schedule.Employee;
         if (!employee.IsEmployedOn(day))
             return Nothing(day, DayStatus.NotEmployed);
 
-        var (from, to) = Window(employee, day);
+        var (from, to) = schedule.Window(day);
         var over = now >= to;
         var times = Scans(punches.Where(p => p >= from && p < to), policy.DoubleScanMinutes);
-        var off = IsOff(employee, day, mark);
+        var off = IsOff(schedule.Plan(day), mark);
         if (times.Count == 0)
             return Nothing(
                 day,
@@ -167,11 +170,10 @@ public static class Timesheet
         DateTime? last = complete ? times[^1] : null;
         if (off)
             return new DayEvaluation(day, status, first, last, times.Count, worked, 0, 0, 0, 0);
-        if (employee.ShiftStartsAt is not { } shiftStart)
+        if (schedule.ShiftOn(day, workingAfterAll: true) is not { } shift)
             return new DayEvaluation(day, status, first, last, times.Count, worked, 0, 0, 0, last is null ? 0 : Math.Max(0, worked - Employee.ShiftHours * 60));
 
-        var start = day.ToDateTime(shiftStart);
-        var end = start + Employee.ShiftLength;
+        var (start, end) = shift;
         var late = first <= start.AddMinutes(policy.GraceMinutes) ? TimeSpan.Zero : Clip(first, start, end) - start;
         if (last is not { } lastOut)
             return new DayEvaluation(day, status, first, null, times.Count, worked, Minutes(late), 0, 0, 0);
@@ -181,28 +183,31 @@ public static class Timesheet
         for (var i = 0; i < pairs.Count - 1; i++)
             away += Overlap(pairs[i].Out, pairs[i + 1].In, start, end);
         var afterShift = Minutes(pairs.Aggregate(TimeSpan.Zero, (sum, p) => sum + Overlap(p.In, p.Out, end, DateTime.MaxValue)));
-        var overtime = Math.Max(0, Math.Min(afterShift, worked - Employee.ShiftHours * 60));
+        var overtime = Math.Max(0, Math.Min(afterShift, worked - Minutes(end - start)));
         return new DayEvaluation(day, status, first, lastOut, times.Count, worked, Minutes(late), Minutes(early), Minutes(away), overtime);
     }
 
     // A punch-in with no punch-out once the shift is over: they forgot to check out (نسي تسجيل
     // الانصراف). With no shift (flexible hours, or a day off or on leave), once the day is over;
     // suspended, 18 hours on, too. Only said: the day is worked out as Evaluate says.
-    public static bool ForgotToCheckOut(Employee employee, DayEvaluation day, DayMarkKind? mark, DateTime now)
+    public static bool ForgotToCheckOut(Employee employee, DayEvaluation day, DayMarkKind? mark, DateTime now) =>
+        ForgotToCheckOut(WorkSchedule.Of(employee), day, mark, now);
+
+    public static bool ForgotToCheckOut(WorkSchedule schedule, DayEvaluation day, DayMarkKind? mark, DateTime now)
     {
         if (day.Punches == 0 || day.LastOut is not null)
             return false;
         if (day.Status == DayStatus.Suspended)
             return true;
-        var ends = employee.ShiftStartsAt is { } start && !IsOff(employee, day.Day, mark)
-            ? day.Day.ToDateTime(start) + Employee.ShiftLength
-            : Window(employee, day.Day).To;
+        var ends = !IsOff(schedule.Plan(day.Day), mark) && schedule.ShiftOn(day.Day, workingAfterAll: true) is { } shift
+            ? shift.End
+            : schedule.Window(day.Day).To;
         return now >= ends;
     }
 
-    // A day off or on leave: a weekly day off marked as a working day is one, a swap.
-    private static bool IsOff(Employee employee, DateOnly day, DayMarkKind? mark) =>
-        mark is DayMarkKind.Leave or DayMarkKind.DayOff || (mark != DayMarkKind.WorkingDay && employee.IsDayOff(day));
+    // A day off or on leave: a day off marked as a working day is one, a swap.
+    private static bool IsOff(DayPlan plan, DayMarkKind? mark) =>
+        mark is DayMarkKind.Leave or DayMarkKind.DayOff || (mark != DayMarkKind.WorkingDay && plan.Off);
 
     // In order, a scan within that many minutes of the one before it dropped.
     private static List<DateTime> Scans(IEnumerable<DateTime> punches, int doubleScanMinutes)

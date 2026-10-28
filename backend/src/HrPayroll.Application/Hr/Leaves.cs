@@ -153,7 +153,7 @@ internal sealed class SetLeaveBalanceHandler(
 // The working days a leave would take: for the form, before it is asked.
 public sealed record CountLeaveDaysQuery(Guid EmployeeId, DateOnly StartDate, DateOnly EndDate) : IRequest<LeaveDaysDto>;
 
-internal sealed class CountLeaveDaysHandler(IEmployeeRepository employees, IPublicHolidayRepository holidays)
+internal sealed class CountLeaveDaysHandler(IEmployeeRepository employees, IPublicHolidayRepository holidays, Schedules schedules)
     : IRequestHandler<CountLeaveDaysQuery, LeaveDaysDto>
 {
     public async Task<LeaveDaysDto> Handle(CountLeaveDaysQuery request, CancellationToken cancellationToken)
@@ -161,7 +161,9 @@ internal sealed class CountLeaveDaysHandler(IEmployeeRepository employees, IPubl
         if (request.EndDate < request.StartDate || request.EndDate.DayNumber - request.StartDate.DayNumber >= LeaveRequest.MaxDays)
             return new LeaveDaysDto(0, []);
         var employee = await employees.GetRequiredAsync(request.EmployeeId, cancellationToken);
-        var days = LeaveDays.Of(employee, request.StartDate, request.EndDate, await holidays.GetBetweenAsync(request.StartDate, request.EndDate, cancellationToken));
+        var days = LeaveDays.Of(
+            await schedules.OfAsync(employee, request.StartDate, request.EndDate, cancellationToken), request.StartDate, request.EndDate,
+            await holidays.GetBetweenAsync(request.StartDate, request.EndDate, cancellationToken));
         return new LeaveDaysDto(days.Count, days);
     }
 }
@@ -192,7 +194,7 @@ public sealed record SubmitLeaveRequestCommand(
 
 internal sealed class SubmitLeaveRequestHandler(
     IEmployeeRepository employees, ILeaveTypeRepository types, IEmployeeLeaveBalanceRepository balances, ILeaveRequestRepository requests,
-    IPublicHolidayRepository holidays, IUnitOfWork unitOfWork)
+    IPublicHolidayRepository holidays, Schedules schedules, IUnitOfWork unitOfWork)
     : IRequestHandler<SubmitLeaveRequestCommand, LeaveRequestDto>
 {
     public async Task<LeaveRequestDto> Handle(SubmitLeaveRequestCommand request, CancellationToken cancellationToken)
@@ -205,7 +207,9 @@ internal sealed class SubmitLeaveRequestHandler(
         var type = await types.GetByIdAsync(request.LeaveTypeId, cancellationToken) ?? throw new NotFoundException(nameof(LeaveType), request.LeaveTypeId);
         if (request.EndDate < request.StartDate)
             throw new DomainException("A leave ends on or after the day it starts.");
-        var days = LeaveDays.Of(employee, request.StartDate, request.EndDate, await holidays.GetBetweenAsync(request.StartDate, request.EndDate, cancellationToken));
+        var days = LeaveDays.Of(
+            await schedules.OfAsync(employee, request.StartDate, request.EndDate, cancellationToken), request.StartDate, request.EndDate,
+            await holidays.GetBetweenAsync(request.StartDate, request.EndDate, cancellationToken));
         var asked = new LeaveRequest(
             request.RequestId, employee.Id, type.Id, request.StartDate, request.EndDate, days.Count, request.Reason, request.RequestedBy);
 
@@ -245,7 +249,8 @@ public sealed record ApproveLeaveRequestCommand(Guid Id, string? Notes, string S
 
 internal sealed class ApproveLeaveRequestHandler(
     IEmployeeRepository employees, ILeaveTypeRepository types, IEmployeeLeaveBalanceRepository balances, ILeaveRequestRepository requests,
-    IPublicHolidayRepository holidays, IDayMarkRepository marks, IPayrollSlipRepository slips, IUnitOfWork unitOfWork, AttendanceBroadcast broadcast)
+    IPublicHolidayRepository holidays, Schedules schedules, IDayMarkRepository marks, IPayrollSlipRepository slips, IUnitOfWork unitOfWork,
+    AttendanceBroadcast broadcast)
     : IRequestHandler<ApproveLeaveRequestCommand, LeaveRequestDto>
 {
     public async Task<LeaveRequestDto> Handle(ApproveLeaveRequestCommand request, CancellationToken cancellationToken)
@@ -255,7 +260,9 @@ internal sealed class ApproveLeaveRequestHandler(
             throw new DomainException($"This leave was {asked.Status.ToString().ToLowerInvariant()} already.");
         var employee = await employees.GetRequiredAsync(asked.EmployeeId, cancellationToken);
         var type = await types.GetByIdAsync(asked.LeaveTypeId, cancellationToken) ?? throw new NotFoundException(nameof(LeaveType), asked.LeaveTypeId);
-        var days = LeaveDays.Of(employee, asked.StartDate, asked.EndDate, await holidays.GetBetweenAsync(asked.StartDate, asked.EndDate, cancellationToken));
+        var days = LeaveDays.Of(
+            await schedules.OfAsync(employee, asked.StartDate, asked.EndDate, cancellationToken), asked.StartDate, asked.EndDate,
+            await holidays.GetBetweenAsync(asked.StartDate, asked.EndDate, cancellationToken));
         if (days.Count != asked.TotalDaysRequested)
             throw new DomainException(
                 $"Its working days have changed since it was asked ({days.Count} now, {asked.TotalDaysRequested} asked): a holiday or their days off. Reject it, and ask again.");

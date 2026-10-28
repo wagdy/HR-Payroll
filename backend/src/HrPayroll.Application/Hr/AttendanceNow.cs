@@ -82,17 +82,19 @@ internal sealed class AttendanceBroadcast(Presence presence, IAttendanceNotifier
 }
 
 // Who is in now: everyone employed on their own day, or only some of them.
-internal sealed class Presence(IEmployeeRepository employees, Timesheets timesheets, IAttendanceSettings settings, IWorkClock clock)
+internal sealed class Presence(IEmployeeRepository employees, Timesheets timesheets, Schedules schedules, IAttendanceSettings settings, IWorkClock clock)
 {
     public async Task<PresenceReport> ReadAsync(IReadOnlySet<Guid>? only, CancellationToken cancellationToken)
     {
         var now = clock.LocalTimeOf(DateTime.UtcNow);
         var policy = await settings.GetAsync(cancellationToken);
-        var people = (await employees.GetAllAsync(cancellationToken))
-            .Where(e => (only is null || only.Contains(e.Id)) && e.IsEmployedOn(Timesheet.DayOf(e, now))).ToList();
+        var everyone = (await employees.GetAllAsync(cancellationToken)).Where(e => only is null || only.Contains(e.Id)).ToList();
+        // Each on their own day: the roster's shift can move it.
+        var plans = await schedules.ReadAsync(everyone, DateOnly.FromDateTime(now), DateOnly.FromDateTime(now), cancellationToken);
+        var people = everyone.Where(e => e.IsEmployedOn(plans[e.Id].DayOf(now))).ToList();
         var list = new List<PresenceDto>();
         // Most share a day: read a day's together.
-        foreach (var group in people.GroupBy(e => Timesheet.DayOf(e, now)))
+        foreach (var group in people.GroupBy(e => plans[e.Id].DayOf(now)))
         {
             var (_, sheets) = await timesheets.ReadAsync(group.ToList(), group.Key, group.Key, cancellationToken);
             foreach (var sheet in sheets)
@@ -100,7 +102,7 @@ internal sealed class Presence(IEmployeeRepository employees, Timesheets timeshe
                 var day = sheet.Days[0];
                 var e = day.Evaluation;
                 var since = day.Punches.Where(p => !p.IsIgnored).Select(p => (DateTime?)p.PunchedAt).Max();
-                DateTime? due = sheet.Employee.ShiftStartsAt is { } start ? group.Key.ToDateTime(start) : null;
+                DateTime? due = plans[sheet.Employee.Id].ShiftOn(group.Key)?.Start;
                 var state = e.Punches > 0 ? e.Punches % 2 == 1 ? PresenceState.In : PresenceState.Left
                     : e.Status is DayStatus.DayOff or DayStatus.Leave or DayStatus.UnpaidLeave or DayStatus.Holiday ? PresenceState.Off
                     : due is { } d && now > d.AddMinutes(policy.GraceMinutes) ? PresenceState.Late

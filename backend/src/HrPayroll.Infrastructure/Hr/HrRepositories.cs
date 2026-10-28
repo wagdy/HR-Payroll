@@ -108,6 +108,40 @@ internal sealed class AssetTransactionRepository(HrDbContext db) : IAssetTransac
         db.AssetTransactions.AnyAsync(t => t.AssetItemId == assetItemId, cancellationToken);
 }
 
+internal sealed class ShiftRepository(HrDbContext db) : IShiftRepository
+{
+    public Task<Shift?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.Shifts.SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
+
+    public void Add(Shift aggregate) => db.Shifts.Add(aggregate);
+
+    public void Remove(Shift shift) => db.Shifts.Remove(shift);
+
+    public async Task<IReadOnlyList<Shift>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        await db.Shifts.AsNoTracking().OrderBy(s => s.StartsAt).ThenBy(s => s.Name).ToListAsync(cancellationToken);
+}
+
+internal sealed class RosterRepository(HrDbContext db) : IRosterRepository
+{
+    public Task<RosterDay?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.RosterDays.SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+    public void Add(RosterDay aggregate) => db.RosterDays.Add(aggregate);
+
+    public void Remove(RosterDay day) => db.RosterDays.Remove(day);
+
+    public async Task<IReadOnlyList<RosterDay>> GetBetweenAsync(DateOnly from, DateOnly to, Guid? employeeId = null, CancellationToken cancellationToken = default) =>
+        await db.RosterDays.AsNoTracking()
+            .Where(r => r.Date >= from && r.Date <= to && (employeeId == null || r.EmployeeId == employeeId))
+            .ToListAsync(cancellationToken);
+
+    public Task<RosterDay?> GetAsync(Guid employeeId, DateOnly date, CancellationToken cancellationToken = default) =>
+        db.RosterDays.SingleOrDefaultAsync(r => r.EmployeeId == employeeId && r.Date == date, cancellationToken);
+
+    public Task<int> CountForShiftAsync(Guid shiftId, CancellationToken cancellationToken = default) =>
+        db.RosterDays.CountAsync(r => r.ShiftId == shiftId, cancellationToken);
+}
+
 internal sealed class ConsumableItemRepository(HrDbContext db) : IConsumableItemRepository
 {
     public Task<ConsumableItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>

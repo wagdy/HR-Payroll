@@ -15,7 +15,8 @@ import { PendingLeaves } from './pending-leaves';
 // Advances are paid in Financials and in the daily batch, from the safe or a day's takings; the
 // Advances tab says whose pay each comes off, and gives out those handed out with no one named.
 //
-// The tabs are a sidebar beside the page, a drawer on a phone (SideLayout).
+// The tabs are a sidebar beside the page, a drawer on a phone (SideLayout); Shift Rostering beside
+// Attendance, with its tab.
 @Component({
   selector: 'app-hr-shell',
   imports: [RouterOutlet, SideLayout],
@@ -32,11 +33,15 @@ export class HrShell {
   protected readonly sections = computed<SideSection[]>(() => [
     ...hrTabs
       .filter((t) => this.access.has(t.tab))
-      .map((t) => ({
-        ...t,
-        ...(t.path === 'corrections' ? { count: this.waiting.count(), countLabel: `${this.waiting.count()} waiting` } : {}),
-        ...(t.path === 'leaves' ? { count: this.leaves.count(), countLabel: `${this.leaves.count()} leave requests waiting` } : {}),
-      })),
+      .flatMap((t) => [
+        {
+          ...t,
+          ...(t.path === 'corrections' ? { count: this.waiting.count(), countLabel: `${this.waiting.count()} waiting` } : {}),
+          ...(t.path === 'leaves' ? { count: this.leaves.count(), countLabel: `${this.leaves.count()} leave requests waiting` } : {}),
+        },
+        // Shift rostering, beside the attendance it plans: on the Attendance tab.
+        ...(t.path === 'attendance' ? [{ path: 'roster', en: 'Shift Rostering', ar: 'جداول الشفتات', icon: 'calendar_view_week' }] : []),
+      ]),
     ...(this.access.canGive() ? [{ path: 'permissions', en: 'Permissions', ar: 'صلاحيات الموظفين', icon: 'admin_panel_settings' }] : []),
   ]);
 

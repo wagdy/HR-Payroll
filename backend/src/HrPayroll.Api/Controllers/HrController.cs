@@ -284,6 +284,46 @@ public sealed class HrController(ISender sender) : ControllerBase
         return NoContent();
     }
 
+    // ---- Shift rostering (جداول الشفتات): seen on the Attendance tab; a manager's, or an employee's
+    // holding it ----
+
+    [HttpGet("shifts")]
+    [HrTab(HrTabs.Attendance)]
+    public Task<IReadOnlyList<ShiftDto>> GetShifts(CancellationToken cancellationToken) => sender.Send(new GetShiftsQuery(), cancellationToken);
+
+    // Added under the id the app made, or changed.
+    [HttpPut("shifts/{shiftId:guid}")]
+    [HrTab(HrTabs.Attendance, Decide = true)]
+    public Task<ShiftDto> SaveShift(Guid shiftId, ShiftRequest request, CancellationToken cancellationToken) =>
+        sender.Send(new SaveShiftCommand(shiftId, request.Name, request.StartsAt, request.EndsAt, request.Tone), cancellationToken);
+
+    [HttpDelete("shifts/{shiftId:guid}")]
+    [HrTab(HrTabs.Attendance, Decide = true)]
+    public async Task<IActionResult> DeleteShift(Guid shiftId, CancellationToken cancellationToken)
+    {
+        await sender.Send(new DeleteShiftCommand(shiftId), cancellationToken);
+        return NoContent();
+    }
+
+    // The roster of ?from= to ?to= (the week from today unless said), of ?departmentId= or everyone.
+    [HttpGet("roster")]
+    [HrTab(HrTabs.Attendance)]
+    public Task<RosterDto> GetRoster(
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] Guid? departmentId, [FromServices] IWorkClock calendar, CancellationToken cancellationToken)
+    {
+        var first = from ?? calendar.WorkdayOf(DateTime.UtcNow);
+        return sender.Send(new GetRosterQuery(first, to ?? first.AddDays(6), departmentId), cancellationToken);
+    }
+
+    // Days put on a shift, given off, or back to the employee's own schedule, many at once.
+    [HttpPut("roster")]
+    [HrTab(HrTabs.Attendance, Decide = true)]
+    public async Task<IActionResult> SetRoster(RosterRequest request, CancellationToken cancellationToken)
+    {
+        await sender.Send(new SetRosterCommand(request.Changes ?? [], StaffName), cancellationToken);
+        return NoContent();
+    }
+
     // Who is in now: each employee's state on their own day, from the punches as they come in.
     [HttpGet("attendance/now")]
     [HrTab(HrTabs.Now)]
@@ -576,6 +616,12 @@ public sealed record ManualPunchRequest(Guid PunchId, Guid EmployeeId, DateTime 
 public sealed record IgnorePunchRequest(string Reason);
 
 public sealed record DayMarkRequest(DayMarkKind? Kind, string? Notes = null);
+
+// Ends at or before the hour it starts: past midnight.
+public sealed record ShiftRequest(string Name, TimeOnly StartsAt, TimeOnly EndsAt, ShiftTone Tone);
+
+// Each change: ShiftId, or DayOff, or neither (back to the employee's own schedule).
+public sealed record RosterRequest(IReadOnlyList<RosterChange>? Changes);
 
 public sealed record ResolveDayRequest(Guid PunchId, Guid EmployeeId, DateOnly Date, DateTime PunchedOutAt, string Reason);
 

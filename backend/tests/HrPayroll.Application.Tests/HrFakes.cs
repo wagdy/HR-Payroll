@@ -44,6 +44,8 @@ public sealed class HrStore
     public DisciplinaryStore Disciplinary { get; } = new();
     public AssetItemStore Assets { get; } = new();
     public AssetTransactionStore AssetVouchers { get; } = new();
+    public ShiftStore Shifts { get; } = new();
+    public RosterStore Roster { get; } = new();
     public ConsumableItemStore Consumables { get; } = new();
     public ConsumableMovementStore ConsumableMovements { get; } = new();
     public PlainPinHasher Pins { get; } = new();
@@ -345,6 +347,28 @@ public sealed class AssetTransactionStore : ListStore<AssetTransaction>, IAssetT
 
     public Task<bool> AnyForAssetAsync(Guid assetItemId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Items.Any(t => t.AssetItemId == assetItemId));
+}
+
+public sealed class ShiftStore : ListStore<Shift>, IShiftRepository
+{
+    public Task<IReadOnlyList<Shift>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Shift>>(Items.OrderBy(s => s.StartsAt).ThenBy(s => s.Name).ToList());
+
+    public void Remove(Shift shift) => Items.Remove(shift);
+}
+
+public sealed class RosterStore : ListStore<RosterDay>, IRosterRepository
+{
+    public Task<IReadOnlyList<RosterDay>> GetBetweenAsync(DateOnly from, DateOnly to, Guid? employeeId = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<RosterDay>>(Items.Where(r => r.Date >= from && r.Date <= to && (employeeId is null || r.EmployeeId == employeeId)).ToList());
+
+    public Task<RosterDay?> GetAsync(Guid employeeId, DateOnly date, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.SingleOrDefault(r => r.EmployeeId == employeeId && r.Date == date));
+
+    public Task<int> CountForShiftAsync(Guid shiftId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Items.Count(r => r.ShiftId == shiftId));
+
+    public void Remove(RosterDay day) => Items.Remove(day);
 }
 
 public sealed class ConsumableItemStore : ListStore<ConsumableItem>, IConsumableItemRepository

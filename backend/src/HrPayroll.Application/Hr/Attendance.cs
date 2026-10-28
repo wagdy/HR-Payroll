@@ -82,17 +82,25 @@ public sealed record AttendanceDayDto(
     // A punch-in with no punch-out once the shift is over (نسي تسجيل الانصراف).
     bool ForgotToCheckOut = false,
     // Penalties in money on the day, a disciplinary action's among them: deducted as they are.
-    decimal PenaltyAmount = 0)
+    decimal PenaltyAmount = 0,
+    // The roster's shift the day was measured against, by its name; none on their own schedule.
+    string? ShiftName = null,
+    // A day off the roster gave them, not one of their weekly ones.
+    bool IsRosteredDayOff = false)
 {
     public static AttendanceDayDto From(Employee employee, TimesheetDay day)
     {
         var e = day.Evaluation;
-        DateTime? start = employee.ShiftStartsAt is { } s ? e.Day.ToDateTime(s) : null;
+        var plan = day.Plan ?? WorkSchedule.Of(employee).Plan(e.Day);
+        // A day off shows their own shift's hours, as a day marked a working day is measured by.
+        var (startsAt, length) = plan.Off ? (employee.ShiftStartsAt, Employee.ShiftLength) : (plan.StartsAt, plan.Length);
+        DateTime? start = startsAt is { } s ? e.Day.ToDateTime(s) : null;
         return new AttendanceDayDto(
-            e.Day, e.Status, start, start + Employee.ShiftLength, e.FirstIn, e.LastOut, e.WorkedMinutes, e.LateMinutes, e.EarlyLeaveMinutes, e.AwayMinutes,
-            e.OvertimeMinutes, e.ShortMinutes, employee.IsDayOff(e.Day), day.Mark?.Kind, day.Mark?.Notes, day.Punches.Select(PunchDto.From).ToList(),
-            e.PenaltyHours, day.Penalty?.Reason, day.Penalty?.SetBy, day.Holiday?.Name, Timesheet.Window(employee, e.Day).To, day.ForgotToCheckOut,
-            e.PenaltyAmount);
+            e.Day, e.Status, start, start + length, e.FirstIn, e.LastOut, e.WorkedMinutes, e.LateMinutes, e.EarlyLeaveMinutes, e.AwayMinutes,
+            e.OvertimeMinutes, e.ShortMinutes, !plan.Rostered && employee.IsDayOff(e.Day), day.Mark?.Kind, day.Mark?.Notes,
+            day.Punches.Select(PunchDto.From).ToList(), e.PenaltyHours, day.Penalty?.Reason, day.Penalty?.SetBy, day.Holiday?.Name,
+            day.EndsAt ?? Timesheet.Window(employee, e.Day).To, day.ForgotToCheckOut, e.PenaltyAmount, plan.Off ? null : plan.ShiftName,
+            plan.Rostered && plan.Off);
     }
 }
 
@@ -112,20 +120,42 @@ public sealed record TimesheetTotals(
 public sealed record TimesheetDto(EmployeeDto Employee, DateOnly Month, AttendancePolicyDto Policy, TimesheetTotals Totals, IReadOnlyList<AttendanceDayDto> Days);
 
 // Penalty: the manager's own on the day; Penalties: every one on it, a disciplinary action's too.
+// Plan: what the day was planned as, the roster's or their own; EndsAt: when its window closes.
 public sealed record TimesheetDay(
     DayEvaluation Evaluation, IReadOnlyList<AttendanceLog> Punches, DayMark? Mark, AdministrativePenalty? Penalty = null, PublicHoliday? Holiday = null,
-    bool ForgotToCheckOut = false, IReadOnlyList<AdministrativePenalty>? Penalties = null);
+    bool ForgotToCheckOut = false, IReadOnlyList<AdministrativePenalty>? Penalties = null, DayPlan? Plan = null, DateTime? EndsAt = null);
 
 public sealed record EmployeeSheet(Employee Employee, IReadOnlyList<TimesheetDay> Days);
 
-// Works the days out from the punches, the marks, the public holidays and the settings, as they
-// are now.
+// Each employee's work schedule (WorkSchedule) over a run of days: their own, and the roster's days
+// in it. A day's window reaches into the day before it and the day after, so those are read too.
+internal sealed class Schedules(IRosterRepository roster, IShiftRepository shifts)
+{
+    public async Task<IReadOnlyDictionary<Guid, WorkSchedule>> ReadAsync(IReadOnlyList<Employee> people, DateOnly from, DateOnly to, CancellationToken cancellationToken)
+    {
+        var days = (await roster.GetBetweenAsync(from.AddDays(-1), to.AddDays(1), people.Count == 1 ? people[0].Id : null, cancellationToken))
+            .ToLookup(d => d.EmployeeId);
+        var byId = (await shifts.GetAllAsync(cancellationToken)).ToDictionary(s => s.Id);
+        return people.ToDictionary(p => p.Id, p => new WorkSchedule(p, days[p.Id], byId));
+    }
+
+    public async Task<WorkSchedule> OfAsync(Employee employee, DateOnly from, DateOnly to, CancellationToken cancellationToken) =>
+        (await ReadAsync([employee], from, to, cancellationToken))[employee.Id];
+
+    // Enough of it to say which day a punch at `time` is of.
+    public Task<WorkSchedule> AroundAsync(Employee employee, DateTime time, CancellationToken cancellationToken) =>
+        OfAsync(employee, DateOnly.FromDateTime(time), DateOnly.FromDateTime(time), cancellationToken);
+}
+
+// Works the days out from the punches, the marks, the roster, the public holidays and the
+// settings, as they are now.
 internal sealed class Timesheets(
     IAttendanceLogRepository logs,
     IDayMarkRepository marks,
     IAdministrativePenaltyRepository penalties,
     IPublicHolidayRepository holidays,
     IAttendanceSettings settings,
+    Schedules schedules,
     IWorkClock clock)
 {
     public async Task<(AttendancePolicy Policy, IReadOnlyList<EmployeeSheet> Sheets)> ReadAsync(
@@ -143,24 +173,27 @@ internal sealed class Timesheets(
             .GroupBy(p => (p.EmployeeId, p.Date))
             .ToDictionary(g => g.Key, g => g.ToList());
         var publicHolidays = await holidays.GetBetweenAsync(from, to, cancellationToken);
+        var plans = await schedules.ReadAsync(people, from, to, cancellationToken);
 
         var sheets = new List<EmployeeSheet>();
         foreach (var person in people)
         {
+            var schedule = plans[person.Id];
             var theirs = punches.Where(p => p.EmployeeId == person.Id).OrderBy(p => p.PunchedAt).ToList();
             var days = new List<TimesheetDay>();
             for (var day = from; day <= to; day = day.AddDays(1))
             {
-                var (windowFrom, windowTo) = Timesheet.Window(person, day);
+                var (windowFrom, windowTo) = schedule.Window(day);
                 var inDay = theirs.Where(p => p.PunchedAt >= windowFrom && p.PunchedAt < windowTo).ToList();
                 var mark = dayMarks.GetValueOrDefault((person.Id, day));
                 var onDay = person.IsEmployedOn(day) ? dayPenalties.GetValueOrDefault((person.Id, day)) ?? [] : [];
                 var penalty = onDay.FirstOrDefault(p => p.DisciplinaryActionId is null);
                 var holiday = publicHolidays.FirstOrDefault(h => h.Covers(day));
                 var evaluation = Timesheet.Evaluate(
-                        person, day, inDay.Where(p => !p.IsIgnored).Select(p => p.PunchedAt), mark?.Kind, policy, now, holiday is not null)
+                        schedule, day, inDay.Where(p => !p.IsIgnored).Select(p => p.PunchedAt), mark?.Kind, policy, now, holiday is not null)
                     with { PenaltyHours = onDay.Sum(p => p.Hours), PenaltyAmount = onDay.Sum(p => p.Amount ?? 0) };
-                days.Add(new TimesheetDay(evaluation, inDay, mark, penalty, holiday, Timesheet.ForgotToCheckOut(person, evaluation, mark?.Kind, now), onDay));
+                days.Add(new TimesheetDay(
+                    evaluation, inDay, mark, penalty, holiday, Timesheet.ForgotToCheckOut(schedule, evaluation, mark?.Kind, now), onDay, schedule.Plan(day), windowTo));
             }
 
             sheets.Add(new EmployeeSheet(person, days));
@@ -241,7 +274,8 @@ public sealed record AddManualPunchCommand(Guid PunchId, Guid EmployeeId, DateTi
     : IRequest<PunchDto>, IRetryOnConflict;
 
 internal sealed class AddManualPunchHandler(
-    IEmployeeRepository employees, IAttendanceLogRepository logs, IPayrollSlipRepository slips, IUnitOfWork unitOfWork, AttendanceBroadcast broadcast)
+    IEmployeeRepository employees, IAttendanceLogRepository logs, IPayrollSlipRepository slips, Schedules schedules, IUnitOfWork unitOfWork,
+    AttendanceBroadcast broadcast)
     : IRequestHandler<AddManualPunchCommand, PunchDto>
 {
     public async Task<PunchDto> Handle(AddManualPunchCommand request, CancellationToken cancellationToken)
@@ -249,7 +283,7 @@ internal sealed class AddManualPunchHandler(
         if (await logs.GetByIdAsync(request.PunchId, cancellationToken) is { } made)
             return PunchDto.From(made);
         var employee = await employees.GetRequiredAsync(request.EmployeeId, cancellationToken);
-        var day = Timesheet.DayOf(employee, request.PunchedAt);
+        var day = (await schedules.AroundAsync(employee, request.PunchedAt, cancellationToken)).DayOf(request.PunchedAt);
         if (!employee.IsEmployedOn(day))
             throw new DomainException($"{employee.Name} is not employed on {day:d MMM yyyy}.");
         await slips.EnsureOpenAsync(employee, day, cancellationToken);
@@ -265,7 +299,8 @@ internal sealed class AddManualPunchHandler(
 public sealed record IgnorePunchCommand(Guid PunchId, bool Ignore, string? Reason, string StaffName) : IRequest<PunchDto>;
 
 internal sealed class IgnorePunchHandler(
-    IEmployeeRepository employees, IAttendanceLogRepository logs, IPayrollSlipRepository slips, IUnitOfWork unitOfWork, AttendanceBroadcast broadcast)
+    IEmployeeRepository employees, IAttendanceLogRepository logs, IPayrollSlipRepository slips, Schedules schedules, IUnitOfWork unitOfWork,
+    AttendanceBroadcast broadcast)
     : IRequestHandler<IgnorePunchCommand, PunchDto>
 {
     public async Task<PunchDto> Handle(IgnorePunchCommand request, CancellationToken cancellationToken)
@@ -274,7 +309,8 @@ internal sealed class IgnorePunchHandler(
         if (punch.EmployeeId is { } id)
         {
             var employee = await employees.GetRequiredAsync(id, cancellationToken);
-            await slips.EnsureOpenAsync(employee, Timesheet.DayOf(employee, punch.PunchedAt), cancellationToken);
+            var day = (await schedules.AroundAsync(employee, punch.PunchedAt, cancellationToken)).DayOf(punch.PunchedAt);
+            await slips.EnsureOpenAsync(employee, day, cancellationToken);
         }
 
         if (request.Ignore)
@@ -287,12 +323,13 @@ internal sealed class IgnorePunchHandler(
     }
 }
 
-// A day marked as leave or a day off, a weekly day off marked as a working day (a swap), or the
-// mark taken off (Kind null).
+// A day marked as leave or a day off, a day off (a weekly one, or the roster's) marked as a working
+// day (a swap), or the mark taken off (Kind null).
 public sealed record SetDayMarkCommand(Guid EmployeeId, DateOnly Date, DayMarkKind? Kind, string? Notes, string StaffName) : IRequest, IRetryOnConflict;
 
 internal sealed class SetDayMarkHandler(
-    IEmployeeRepository employees, IDayMarkRepository marks, IPayrollSlipRepository slips, IUnitOfWork unitOfWork, AttendanceBroadcast broadcast)
+    IEmployeeRepository employees, IDayMarkRepository marks, IPayrollSlipRepository slips, Schedules schedules, IUnitOfWork unitOfWork,
+    AttendanceBroadcast broadcast)
     : IRequestHandler<SetDayMarkCommand>
 {
     public async Task Handle(SetDayMarkCommand request, CancellationToken cancellationToken)
@@ -301,8 +338,8 @@ internal sealed class SetDayMarkHandler(
         if (!employee.IsEmployedOn(request.Date))
             throw new DomainException($"{employee.Name} is not employed on {request.Date:d MMM yyyy}.");
         await slips.EnsureOpenAsync(employee, request.Date, cancellationToken);
-        if (request.Kind == DayMarkKind.WorkingDay && !employee.IsDayOff(request.Date))
-            throw new DomainException($"{request.Date:dddd} is a working day for {employee.Name} already: only a weekly day off is marked as one.");
+        if (request.Kind == DayMarkKind.WorkingDay && !(await schedules.OfAsync(employee, request.Date, request.Date, cancellationToken)).Plan(request.Date).Off)
+            throw new DomainException($"{request.Date:dddd} is a working day for {employee.Name} already: only a day off is marked as one.");
         var mark = await marks.GetAsync(employee.Id, request.Date, cancellationToken);
         if (mark?.LeaveRequestId is not null)
             throw new DomainException($"{request.Date:d MMM yyyy} is a day of {employee.Name}'s approved leave: cancel the leave from that day instead.");
@@ -390,7 +427,7 @@ public sealed record LatePunchDto(EmployeeDto Employee, DateOnly Day, DateOnly M
 public sealed record GetLatePunchesQuery : IRequest<IReadOnlyList<LatePunchDto>>;
 
 internal sealed class GetLatePunchesHandler(
-    IEmployeeRepository employees, IPayrollSlipRepository slips, IAttendanceLogRepository logs, IWorkClock clock)
+    IEmployeeRepository employees, IPayrollSlipRepository slips, IAttendanceLogRepository logs, Schedules schedules, IWorkClock clock)
     : IRequestHandler<GetLatePunchesQuery, IReadOnlyList<LatePunchDto>>
 {
     public const int MonthsBack = 12;
@@ -408,6 +445,9 @@ internal sealed class GetLatePunchesHandler(
             // A month's days' punches run from the evening before its first to the day after its last.
             var punches = await logs.GetBetweenAsync(
                 month.AddDays(-1).ToDateTime(TimeOnly.MinValue), month.AddMonths(1).AddDays(2).ToDateTime(TimeOnly.MinValue), null, cancellationToken);
+            var plans = await schedules.ReadAsync(
+                finalized.Select(s => people.GetValueOrDefault(s.EmployeeId)).OfType<Employee>().ToList(), month.AddDays(-1), month.AddMonths(1).AddDays(1),
+                cancellationToken);
             foreach (var slip in finalized)
             {
                 if (!people.TryGetValue(slip.EmployeeId, out var employee))
@@ -415,7 +455,7 @@ internal sealed class GetLatePunchesHandler(
                 foreach (var punch in punches.Where(p =>
                     p.EmployeeId == employee.Id && p.Source == PunchSource.Device && p.LateSettledAtUtc is null && p.ReceivedAtUtc > slip.FinalizedAtUtc))
                 {
-                    var day = Timesheet.DayOf(employee, punch.PunchedAt);
+                    var day = plans[employee.Id].DayOf(punch.PunchedAt);
                     if (PayrollMonth.Of(day) == month)
                         late.Add(new LatePunchDto(EmployeeDto.From(employee), day, month, slip.FinalizedAtUtc!.Value, PunchDto.From(punch)));
                 }
@@ -539,7 +579,7 @@ internal sealed class ResolveSuspendedDayHandler(
                 throw new DomainException($"{employee.Name}'s {request.Date:d MMM} is not suspended: there is no punch-out to enter.");
             await slips.EnsureOpenAsync(employee, request.Date, cancellationToken);
             var punchedIn = day.Punches.Where(p => !p.IsIgnored).Max(p => p.PunchedAt);
-            var (_, windowTo) = Timesheet.Window(employee, request.Date);
+            var windowTo = day.EndsAt ?? Timesheet.Window(employee, request.Date).To;
             if (request.PunchedOutAt <= punchedIn)
                 throw new DomainException($"The punch-out comes after the punch-in at {punchedIn:HH:mm}.");
             if (request.PunchedOutAt >= windowTo || request.PunchedOutAt - punchedIn > Timesheet.AbandonedAfter)

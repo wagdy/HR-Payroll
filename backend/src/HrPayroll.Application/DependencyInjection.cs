@@ -9,6 +9,7 @@ public static class DependencyInjection
     {
         services.AddMediatR(config => config.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly));
         services.AddScoped<Hr.EmployeeWriter>();
+        services.AddScoped<Hr.Schedules>();
         services.AddScoped<Hr.Timesheets>();
         services.AddScoped<Hr.PayrollWorker>();
         services.AddScoped<Hr.DeviceIntake>();

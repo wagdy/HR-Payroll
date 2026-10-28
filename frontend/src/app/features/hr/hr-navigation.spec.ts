@@ -37,6 +37,7 @@ describe('the HR navigation', () => {
       ['employees/:employeeId', 'page', 1],
       ['departments', 'page', 1],
       ['attendance', 'page', 1],
+      ['roster', 'page', 1],
       ['payroll', 'page', 1],
       ['payroll/:employeeId', 'page', 1],
       ['advances', 'page', 1],
@@ -98,27 +99,30 @@ describe('the HR navigation', () => {
 
     expect(text(el.querySelector('h1')!)).toBe('HR & Payroll الموارد البشرية والرواتب');
     expect([...el.querySelectorAll('nav a')].map((a) => a.getAttribute('href'))).toEqual([
-      '/now', '/employees', '/departments', '/attendance', '/corrections', '/payroll', '/advances', '/leaves', '/devices', '/permissions',
+      '/now', '/employees', '/departments', '/attendance', '/roster', '/corrections', '/payroll', '/advances', '/leaves', '/devices', '/permissions',
     ]);
-    expect(text(el.querySelectorAll('nav a .label')[7])).toBe('Leaves & Holidaysالإجازات والعطلات');
-    expect(text(el.querySelectorAll('nav a .label')[9])).toBe('Permissionsصلاحيات الموظفين');
+    // Shift Rostering beside Attendance.
+    expect(text(el.querySelectorAll('nav a .label')[4])).toBe('Shift Rosteringجداول الشفتات');
+    expect(text(el.querySelectorAll('nav a .label')[8])).toBe('Leaves & Holidaysالإجازات والعطلات');
+    expect(text(el.querySelectorAll('nav a .label')[10])).toBe('Permissionsصلاحيات الموظفين');
     // Each with its icon.
     expect([...el.querySelectorAll('nav a mat-icon')].map(text)).toEqual([
-      'how_to_reg', 'groups', 'account_tree', 'event_available', 'rule', 'payments', 'request_quote', 'beach_access', 'fingerprint', 'admin_panel_settings',
+      'how_to_reg', 'groups', 'account_tree', 'event_available', 'calendar_view_week', 'rule', 'payments', 'request_quote', 'beach_access', 'fingerprint',
+      'admin_panel_settings',
     ]);
     expect(refresh).toHaveBeenCalled();
     expect(el.querySelector('.count')).toBeNull();
 
     count.set(2);
     fixture.detectChanges();
-    expect(el.querySelectorAll('nav a')[4].querySelector('.count')!.getAttribute('aria-label')).toBe('2 waiting');
+    expect(el.querySelectorAll('nav a')[5].querySelector('.count')!.getAttribute('aria-label')).toBe('2 waiting');
     expect(text(el.querySelector('.count')!)).toBe('2');
 
     // The leave requests waiting for a manager, on Leaves & Holidays.
     expect(refreshLeaves).toHaveBeenCalled();
     leaves.set(3);
     fixture.detectChanges();
-    expect(el.querySelectorAll('nav a')[7].querySelector('.count')!.getAttribute('aria-label')).toBe('3 leave requests waiting');
+    expect(el.querySelectorAll('nav a')[8].querySelector('.count')!.getAttribute('aria-label')).toBe('3 leave requests waiting');
   });
 
   it('shows an accountant only the tabs a manager ticked for them, and no Permissions', async () => {

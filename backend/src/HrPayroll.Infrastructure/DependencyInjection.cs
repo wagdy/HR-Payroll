@@ -65,6 +65,8 @@ public static class DependencyInjection
         services.AddScoped<IPerformanceKpiRepository, PerformanceKpiRepository>();
         services.AddScoped<IPerformanceEvaluationRepository, PerformanceEvaluationRepository>();
         services.AddScoped<IDisciplinaryActionRepository, DisciplinaryActionRepository>();
+        services.AddScoped<IShiftRepository, ShiftRepository>();
+        services.AddScoped<IRosterRepository, RosterRepository>();
         services.AddScoped<HrPayroll.Application.Hr.IAttendanceSettings, AttendanceSettingsStore>();
         services.AddSingleton<HrPayroll.Application.Hr.IPinHasher, PinHasher>();
         services.AddSingleton<HrPayroll.Application.Hr.IAttendanceDeviceLink, Hr.ZkTeco.ZkDeviceLink>();

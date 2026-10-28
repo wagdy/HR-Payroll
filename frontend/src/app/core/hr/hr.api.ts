@@ -191,6 +191,10 @@ export interface AttendanceDay {
   forgotToCheckOut: boolean;
   // Penalties in money on the day, a disciplinary action's penalty deduction: taken off as they are.
   penaltyAmount?: number;
+  // The roster's shift the day was measured against, by its name; none on their own schedule.
+  shiftName?: string | null;
+  // A day off the roster gave them, not a weekly one.
+  isRosteredDayOff?: boolean;
 }
 
 // A device's punch that came after its month's pay was finalized, for a manager to see to.
@@ -869,6 +873,27 @@ export class HrApi {
     return this.http.get<PresenceReport>('/api/hr/attendance/now');
   }
 
+  shifts(): Observable<WorkShift[]> {
+    return this.http.get<WorkShift[]>('/api/hr/shifts');
+  }
+
+  saveShift(id: string, input: ShiftInput): Observable<WorkShift> {
+    return this.http.put<WorkShift>(`/api/hr/shifts/${id}`, input);
+  }
+
+  deleteShift(id: string): Observable<void> {
+    return this.http.delete<void>(`/api/hr/shifts/${id}`);
+  }
+
+  // The roster of `from` to `to`, of a department or everyone.
+  roster(from: string, to: string, departmentId?: string): Observable<Roster> {
+    return this.http.get<Roster>('/api/hr/roster', { params: departmentId ? { from, to, departmentId } : { from, to } });
+  }
+
+  setRoster(changes: RosterChange[]): Observable<void> {
+    return this.http.put<void>('/api/hr/roster', { changes });
+  }
+
   timesheet(employeeId: string, month: string): Observable<Timesheet> {
     return this.http.get<Timesheet>(`/api/hr/employees/${employeeId}/timesheet`, { params: { month } });
   }
@@ -1069,6 +1094,67 @@ export function duration(minutes: number): string {
 // A day's work schedule as "16:00–01:00 +1", or "Flexible" for flexible hours.
 export function shift(day: Pick<AttendanceDay, 'date' | 'shiftStartsAt' | 'shiftEndsAt'>): string {
   return day.shiftStartsAt && day.shiftEndsAt ? `${clock(day.shiftStartsAt)}–${clock(day.shiftEndsAt, day.date)}` : 'Flexible';
+}
+
+// Shift rostering (جداول الشفتات): the shifts, and each employee's days on them. A rostered day is
+// measured against its shift instead of their own work schedule; a rostered day off is a day off.
+export type ShiftTone = 'Sky' | 'Amber' | 'Violet' | 'Teal' | 'Rose' | 'Slate';
+
+export const shiftTones: ShiftTone[] = ['Sky', 'Amber', 'Violet', 'Teal', 'Rose', 'Slate'];
+
+// A shift: '08:00:00' to '16:00:00'; one ending at or before the hour it starts runs past midnight.
+export interface WorkShift {
+  id: string;
+  name: string;
+  startsAt: string;
+  endsAt: string;
+  minutes: number;
+  tone: ShiftTone;
+  // How many days it is on the roster.
+  rosteredDays: number;
+}
+
+export interface ShiftInput {
+  name: string;
+  startsAt: string;
+  endsAt: string;
+  tone: ShiftTone;
+}
+
+// A day of an employee's: what it is planned as (rostered: by the roster, a shift or a day off;
+// else their own schedule), from when to when when worked, what was marked of it, the holiday it
+// is, and whether it can change (employed, its month's pay open).
+export interface RosterCell {
+  date: string;
+  rostered: boolean;
+  shiftId: string | null;
+  off: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  mark: DayMarkKind | null;
+  holidayName: string | null;
+  employed: boolean;
+  locked: boolean;
+}
+
+export interface RosterRow {
+  employee: Employee;
+  days: RosterCell[];
+}
+
+export interface Roster {
+  from: string;
+  to: string;
+  shifts: WorkShift[];
+  rows: RosterRow[];
+}
+
+// A day put on a shift (shiftId), given off (dayOff), or neither: back to their own schedule.
+export interface RosterChange {
+  employeeId: string;
+  date: string;
+  shiftId: string | null;
+  dayOff: boolean;
 }
 
 // A date ('2026-10-19') as its day: "Mon 19 Oct".

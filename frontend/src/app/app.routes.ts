@@ -38,6 +38,13 @@ const hrChildren: Routes = [
     loadComponent: () => import('./features/hr/attendance-page').then((m) => m.AttendancePage),
   },
   {
+    // Shift rostering (جداول الشفتات): a week's grid of who is on which shift, or off. ?week= its
+    // first day.
+    path: 'roster',
+    canActivate: [hrTabGuard('Attendance')],
+    loadComponent: () => import('./features/hr/roster-page').then((m) => m.RosterPage),
+  },
+  {
     // ?month= its first day.
     path: 'payroll',
     canActivate: [hrTabGuard('Payroll')],

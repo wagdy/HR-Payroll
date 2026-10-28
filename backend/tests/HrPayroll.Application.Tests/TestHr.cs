@@ -60,6 +60,8 @@ public sealed class TestHr
         services.AddSingleton<IDisciplinaryActionRepository>(Hr.Disciplinary);
         services.AddSingleton<IAssetItemRepository>(Hr.Assets);
         services.AddSingleton<IAssetTransactionRepository>(Hr.AssetVouchers);
+        services.AddSingleton<IShiftRepository>(Hr.Shifts);
+        services.AddSingleton<IRosterRepository>(Hr.Roster);
         services.AddSingleton<IConsumableItemRepository>(Hr.Consumables);
         services.AddSingleton<IConsumableMovementRepository>(Hr.ConsumableMovements);
         services.AddSingleton<Hr.IPinHasher>(Hr.Pins);

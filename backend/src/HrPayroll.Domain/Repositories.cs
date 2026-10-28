@@ -73,6 +73,27 @@ public interface IAssetTransactionRepository : IRepository<AssetTransaction>
     Task<bool> AnyForAssetAsync(Guid assetItemId, CancellationToken cancellationToken = default);
 }
 
+public interface IShiftRepository : IRepository<Shift>
+{
+    // By when they start.
+    Task<IReadOnlyList<Shift>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    void Remove(Shift shift);
+}
+
+public interface IRosterRepository : IRepository<RosterDay>
+{
+    // The roster days from `from` to `to`, everyone's or one employee's.
+    Task<IReadOnlyList<RosterDay>> GetBetweenAsync(DateOnly from, DateOnly to, Guid? employeeId = null, CancellationToken cancellationToken = default);
+
+    Task<RosterDay?> GetAsync(Guid employeeId, DateOnly date, CancellationToken cancellationToken = default);
+
+    // How many days a shift is on the roster.
+    Task<int> CountForShiftAsync(Guid shiftId, CancellationToken cancellationToken = default);
+
+    void Remove(RosterDay day);
+}
+
 public interface IConsumableItemRepository : IRepository<ConsumableItem>
 {
     // By name.

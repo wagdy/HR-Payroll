@@ -119,6 +119,38 @@ built: the domain, every endpoint below, the ADMS receiver, and the screens.
   - A slip is a draft, worked out again as the month changes, until it is finalized. After
     that it does not change.
 
+## Shift rostering (جداول الشفتات)
+
+Restaurant hours move: the roster says, day by day, which shift each employee works or that the day
+is off, and the day is measured against that instead of their own work schedule.
+
+- **Shifts** (`Shift`): a name, a start and an end (one ending at or before the hour it starts runs
+  past midnight: 22:00 to 06:00 is eight hours), one to sixteen hours, and a colour for the grid.
+- **The roster** (`RosterDay`): one per employee per date, a shift or a day off. A date with none
+  follows the employee's own schedule (their nine-hour shift and weekly days off), so with no
+  roster at all every day is worked out exactly as before.
+- **Measured against it** (`WorkSchedule`, `Timesheet`): late from the shift's start (after the
+  grace), early before its end, away inside it, overtime past its end once its hours are worked; a
+  rostered day off is a day off, never an absence; a rostered shift on a weekly day off is a working
+  day. Leave marks win over the roster; a day off (rostered or weekly) marked a working day is
+  measured against their own shift. Leave requests count no rostered day off.
+- **Which day a punch is of**: a rostered shift's day opens six hours before it starts; a day after
+  a shift that ends late opens no sooner than halfway to its own shift's start (three hours after,
+  with none), so a night shift's punch-out is never the next morning's punch-in. No shift may start
+  before the previous day's ends: the roster refuses it.
+- The payroll reads the same days, so lateness, absence and overtime on a rostered day are paid as
+  the roster says. A finalized month's days are locked.
+- The Shift Rostering section (beside Attendance, on its tab): a week's grid, Saturday to Friday,
+  filterable by department; a day's menu or a row's whole week puts days on a shift, off, or back
+  to their own schedule; "Repeat last week" copies the week before's rostered days. A manager's, or
+  an employee's holding the Attendance tab; an accountant sees it.
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /api/hr/shifts`, `PUT …/shifts/{id}`, `DELETE …/shifts/{id}` | The shifts; added or changed; deleted only while on no day |
+| `GET /api/hr/roster?from=&to=&departmentId=` | Each employee's days, as planned (31 at most; a week from today unless said) |
+| `PUT /api/hr/roster` | `changes`: `{ employeeId, date, shiftId, dayOff }`, neither for their own schedule; 500 at most, all or none |
+
 ## The domain
 
 `backend/src/HrPayroll.Domain`, referencing nothing but .NET. Tables are in the `hr` schema, the

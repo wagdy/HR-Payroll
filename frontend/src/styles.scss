@@ -58,6 +58,59 @@ body {
   --app-card-shadow: 0 1px 2px rgb(15 23 42 / 4%), 0 6px 20px -10px rgb(15 23 42 / 12%);
 }
 
+// A shift's colour on the roster (ShiftTone): a soft background and its text, from the tones above.
+.tone-Sky {
+  --tone-bg: var(--tag-info-bg);
+  --tone-fg: var(--tag-info-fg);
+}
+.tone-Amber {
+  --tone-bg: var(--tag-warn-bg);
+  --tone-fg: var(--tag-warn-fg);
+}
+.tone-Violet {
+  --tone-bg: var(--tag-accent-bg);
+  --tone-fg: var(--tag-accent-fg);
+}
+.tone-Teal {
+  --tone-bg: var(--tag-teal-bg);
+  --tone-fg: var(--tag-teal-fg);
+}
+.tone-Rose {
+  --tone-bg: #fde8ef;
+  --tone-fg: #b0285b;
+}
+.tone-Slate {
+  --tone-bg: var(--tag-neutral-bg);
+  --tone-fg: var(--tag-neutral-fg);
+}
+
+// The roster's menu of what a day is put on (RosterPage), in the overlay: whose day it is, each
+// shift's colour as a dot, and its hours beside its name.
+.roster-menu {
+  .menu-head {
+    padding: 10px 16px 6px;
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-medium);
+    font-weight: 600;
+  }
+  .menu-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-inline-end: 12px;
+    border-radius: 50%;
+    background: var(--tone-fg);
+    box-shadow: 0 0 0 3px var(--tone-bg);
+    vertical-align: middle;
+  }
+  .menu-hours {
+    margin-inline-start: 8px;
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-small);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 // A tag: a pill of one of the tones above, a dot of its colour before its words.
 .tag {
   display: inline-flex;

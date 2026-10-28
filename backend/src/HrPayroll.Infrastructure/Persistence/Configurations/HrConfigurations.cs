@@ -113,6 +113,33 @@ internal sealed class AssetTransactionConfiguration : IEntityTypeConfiguration<A
     }
 }
 
+internal sealed class ShiftConfiguration : IEntityTypeConfiguration<Shift>
+{
+    public void Configure(EntityTypeBuilder<Shift> builder)
+    {
+        builder.ToTable("Shifts", HrDbContext.HrSchema);
+        builder.Property(s => s.Name).HasMaxLength(Shift.MaxNameLength);
+        builder.Property(s => s.Tone).IsEnumName();
+        builder.Ignore(s => s.Length);
+        builder.HasIndex(s => s.Name).IsUnique();
+    }
+}
+
+// One a day for each employee; a shift on the roster is not deleted from under it.
+internal sealed class RosterDayConfiguration : IEntityTypeConfiguration<RosterDay>
+{
+    public void Configure(EntityTypeBuilder<RosterDay> builder)
+    {
+        builder.ToTable("RosterDays", HrDbContext.HrSchema);
+        builder.Property(r => r.SetBy).HasMaxLength(200);
+        builder.Ignore(r => r.IsDayOff);
+        builder.HasOne<Employee>().WithMany().HasForeignKey(r => r.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Shift>().WithMany().HasForeignKey(r => r.ShiftId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(r => new { r.EmployeeId, r.Date }).IsUnique();
+        builder.HasIndex(r => r.Date);
+    }
+}
+
 // Quantities to the thousandth (a kilo and a half); the average cost to four places, so averaging
 // many receipts does not drift.
 internal sealed class ConsumableItemConfiguration : IEntityTypeConfiguration<ConsumableItem>
